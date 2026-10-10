@@ -1118,7 +1118,7 @@ const SRC = {
   turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
   netherlands:{fd:'DED', espn:'ned.1', csv:'N1',  primary:'fd'},
 };
-const APP_VERSION = 'v4 · ESPN en ventanas de 14 días';
+const APP_VERSION = 'v5 · ESPN por meses';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -1227,15 +1227,22 @@ async function loadFixtures(sl, log, st){
         const so = parseInt(LS.get('ab_season',''),10);
         fx = mapFd(await fdGet(`/competitions/${cfg.fd}/matches` + (so?`?season=${so}`:'')));
       } else {
-        // ESPN rechaza rangos largos y el parámetro limit: se pide en ventanas de 14 días (75 días atrás, 19 adelante).
+        // ESPN acepta pedir un mes completo (YYYYMM) en todas las ligas; los rangos fallan en algunas (p. ej. Ecuador).
         const t0 = Date.now()-75*86400e3, t1 = Date.now()+19*86400e3;
-        const wins = [];
-        for(let t=t0; t<=t1; t+=14*86400e3) wins.push([ymdc(new Date(t)), ymdc(new Date(Math.min(t+13*86400e3, t1)))]);
+        const months = [];
+        for(let d = new Date(Date.UTC(new Date(t0).getUTCFullYear(), new Date(t0).getUTCMonth(), 1)); d.getTime() <= t1; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1))){
+          const yy = d.getUTCFullYear(), mm = String(d.getUTCMonth()+1).padStart(2,'0');
+          const last = new Date(Date.UTC(yy, d.getUTCMonth()+1, 0)).getUTCDate();
+          months.push({m:`${yy}${mm}`, r:`${yy}${mm}01-${yy}${mm}${String(last).padStart(2,'0')}`});
+        }
         const seen = new Map(); let lastErr = null;
-        for(let k=0;k<wins.length;k+=4){
-          await Promise.all(wins.slice(k,k+4).map(async w=>{
-            try{ mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w[0]}-${w[1]}`)).forEach(f=>seen.set(f.i,f)); }
-            catch(e){ lastErr = e; }
+        for(let k=0;k<months.length;k+=4){
+          await Promise.all(months.slice(k,k+4).map(async w=>{
+            try{ mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w.m}`)).forEach(f=>seen.set(f.i,f)); }
+            catch(e1){
+              try{ mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w.r}`)).forEach(f=>seen.set(f.i,f)); }
+              catch(e2){ lastErr = e2; }
+            }
           }));
         }
         if(!seen.size && lastErr) throw lastErr;
