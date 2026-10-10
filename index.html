@@ -1118,7 +1118,7 @@ const SRC = {
   turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
   netherlands:{fd:'DED', espn:'ned.1', csv:'N1',  primary:'fd'},
 };
-const APP_VERSION = 'v5 · ESPN por meses';
+const APP_VERSION = 'v6 · datos desde GitHub + respaldo directo';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -1363,10 +1363,38 @@ async function scorersWorker(log){
   }
 }
 
+// Datos preparados por GitHub (partidos, resultados, tarjetas, córners y goleadores). Evita los bloqueos del navegador.
+const DATA_URL = 'https://tomashbasurto.github.io/alexbet-web/datos.json';
+async function loadRemote(log){
+  try{
+    const j = await webGet(DATA_URL+'?t='+Date.now());
+    if(!j || !j.fx || !Object.keys(j.fx).length) throw new Error('el archivo de datos está vacío (ejecuta la acción "Actualizar datos" en GitHub)');
+    STATIC_LEAGUES.forEach(sl=>{
+      if(j.fx[sl.id]) LS.set('ab_fx_'+sl.id, j.fx[sl.id]);
+      if(j.sc && j.sc[sl.id]) LS.set('ab_sc_'+sl.id, j.sc[sl.id]);
+    });
+    LS.set('ab_stats', Object.assign(LS.get('ab_stats',{}), j.stats||{}));
+    log.push({name:'Datos del servidor', ok:true, msg:`${Object.keys(j.fx).length} ligas · generados ${ago(j.t)}`});
+    (j.log||[]).filter(l=>!l.ok).forEach(l=>log.push({name:'Servidor · '+l.name, ok:false, msg:l.msg}));
+    return j;
+  }catch(e){
+    log.push({name:'Datos del servidor', ok:false, msg:friendlyErr(e)});
+    return null;
+  }
+}
+
 async function updateAll(){
   if(updating) return;
   setBusy(true); fdDead = false;
   const log = [], st = {ok:0};
+  setStatus('Descargando datos del servidor…');
+  const rem = await loadRemote(log);
+  if(rem && Date.now()-rem.t < 12*3600e3){
+    LS.set('ab_last', rem.t); LS.set('ab_log', log);
+    statusMsg = ''; setBusy(false); applyLive();
+    if(document.getElementById('settings').classList.contains('show')) renderSettings();
+    return;
+  }
   try{
     const fdL = STATIC_LEAGUES.filter(l=>SRC[l.id].primary==='fd');
     const esL = STATIC_LEAGUES.filter(l=>SRC[l.id].primary==='espn');
