@@ -336,6 +336,7 @@
 <div id="settings" onclick="if(event.target===this)closeSettings()">
   <div class="sheet">
     <h2>Ajustes y actualización</h2>
+    <div class="sub" id="verLine"></div>
     <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
     <button class="btn primary" id="btnUpdate" onclick="updateAll()">⟳ Actualizar ahora</button>
     <div class="set-box" id="setInfo"></div>
@@ -1117,6 +1118,7 @@ const SRC = {
   turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
   netherlands:{fd:'DED', espn:'ned.1', csv:'N1',  primary:'fd'},
 };
+const APP_VERSION = 'v4 · ESPN en ventanas de 14 días';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -1162,7 +1164,7 @@ async function webGet(url, asText){
     }
     throw last;
   }
-  if(!r.ok){ const e = new Error('Error HTTP '+r.status); e.status = r.status; throw e; }
+  if(!r.ok){ const e = new Error('Error HTTP '+r.status+' en '+url.replace(/^https?:\/\/[^/]+/,'').slice(0,90)); e.status = r.status; throw e; }
   return asText ? r.text() : r.json();
 }
 
@@ -1504,6 +1506,7 @@ function setTheme(t){
   if(b) b.innerHTML = THEMES.map(x=>`<button class="theme-btn ${x[0]===t?'on':''}" onclick="setTheme('${x[0]}')"><i style="background:${x[2]}"></i>${x[1]}</button>`).join('');
 }
 function openSettings(){
+  document.getElementById('verLine').textContent = 'Versión de la app: '+APP_VERSION;
   setTheme(LS.get('ab_theme','estadio'));
   document.getElementById('inKey').value = LS.get('ab_fdkey','') || '';
   document.getElementById('inKey').placeholder = DEFAULT_KEY ? 'Usando la clave incluida (…'+DEFAULT_KEY.slice(-4)+')' : 'Pega aquí tu clave de football-data.org (opcional)';
