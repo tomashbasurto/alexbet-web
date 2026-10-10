@@ -1225,9 +1225,19 @@ async function loadFixtures(sl, log, st){
         const so = parseInt(LS.get('ab_season',''),10);
         fx = mapFd(await fdGet(`/competitions/${cfg.fd}/matches` + (so?`?season=${so}`:'')));
       } else {
-        const from = (sl.id==='bra' || sl.id==='ecuador') ? `${y}0101` : `${y}0801`;
-        const to = ymdc(new Date(Date.now()+19*86400e3));
-        fx = mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${from}-${to}&limit=1000`));
+        // ESPN rechaza rangos largos y el parámetro limit: se pide en ventanas de 14 días (75 días atrás, 19 adelante).
+        const t0 = Date.now()-75*86400e3, t1 = Date.now()+19*86400e3;
+        const wins = [];
+        for(let t=t0; t<=t1; t+=14*86400e3) wins.push([ymdc(new Date(t)), ymdc(new Date(Math.min(t+13*86400e3, t1)))]);
+        const seen = new Map(); let lastErr = null;
+        for(let k=0;k<wins.length;k+=4){
+          await Promise.all(wins.slice(k,k+4).map(async w=>{
+            try{ mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w[0]}-${w[1]}`)).forEach(f=>seen.set(f.i,f)); }
+            catch(e){ lastErr = e; }
+          }));
+        }
+        if(!seen.size && lastErr) throw lastErr;
+        fx = [...seen.values()];
       }
       if(!fx.length){ errs.push(`${src==='fd'?'football-data.org':'ESPN'}: sin partidos`); continue; }
       LS.set('ab_fx_'+sl.id, {t:Date.now(), season:y, fx, src});
@@ -1235,11 +1245,17 @@ async function loadFixtures(sl, log, st){
       log.push({name:sl.name, ok:true, msg:`${fx.length} partidos · ${src==='fd'?'football-data.org':'ESPN'}`});
       return;
     }catch(e){
-      errs.push(`${src==='fd'?'football-data.org':'ESPN'}: ${friendlyErr(e)}`);
-      if(src==='fd' && e.status===401) fdDead = true;
+      if(src==='fd' && e instanceof TypeError){
+        if(!fdDead) log.push({name:'football-data.org', ok:false, msg:'El navegador bloquea esta fuente (solo funciona en la app de Android). Se usa ESPN.'});
+        fdDead = true;
+      } else {
+        errs.push(`${src==='fd'?'football-data.org':'ESPN'}: ${friendlyErr(e)}`);
+        if(src==='fd' && e.status===401) fdDead = true;
+      }
     }
   }
-  log.push({name:sl.name, ok:false, msg:errs.join(' · ') || 'Sin fuente'});
+  if(!errs.length && !fdDead) errs.push('Sin fuente');
+  if(errs.length) log.push({name:sl.name, ok:false, msg:errs.join(' · ')});
 }
 
 // ---- tarjetas y córners reales ----
@@ -1282,6 +1298,7 @@ function applySummary(j, id, stats){
 async function statsWorker(log){
   const stats = LS.get('ab_stats',{});
   // 1) CSV de football-data.co.uk
+  const csvFailed = new Set();
   for(const sl of STATIC_LEAGUES){
     const cfg = SRC[sl.id]; if(!cfg.csv) continue;
     const d = LS.get('ab_fx_'+sl.id,null); if(!d) continue;
@@ -1289,14 +1306,15 @@ async function statsWorker(log){
     const code = String(y%100).padStart(2,'0') + String((y+1)%100).padStart(2,'0');
     try{
       const n = applyCsv(await webGet(`${CSV_BASE}${code}/${cfg.csv}.csv`, true), d.fx, stats);
+      if(n===0) csvFailed.add(sl.id);
       log.push({name:'Tarjetas/córners '+sl.name, ok:n>0, msg: n>0 ? `${n} partidos · football-data.co.uk` : 'No se pudieron enlazar partidos con el CSV'});
-    }catch(e){ log.push({name:'Tarjetas/córners '+sl.name, ok:false, msg:friendlyErr(e)}); }
+    }catch(e){ csvFailed.add(sl.id); log.push({name:'Tarjetas/córners '+sl.name, ok:false, msg:friendlyErr(e)+' · se intentará con ESPN'}); }
   }
   LS.set('ab_stats', stats);
   // 2) ESPN: estadísticas por partido para las ligas sin CSV (copas y Brasileirão)
   const todo = [];
   for(const sl of STATIC_LEAGUES){
-    const cfg = SRC[sl.id]; if(cfg.csv) continue;
+    const cfg = SRC[sl.id]; if(cfg.csv && !csvFailed.has(sl.id)) continue;
     const d = LS.get('ab_fx_'+sl.id,null); if(!d || d.src!=='espn') continue;
     const fin = d.fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null).sort((a,b)=>b.d.localeCompare(a.d));
     const cnt = {};
@@ -1455,7 +1473,8 @@ function renderStatus(){
   if(updating){
     el.innerHTML = `<b>⟳</b> ${statusMsg||'Actualizando…'}`;
   } else if(cur && cur.live){
-    el.innerHTML = `<b>● Datos reales</b> · football-data.org + ESPN · actualizado ${last?ago(last):'—'}`;
+    const srcs = [...new Set(STATIC_LEAGUES.map(l=>LS.get('ab_fx_'+l.id,null)).filter(Boolean).map(d=>d.src==='fd'?'football-data.org':'ESPN'))].join(' + ') || 'ESPN';
+    el.innerHTML = `<b>● Datos reales</b> · ${srcs} · actualizado ${last?ago(last):'—'}`;
   } else if(anyLive){
     const cm = cur ? cupMsg(cur) : '';
     el.innerHTML = cm ? `<span class="warn">○ ${cur.name}:</span> ${cm}` : `<span class="warn">○ ${cur?cur.name:'Esta liga'} aún usa datos de ejemplo.</span> Pulsa ⟳ para intentar descargarla.`;
