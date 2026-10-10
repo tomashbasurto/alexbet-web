@@ -1,0 +1,32 @@
+name: Actualizar datos
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'fetch-data.js'
+      - '.github/workflows/datos.yml'
+permissions:
+  contents: write
+concurrency:
+  group: datos
+  cancel-in-progress: false
+jobs:
+  datos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Descargar datos
+        run: node fetch-data.js
+        env:
+          FD_KEY: ${{ secrets.FD_KEY }}
+      - name: Guardar datos.json
+        run: |
+          git config user.name "alexbet-bot"
+          git config user.email "alexbet-bot@users.noreply.github.com"
+          git add datos.json
+          git diff --staged --quiet || (git commit -m "Actualizar datos" && git push)
