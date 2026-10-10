@@ -12,7 +12,6 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -358,6 +357,9 @@
 // gf/ga = goals for/against per game, cards = cards per game, corners = corners per game
 // Fixture dates are ISO ('YYYY-MM-DDTHH:mm') starting today.
 const STATIC_LEAGUES = [
+  {
+    id:'ecuador', name:'LigaPro Ecuador', color:'#ffd100', utcOffset:-5, teams:{}, fixtures:[],
+  },
   {
     id:'bra', name:'Brasileirão', color:'#38d68f', utcOffset:-3,
     teams:{
@@ -1101,6 +1103,7 @@ const DEFAULT_KEY = '';
 // Fuentes por liga. fd = football-data.org (partidos y goleadores), espn = ESPN (partidos y estadísticas por partido),
 // csv = football-data.co.uk (tarjetas y córners reales). primary = fuente principal de partidos.
 const SRC = {
+  ecuador:    {             espn:'ecu.1',            primary:'espn'},
   ucl:        {fd:'CL',  espn:'uefa.champions',      primary:'espn'},
   uel:        {             espn:'uefa.europa',         primary:'espn'},
   uecl:       {             espn:'uefa.europa.conf',    primary:'espn'},
@@ -1123,7 +1126,7 @@ function seasonYear(id){
   const o = parseInt(LS.get('ab_season',''),10);
   if(o) return o;
   const now = new Date(), y = now.getFullYear();
-  return id==='bra' ? y : (now.getMonth()>=6 ? y : y-1);
+  return (id==='bra' || id==='ecuador') ? y : (now.getMonth()>=6 ? y : y-1);
 }
 function friendlyErr(e){
   const m = String(e && e.message || e);
@@ -1222,7 +1225,7 @@ async function loadFixtures(sl, log, st){
         const so = parseInt(LS.get('ab_season',''),10);
         fx = mapFd(await fdGet(`/competitions/${cfg.fd}/matches` + (so?`?season=${so}`:'')));
       } else {
-        const from = sl.id==='bra' ? `${y}0101` : `${y}0801`;
+        const from = (sl.id==='bra' || sl.id==='ecuador') ? `${y}0101` : `${y}0801`;
         const to = ymdc(new Date(Date.now()+19*86400e3));
         fx = mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${from}-${to}&limit=1000`));
       }
