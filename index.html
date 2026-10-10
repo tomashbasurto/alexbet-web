@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AlexBet</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AlexBet">
+<meta name="theme-color" content="#06120b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root, :root[data-theme="estadio"]{
+    --bg:#06120b; --bg-img:radial-gradient(120% 55% at 50% -8%, #123a22 0%, rgba(6,18,11,0) 62%);
+    --surface:#0e2016; --surface-2:#15301f; --line:#22442f; --line-hi:#2f6040; --track:#183624;
+    --ink:#eef6f0; --ink-dim:#8fae9a; --accent:#f5c542; --accent-dim:#4d3f14; --on-accent:#1b1503;
+    --over:#34d399; --under:#ff6b6b; --draw:#4a6656;
+    --pitch-a:#17642f; --pitch-b:#145a2a; --pitch-line:rgba(255,255,255,.28);
+    --card-grad:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0));
+    --shadow:0 6px 18px rgba(0,0,0,.35);
+  }
+  :root[data-theme="noche"]{
+    --bg:#070b17; --bg-img:radial-gradient(120% 55% at 50% -8%, #12295c 0%, rgba(7,11,23,0) 62%);
+    --surface:#0f1730; --surface-2:#18224a; --line:#26335f; --line-hi:#3a4b85; --track:#1b2650;
+    --ink:#eaf0ff; --ink-dim:#8f9bc4; --accent:#4da3ff; --accent-dim:#173a66; --on-accent:#04122a;
+    --over:#2dd4bf; --under:#f472b6; --draw:#46527f;
+    --pitch-a:#1d3f8a; --pitch-b:#193776; --pitch-line:rgba(255,255,255,.26);
+    --card-grad:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+    --shadow:0 6px 18px rgba(0,0,0,.4);
+  }
+  :root[data-theme="clasico"]{
+    --bg:#e9f0e6; --bg-img:radial-gradient(120% 45% at 50% -10%, #cfe3c9 0%, rgba(233,240,230,0) 65%);
+    --surface:#ffffff; --surface-2:#eef3ec; --line:#d3dfd0; --line-hi:#a9c2a4; --track:#e2ebdf;
+    --ink:#14221a; --ink-dim:#5d7364; --accent:#e8590c; --accent-dim:#fbd9c5; --on-accent:#ffffff;
+    --over:#1f9d55; --under:#d6336c; --draw:#a8b8ab;
+    --pitch-a:#2f8a40; --pitch-b:#297c39; --pitch-line:rgba(255,255,255,.55);
+    --card-grad:none;
+    --shadow:0 4px 14px rgba(40,70,50,.12);
+  }
+  :root[data-theme="fuego"]{
+    --bg:#0c0e12; --bg-img:radial-gradient(120% 55% at 50% -8%, #2a1708 0%, rgba(12,14,18,0) 62%);
+    --surface:#151821; --surface-2:#1c202b; --line:#262b38; --line-hi:#3a4155; --track:#1c202b;
+    --ink:#e9edf5; --ink-dim:#8c93a6; --accent:#ff7a3d; --accent-dim:#5c3a24; --on-accent:#1a0e06;
+    --over:#38d68f; --under:#ff5c7a; --draw:#4b5163;
+    --pitch-a:#3a2412; --pitch-b:#33200f; --pitch-line:rgba(255,200,150,.22);
+    --card-grad:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0));
+    --shadow:0 6px 18px rgba(0,0,0,.4);
+  }
+  :root{
+    --font-head:'Space Grotesk', system-ui, sans-serif;
+    --font-body:'Inter', system-ui, sans-serif;
+    box-sizing:border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html{ scroll-padding-top: env(safe-area-inset-top, 0px); height:100%; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100%; background:var(--bg) var(--bg-img) no-repeat; background-attachment:fixed; color:var(--ink);
+    font-family:var(--font-body); -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  header.top{
+    position:sticky; top:0; z-index:20;
+    padding: calc(12px + env(safe-area-inset-top,0px)) 18px 10px;
+    background:linear-gradient(180deg,var(--bg) 78%, transparent);
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+    header.top h1{
+    font-family:var(--font-head); font-size:19px; font-weight:700; margin:0;
+    letter-spacing:-0.01em;
+  }
+  header.top h1 span{ color:var(--accent); }
+  header.top .tag{ font-size:11px; color:var(--ink-dim); }
+
+  main{ max-width:640px; margin:0 auto; padding: 10px 14px 40px; }
+
+  .leagues{
+    display:flex; gap:10px; overflow-x:auto; padding: 2px 2px 8px;
+    scrollbar-width:none;
+  }
+  .leagues::-webkit-scrollbar{ display:none; }
+  .chip{
+    flex:0 0 auto; padding:8px 14px; border-radius:999px; font-size:13px;
+    font-weight:500; background:var(--surface); border:1px solid var(--line);
+    color:var(--ink-dim); cursor:pointer; white-space:nowrap;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .chip.active{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600; }
+
+  .dates{
+    display:flex; gap:8px; overflow-x:auto; padding: 0 2px 2px;
+    scrollbar-width:none; margin-bottom:2px;
+  }
+  .dates::-webkit-scrollbar{ display:none; }
+  .datechip{
+    flex:0 0 auto; width:50px; padding:8px 0 7px; border-radius:12px;
+    background:var(--surface); border:1px solid var(--line); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    transition:background .15s, border-color .15s;
+  }
+  .datechip .dow{ font-size:10px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.02em; }
+  .datechip .num{ font-family:var(--font-head); font-size:15px; font-weight:700; }
+  .datechip.today .num{ color:var(--accent); }
+  .datechip.active{ background:var(--accent); border-color:var(--accent); }
+  .datechip.active .dow, .datechip.active .num{ color:var(--on-accent); }
+  .datechip.all{ width:auto; padding:8px 14px; font-size:12.5px; font-weight:500; color:var(--ink-dim); justify-content:center; }
+  .datechip.all.active{ color:var(--on-accent); }
+
+  .section-label{
+    font-size:12px; color:var(--ink-dim); margin:10px 2px 8px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+
+  .empty-state{
+    text-align:center; padding:34px 16px; color:var(--ink-dim); font-size:13px;
+    background:var(--surface); border:1px dashed var(--line); border-radius:14px;
+  }
+
+  .match-card{
+    background:var(--card-grad), var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+    padding:14px 16px; margin-bottom:10px; cursor:pointer;
+    transition:border-color .15s, transform .1s;
+  }
+  .match-card:active{ transform:scale(0.99); }
+  .match-card:hover{ border-color:var(--line-hi); }
+  .match-meta{ display:flex; justify-content:space-between; font-size:11.5px; color:var(--ink-dim); margin-bottom:10px; }
+  .teams-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .team{ display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .team.away{ flex-direction:row-reverse; text-align:right; }
+  .badge{
+    width:32px; height:36px; border-radius:9px 9px 50% 50% / 9px 9px 58% 58%; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; padding-bottom:4px;
+    font-family:var(--font-head); font-weight:700; font-size:12.5px;
+    color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.45);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.28), 0 2px 6px rgba(0,0,0,.35);
+  }
+  .team-name{ font-size:13.5px; font-weight:600; line-height:1.2; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-word; }
+  .vs{ font-family:var(--font-head); font-size:12px; color:var(--ink-dim); padding:0 4px; }
+  .mini1x2{ display:flex; height:8px; border-radius:99px; overflow:hidden; margin-top:12px; }
+  .mini1x2 span{ display:block; }
+  .mini1x2-labels{ display:flex; justify-content:space-between; margin-top:4px; }
+  .mini1x2-labels span{ font-size:10px; color:var(--ink-dim); }
+  .quick-probs{ display:flex; gap:4px; margin-top:10px; }
+  .qp{
+    flex:1; background:var(--surface-2); border-radius:8px; padding:6px 4px;
+    text-align:center;
+  }
+  .qp .v{ font-family:var(--font-head); font-size:14px; font-weight:700; }
+  .qp .l{ font-size:9.5px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.03em; margin-top:1px;}
+  .qp.hi .v{ color:var(--over); }
+  .qp.lo .v{ color:var(--ink); }
+
+  /* Detail view */
+  #detail{ display:none; }
+  #detail.show{ display:block; }
+  #home{ display:block; }
+  #home.hide{ display:none; }
+
+  .back-btn{
+    display:inline-flex; align-items:center; gap:6px; background:none; border:none;
+    color:var(--ink-dim); font-size:13px; font-family:var(--font-body); cursor:pointer;
+    padding:6px 0; margin-bottom:6px;
+  }
+  .back-btn:hover{ color:var(--ink); }
+
+  .matchup-hero{
+    position:relative; overflow:hidden; border:1px solid var(--line); border-radius:18px;
+    padding:18px 16px 20px; margin-bottom:16px; color:#fff; box-shadow:var(--shadow);
+    background:repeating-linear-gradient(90deg, var(--pitch-a) 0 34px, var(--pitch-b) 34px 68px);
+  }
+  .matchup-hero::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(90deg, transparent calc(50% - 1px), var(--pitch-line) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+      radial-gradient(circle at 50% 50%, transparent 38px, var(--pitch-line) 38px 40px, transparent 40px),
+      linear-gradient(180deg, rgba(0,0,0,.28), rgba(0,0,0,.05) 45%, rgba(0,0,0,.4));
+    border-radius:inherit; box-shadow:inset 0 0 0 6px transparent, inset 0 0 0 7px var(--pitch-line);
+  }
+  .matchup-hero > *{ position:relative; }
+  .matchup-hero .meta{ font-size:11.5px; color:rgba(255,255,255,.82); text-align:center; margin-bottom:14px; letter-spacing:.02em; }
+  .ko-big{ font-family:var(--font-head); font-weight:700; font-size:26px; line-height:1; text-align:center; background:rgba(0,0,0,.55); padding:9px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.18); }
+  .ko-big small{ display:block; white-space:nowrap; font-size:9.5px; font-weight:500; opacity:.8; margin-top:4px; letter-spacing:.03em; }
+  .ko{ text-align:center; font-family:var(--font-head); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:5px 10px; min-width:64px; }
+  .ko b{ display:block; font-size:16px; line-height:1.1; }
+  .ko span{ font-size:10px; color:var(--ink-dim); }
+  .pl-team{ font-size:12.5px; font-weight:700; margin:12px 0 4px; } .pl-team:first-of-type{ margin-top:0; }
+  .pl-row{ display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--line); }
+  .pl-n{ flex:1; font-size:13.5px; font-weight:600; } .pl-n small{ display:block; font-size:11px; font-weight:400; color:var(--ink-dim); margin-top:1px; }
+  .pl-p{ text-align:right; font-family:var(--font-head); } .pl-p b{ font-size:17px; color:var(--over); } .pl-p small{ display:block; font-size:10px; color:var(--ink-dim); font-family:var(--font-body); }
+  .pl-none, .pl-note{ font-size:11.5px; color:var(--ink-dim); line-height:1.45; } .pl-note{ margin-top:10px; opacity:.85; }
+  .logo-img{ width:30px; height:30px; border-radius:8px; margin-right:8px; vertical-align:middle; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+  .lg-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+  .themes{ display:flex; gap:8px; margin-top:4px; }
+  .theme-btn{ flex:1; padding:9px 4px; border-radius:12px; border:2px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:11.5px; font-weight:600; cursor:pointer; text-align:center; font-family:var(--font-body); }
+  .theme-btn i{ display:block; height:16px; border-radius:6px; margin-bottom:6px; }
+  .theme-btn.on{ border-color:var(--accent); }
+  .matchup-hero .row{ display:flex; align-items:center; justify-content:center; gap:18px; }
+  .matchup-hero .team-big{ display:flex; flex-direction:column; align-items:center; gap:8px; width:100px; }
+  .matchup-hero .row{ gap:8px !important; }
+  .badge-lg{
+    width:54px; height:62px; border-radius:14px 14px 50% 50% / 14px 14px 58% 58%; display:flex; align-items:center; padding-bottom:7px;
+    justify-content:center; font-family:var(--font-head); font-weight:700; font-size:19px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.5);
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.3), 0 4px 12px rgba(0,0,0,.45);
+  }
+  .team-big .name{ font-size:13px; font-weight:700; text-align:center; line-height:1.25; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+  .matchup-hero .center-vs{ font-family:var(--font-head); font-size:13px; }
+
+  .prob-card{
+    background:var(--card-grad), var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+    padding:16px; margin-bottom:12px;
+  }
+  .prob-card h3{
+    font-family:var(--font-head); font-size:14px; margin:0 0 12px; font-weight:600;
+    display:flex; align-items:center; gap:8px;
+  }
+  .prob-card h3 .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .line-item{ display:flex; align-items:center; gap:12px; padding:9px 0; border-top:1px solid var(--line); }
+  .line-item:first-of-type{ border-top:none; }
+  .line-label{ font-size:13px; color:var(--ink-dim); width:82px; flex:0 0 auto; }
+  .bar-track{ flex:1; height:8px; background:var(--surface-2); border-radius:99px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:99px; background:var(--accent); }
+  .bar-fill.strong{ background:var(--over); }
+  .line-pct{ font-family:var(--font-head); font-size:14px; font-weight:700; width:42px; text-align:right; flex:0 0 auto; }
+
+
+  .hbtns{ display:flex; gap:8px; }
+  .ibtn{ width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink); display:grid; place-items:center; cursor:pointer; padding:0; }
+  .ibtn.spin svg{ animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .data-status{ font-size:11.5px; color:var(--ink-dim); padding:2px 4px 8px; line-height:1.4; }
+  .data-status b{ color:var(--over); font-weight:600; }
+  .data-status .warn{ color:var(--accent); }
+  #settings{ position:fixed; inset:0; z-index:50; display:none; background:rgba(0,0,0,.6); }
+  #settings.show{ display:block; }
+  .sheet{ position:absolute; left:0; right:0; bottom:0; max-height:90vh; overflow:auto; max-width:640px; margin:0 auto;
+    background:var(--surface); border:1px solid var(--line); border-radius:20px 20px 0 0; padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px)); }
+  .sheet h2{ font-family:var(--font-head); font-size:18px; margin:0 0 4px; }
+  .sheet .sub{ font-size:12px; color:var(--ink-dim); margin-bottom:14px; line-height:1.45; }
+  .sheet label{ display:block; font-size:12px; color:var(--ink-dim); margin:12px 0 5px; }
+  .sheet input{ width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:14px; font-family:var(--font-body); }
+  .btn{ width:100%; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:14px; font-weight:600; cursor:pointer; margin-top:10px; font-family:var(--font-body); }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .btn.ghost{ background:transparent; color:var(--ink-dim); font-weight:500; }
+  .btn:disabled{ opacity:.5; }
+  .set-box{ background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin-top:10px; }
+  .set-box .row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+  .set-box .ok{ color:var(--over); } .set-box .bad{ color:var(--under); }
+
+  .foot-note{
+    font-size:11px; color:var(--ink-dim); line-height:1.5; text-align:center;
+    padding:12px 10px 4px; opacity:.75;
+  }
+
+  /* Circular progress rings */
+  .ring{ position:relative; margin:0 auto; }
+  .ring svg{ display:block; }
+  .ring-text{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-head); font-weight:700; color:var(--ink);
+  }
+  .ring-item{ flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .ring-item .l{ font-size:10.5px; color:var(--ink-dim); text-align:center; line-height:1.2; }
+
+  /* 1X2 result bar */
+  .bar1x2{ display:flex; height:14px; border-radius:99px; overflow:hidden; margin-bottom:10px; }
+  .bar1x2 span{ display:flex; align-items:center; justify-content:center; }
+  .bar1x2-labels{ display:flex; justify-content:space-between; gap:6px; }
+  .bar1x2-labels div{ flex:1; text-align:center; }
+  .bar1x2-labels .v{ font-family:var(--font-head); font-weight:700; font-size:16px; }
+  .bar1x2-labels .l{ font-size:10.5px; color:var(--ink-dim); margin-top:2px; }
+
+  /* Stat grid (goals) */
+  .stat-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px 10px; margin:12px 0; }
+  .stat-tile{ display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
+  .stat-tile .plain-v{ font-family:var(--font-head); font-size:22px; font-weight:700; }
+  .stat-tile .l{ font-size:11px; color:var(--ink-dim); }
+
+  /* Scoreline distribution */
+  .score-row{ display:flex; align-items:center; gap:10px; padding:6px 0; }
+  .score-row .sc{ font-family:var(--font-head); font-weight:700; font-size:13px; width:34px; flex:0 0 auto; }
+  .score-row .bar-track{ flex:1; }
+  .score-row .pct{ font-size:12px; color:var(--ink-dim); width:44px; text-align:right; flex:0 0 auto; }
+
+  /* Two-column big-number stat rows (cards/corners breakdown) */
+  .num-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 10px; margin-bottom:4px; }
+  .num-tile .plain-v{ font-family:var(--font-head); font-size:22px; font-weight:700; }
+  .num-tile .l{ font-size:11.5px; color:var(--ink-dim); margin-top:2px; }
+
+  .last-matches{ display:flex; flex-direction:column; gap:6px; }
+  .last-matches .team-h{ font-size:12.5px; font-weight:600; color:var(--ink); margin:10px 0 4px; }
+  .last-matches .team-h:first-child{ margin-top:0; }
+
+  ::selection{ background:var(--accent-dim); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1><img class="logo-img" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAA3FUlEQVR42t29d5xkVZn//z7n3HsrV3XunsTMECYzAwwGBCWjKxgQARcjiJgWZV3TuirK6tfvrrsq6howoS4qCggCIhIGRAmSJw9Mnumeng7V3ZWr7r3n/P641dVV1dXDDGD4/orXpWv6dt2694mfJ5zniNCiLsPBvgSosAPioD+BX3TBzPgVRoA2oAwGLcAKOyipCo7j7I6FIzti4chAOBIes5VTElJoo400aOVrbRmjpVfykAYjpfSUlJ4Q0hijhef7oUKp0J4vFGcXioUFlUp5voeOqYiDAETwEH7wVMjnef8vmD4Wf5uXD0iDERqURJiIE3kmkUhsaOtu320pu1IqlxOFYr4vnR1f4aa9Xs/z2rXRMQMWBAQxdQQSVQoI8KWUOUtZ445j7w+HwgO9XT1/CIdCGd94dq5SnpcpZpeXS+VFWhglTAMzJIdEvhf+En9FDahJuyYgWCQU2djV3vFIKpHsL5RLyfGJiSVFU1nieu48jQnoMkWgya81THIATPX6YuoOEZPsqX8wicC27b2JjtTmjlT75kgoMp7NZWaNjI+9tFAuHm2EQZrpjPhLa8BfhQHCGF+D0mgsaWXbU2339XZ1ry1VKvGR9PDqXC5/rG90DAFWOIQQNS2pEbXu/cGaCNPELGWEQYYdkKCQhXg0+nRXe9djkUhkYmhkeEU6M3aqp/2UCHjvA9IvuuL/ZQZov+hK3/jYyhrp6+65vSPVuXP/6P5l6bGxU1zf656UTsBHIFTYETWRf+E+pvn+jQo7BoGhqokIsIQ12tHWdn9vZ8+68cz4vP0jQ2dXtNcrjcAvuj7GqP/XGGAANEaIsp/t6+65sSPVuXvv/v6XjY+Pn+6jLRmQvdEJvvhO/rnuXxN8WlVNkE4lk2vm9Mx+cCKfmT2wf/C8Sr7YJo0wM2ng3yMDfEMgMZ1tnbfNaet5ePfA7leMjo//g8EIeSCH1+r6QiCEQEhRNU1TJ43WeEW3AcIE3sZgjAn4Us+cme/fVJmhtDAII2hPpX4/f9ZhD+zetfO44dGRc6ua6htQf68MMAC+MCJih549av4RPx/PjM/bs2v3hZ72oyogkz4Q5EOAFQkhlEBIidEa3/XxyhW8soepeOCbmmV3HAfjadxKpXpPBqQASyIdC8uxUbZCCIExBm00KvScBNKA0MIIaUS5J9n5q562zq2bdzx7YaFcXKqQM2vD35AB2gSwklldvdf3dnZt3Lxj69uKlfJRFD0w5jkJL6VESIERgnK+hC5UcLDpSKSY1d3H3DlzmDNrNr09PaSSKTo7Olm/YT0IWLF8BemxNBMTE+wfGmJg3z729O9lYGiQ9MQYFV2BkIUTCxFKRgM45vtgnpMR0i2WCVnOjsWHL/rp6PjI4f37B99WjSOmP9PfiAG+xiil1NjSBUd9azw7cVj/0L63T6qsV3TVTDZaSIGUEt/1KWcKCNfQ19HDymUreNnxL+X4445j0aJF9PX1kkgkkE3P+/u778JgePUZZzX8vuJVmMhkGNy3jy3PPssTTz7JY088zrrNGxnKjEJYEW6LokIW2tcYPTMJdNH1tdHKALO6e3/R3dH9zMatm97n+X6PajZJfwMG+FoYFQ1H1604Ysl1G7dtOT9byq9WdU6rlZOcJHylUMbLlOhKdHDSy1/B6/7hbF550oksXLgQSwYxoqc9XNfFr0qsweB5HtFwlJt+czNa+7z+nNcxkZlAVPGrFBJlKWzbxnEcLKUolkrs2rWLBx96mN/9/k4efOzPjBTGCXXEcOIhtG7NiOr9G8D4aBkLx9YefdTSn23Yuvn8bDG32kJOMeGvzADfF0Z1JtvuWth32ANrt238kOt7XdIInzqpaGCAECilqORLeJkSi+cfxYXnvZnz33Qey5ctQyDwtEepVEJrjRABo4QQaK3xPA/P9ymViszqm8VvbrsVYwxvfP0bGNg3gOM4DR7JYNA6cBhSSkKhEJFwGNdz2bRpC7++5RZuvOVmnh3YgdMRxUlG8D2/QWDq71+A72OUkmr86KOWXr13aN/xw2MjZytk8Mx/RQb4Whg1q6P7V+3J9h2bdjz7L4ASLZzs5ANIS6HLHuV0nmWHL+a9l1zKWy64gJ6uHnzjUywW0VojpQyIjsDXGs9z8TwPX/tordFa09nZybPPPMvlV1xBxXX55tVXs2L5ckbTo8HnhazGwaIK+QUGg9GBIxZCEI1ECYfDDOwb4MabbuIHP/kxm/dsI9KbQEZstOvPBHO1wUiAoxYc+dV8Idezd2jfWxXSR6D+GgzwtTRqbtesn4ZCoYlt/Tv/aUacbEBXPCSCwkiWWclu/umy93HZpZfS1dFFuVKmXCnXiCZEQCjf93FdF9dzMcYEGuBrbNsmkUjwi+uv51Of/jTpsTGEECQTCb5w1VW8/W1vI5fL4bouSll14Ew0vTdoY9BaE3IcEvE4g/v388Nrr+W7P/oB+4tpYrPa0Ebj5Sut4owA8aHF4XMOu0YbI3cO7LnUEsqXYVsdCgOU1Rn93EHTXwhf20LN65n9U6Vkece+Pe+TRuimdMFU/sVW+PkK7nCBC157Ltde833Off0bMBgKxQJCCJRUCClAgOd5lMolyuUyvvYRQiKlwPd9kskkpXKJT/zrp7jqC18AIBqN4jgOFdfl1zffzN7+fk4++WRSySTFUhGpJAgxdXe196Jm3rTW5HI5QqEQZ515JmedfgbDe/ez/om1yJCFUBLj6xYRC0iETmfHX5KMJta3JdseG89NrFaW5SMOgPheAAMCs9Mz64ZoOJzeMbjnfXX2fhrxLduiOJShW6W4+j/+iy9c+Xna2lKMZ8ZJJVKEQ+FA2j0fz/colwNtmDRDAXYPHGNXVxePPfY477z4En57x2/p6Oio+QVjAvsejUZ56OGHufuee1h59NEsWbKEYqEQCELVpNWloTFVc2ZZFslEglA4zGg6TXd3N28+7zzm9c3hkTUPMpHJ4MTCGK1b2AOkRPjj+cyxncm2x2Ox+OZMOb9KCeEfEHY/Dwb4PkZ1JNru7e3t2fjMnu1XNDvbhmDKssjuGuWk5S/h+uuu48zTziCbz6J9zf9edx1r7ruPcrlMKpkilogFaMf1qlIfkMrzfcKhMLFYjG995zu8/4MfZHBwkPb29gARNdsEY4jH4+zbt49f3nADjuNw0oknIYSgUqkglQzMjgmIHk8kiEajZLNZnnzySX59881s3rKF5cuWUSqVOOGEEzjj1NNY/8Ratm3dRjgRRaNb0UZKhD+WHT++r7PnXsu20/lKcbHg4JhwMD5Aa4yMhiIblxy5+Bdrt2+8UgR4b7rZEQIlBLmdaS4+/61c/ZWvEo1EyOayWJaFQKCN5tlnn+WRRx9lz+7dRGMxli1bysqjj2ZW3yyklORyOWKxGIODg3z8X/+Vm26+mVQyiWVZLYnfIFFK4fs+4+PjnPuGN/Bf//mfzJo9m3w+TywWQwjB8NAw69avY/36DYyPj9PT28OqlatYvGgRtmNjTAB14/E4pVKJj37i4/zkVz8n0pfENy0DuCDpIYw8duUxV23bu/P1uWLhGNkqWDtEBhiDQUqVOX75MV96fOPTH8eRHUII00x8IQVSC4q7x/nUFR/l85+5kmK5iOd5KKVqztQYU4t88/k8W7du4+m1T7Nn9x7CkQiLFy3iZS99Kes3bOCKj3yEHTt30tHRge/7VTh+UL4KpRTpdJoF8+dz9Ve/ynHHHsdjjz/Gxk2byGYyzJo9m1UrV7JkyRJSqRSu69aQ2GT1wfM9bNsmFo1y1Re/yH9+/Ss4PTF8TGvHLMCKhnKrlx/zxSc3rf2o5/ud4jmSeM/FAF9j1Iojl/2fnXt3np0rF1bZ4ZCe5mSEQBlBcdcYX/rsVXz0io+Qy+cCQlchoRSSilepYXwMSCWJhCOEQiGKhQLPbtvGhg0beHrtWn7wox+htSYWi+F53vOqNlmWRT6fR0rJuy++mOXLlrFixXKWLF5CIpnArbgUigV8v+rwhZgm3JP32tHRzpe/8t985otXVZmgp2mCEEITsWQkFN6y6LDDf7H22Y2fraYs1PNhgO+j1azO3huVlJW9w/v+sSXMEqCEorhzjC995vN89IqPkMllUFKBqDo9Qc3JiioCmappgTYaKRVOyKEtkeKpdU9z1mteg65mNV9Qya+Kdu6+83esXL6SQrkQCIGvqxlW8RxJdWqQtbOjky9/5b8CJvTGp5ujOpje1951k5JWsX908K0z+ssD2CdjMCpih3fO6u5dNzA8+I8KWUszN0iZssjtHOVT//yxKeKrKvGruL5QLFCqlBFVrI+ZIo6QAmVZCBk4y31Dgxx55JGsXr2aXC6HkvJ5E19V/cnq1cex6KijGBodolQsBSbKUjW0VTtoqgWJyURhYNJG06N8/F8+ysc/9BGKgxkspVp/rRH+YHrkTe1t7dsjTuiZKt30ITEAYNHCI3+6adsz75rpby3bIrtrhIvPfyuf//RnyeVzgeRXiWtMQHzP81CTlYA64k+aryk4ERAkHApxxumn43regSX0uaRfSlzX5czTzyDkhJFC1kHSmQlez5A6Kxv4lbExrvzMZ3jH+ReRH8ygrJZ9DVIgzDM7t126eMGi6wjMEAfLAK0xsqOt487RibGFRbe0oAqpGighLUVhf4ZXrno5V3/lqxRLxYYH0FqTL+Txfb/qB6aecgpE1X5TI7RSilK5zCknn0x7Wxvuc6CeA71cz6O9vZ1TTzmFcjmIuFsH+DMzpGYyA6oiBBQKeb7y5S9z0rEvp5TOIS053fKBrviVWftHhlZ0t3fcqoWRdXXuGRlgAJSQ+fmz5/5x39C+NyvkNCcipMAvVOi2U3znm/9DJBzG871aOkFrTaFYqAVVU5BJIJqrXdPstaBUKrJ48SJWrVxJsVCYkXAHekkpKRYKHLNqFUsWL6ZULqGUajQ5onX5uRUzhAioL4XEdT0ikTD/c/XX6It1okt+K01V0gi9f3To3Dk9sx63pBo3Ab3NgRigNUb29fT9elf/7pO1MeHW+iVx9+f50uf/naWLl5Ar5GpOd9Ls1IhvqEWgtXuspgRE/Xsx1dmjtSYaiXLGGacHQdTzZEClUuGM008nEorUYOw0p15vclowZJp2CLAti2w2y9HLj+aqz1yJP16a8R41xtrRv/usOV19NxphRLMvkI2OF2lJNdaZat+Rnpg4bVogYUDZity+cc577Rt4x1vfTjafxaomvpqJTx3xEbWnnYrgJt83/C4wQ+VKmdNOPZVUKvW8YKjneaRSKU4/9VTKbqP5MbWaceMxjSEzaIfB4NgOo2Np3vG2t/Gm176ewkg2AB/To2Q9kcuclIgnBh1pDTVrgWxKs4re7t7b9wzuPamacjXNpscruvRFOrjqyivxPHeqH01AsVQMbH6V+FOqWydtiEbzIyZTxlPnhRAUi0WWL13GiuXLKRSLh6QFUkoKxSIrVqxg2bJlFKufn2Z+6o5mxrTyAYLGn1IIPM/js//2aWYluvErXsuQywjYM9h/Wl9Xz23NWlD/VFIJme9Mte+YyGReKYMGswaWSqUoDk7wT+99P4uOOCrIOFYfrFwu43nedOJTL/mTrW6iZlMbzFDdA2pfE4/GOOP006kcwIHOaH7KZc447XRikRi+1tXvqDtaxAv1R7O5ahCk6j1ORvPLlyzjA++5jHK6gLJaaIERJpPPvSwZT+6zhBqvVtBMPQN8jRHtqfb7B0eHV2iM1WyrhBRUciWWzV/EZe++lFK5VMvjV7xKkNcXsvGGp8S6+u8p4tebnHqHN/leSknFczn9tNOIxWI1hHQwB0AsFuOM00/D9d3WzGtmiBAtGVJrb6lDcPX3aimLTD7DpZdcwrIFi6hkS0F6vblpQRg5ODJ0bEeqfU21fKLrGSAFwvR0dT09NpY+RUymu5ukyhsv8t53X0pXRyelchDQeH5QQqxJSF0vZ434VIOvOuJPM0nUm6eqGSkUWHX0SlatXMlQ/wCZTIbx8fEDHplMhqH+AVatXMnKlSvJFw8BRbVgRsCIWlm4IV6Y1JBKuUJvTy+XvvNiyiM55HRfoKQRjGcmXtXd3rWpGhlLCLqjtcHIiBPZUimXk6722pudr5CCSr7E0YtX8K53vAODIR6LI6Ugk8uhtQ4kz9Q53Em72fwwByS+qZkqQ2ACQqEQSxYvoaO9g2g0gn6O1ISUgmKhyOzZswnZDp7ntpLI5rC/NTPqTjbCzEAznFAIJWVQOfM83vmOt/Oj637Clond2LFQc5Hf9/Dj+WKhKxKObCiUCisFQovQoi5PY9RhfXN+PJHNLJ7IZ19Wtf+yIcdfhDnJHo44/HBc18OyFJlMhovf9S4uestbmMhMBNWtOgkSNDLigMSv+50BfN+js72Tb37nW6RSKd7+j28NzEmTdIlpONrHkjY//+UvGB4d4UPv/yfSE2ks6+A68Wfkb32h3vdJJVNc9/Of8Z1rrqkhNcuy2LZ9O/uKaXSbFXRLNUH8eDj6VGdb56O79u95jzTCtyYLCsl4fKB//74LJGJ6nl9DRDjs37+fnTt31tK9hYkMsViMCy84vzVsa6EFMxK/miMyVSK2t7Xzhz/+gYGBAT7w3vcxOp6umTnRTH3T6By10bzlggv5zOeu5P4H7udVr3xVICB1zDMzdGXV32oDM+o0QgiBr32u+/nPeeiBPxJNJfG1xmhNJBIhHAtT8E0zFaVEUCwXl8Wjsd8qRMWAIw1GhB1ne6FcTvpGR5rDZQPYWoJvsCyLVDJJIpEgFovR2dfL2nXr2Lp1G5FwBF01IfVEb+jtPwjiQ2B2hkeGuf5Xv+LDl3+IQqlYc7BWvcOV1UMpLGVhKav2vlgscsXlH+KXN97I0NAQISfUiGpa/DeTS2iuvEUiEbZu3crTa9fS2ddLLBYjEY+TrBaNcDWWG8DPFpVFJ1fId4edyDMaE+QZ4vHEhvHM+OKZ1NI2CiUEqtogG9TQDY5tMT6e5uGHHiQaCaO1B+gqrq/+FBqBnvb7qXMGTPW8CH4fi0S4+htf58IL3kx3VwdupYyUIISuggddrX9MHVO/D65TcUt0drRz0YUXcPU3riYSDjf8Tatj5utNPYOvfcJOiD/+6Y+MjaVxHAuBQVbpomRAJ8sVrdNOBsZzE0uTicSGoDUeSMUTu3cP9J8nWqQnFAK/5DM0VmhZ/vNyJX72q1u46G3vBhlFI+uSV6JpaUXTOgsxZfOFAK0NiXiU7/7oJ8yeezivOvFkRiZy2Ha0Ke0umi3P9HuzBeO5MieecBJrN27luz/8CZde/E5yhVJdcvDADt002rYgraI0JU9w3fW/ppIrMkyuZZk00RFDxazAKjRlv4rFwpLezq5HB0fAUkIWlbIqrufOEo1UCiLfvM+qw+fyzvNXYyreNFSjfZ9IJIIYv5cOx0F7U+u1ENOdZGBuTOtgCIEe1SxMbeeUk0/GHV1DCgPegdxu6/6lyef20oL3nLuANffdhzdyLzElq+XRg19WUL8mTQpJOV/m4tfP4y1nvg1ZLbfWmyjhWPz4V4/zxOAgdtKuR0NCgHF9v0sIoZVQGStkh3aXK5WExkhJY+VGSigVDeec0M773tkNY+Wg/21a4lXjj9+AMQZrul88tCIKcNYxUbx9P52RUYf0ql7jzGOiePv/lxZ6eCh9aWAgLOBdr0+CjE/nom+gPcTonjYe/t8BQm0CvwkNGWFUsVhsD4dCO6xINLIzX8z3tbx3bbCVw8p5ebwtD5HJ+yjZsi2+VSLqeb+KaY2Q8kVbrmgAk9bPK6s6Y7F81J+uQQJ8bUgOK1bOK+JIq1U/EQD5Yml2NBzZZcXCkYHx7MTyaUIhwPegI6ZYfFgUIRxCjmnK51ebYJu6/2pA1kwnhDhw+bWmec0MFtUlloI6xZhEhnrqvZyseJqpawqgLkvCZGpI1qUbzYGkvsV5Je3pfyfA0iCQLJ4v6IgoJjyDUA0XEBgoV0qzutu7Hrai4ejY0OhIb3P7hBDgujC726avQ1Hx9HTqVS8aduoWEgqouGbaHVuqFuvi+dMf164732zKPd/g+RBxBNqApaBUMTXmO/YU1K14BqNBqQCRmKZrKQnKkfgVTbFSRS8SVIuOCAH41VyQLcUBmaRNIP0IqHg+fR2KWe0Wo7kKTrRhoaUQCFzP64mEwxOWZamS53vtNDtgQLswr8smEZXkS8HNNptXxxZc/t1+1u4oYQy8dHGU/7pkFsWKqUFWzzdc8rU9bN1X5qjZIb53+VyUEvgaQpZgcMzjkq/vplQ2KBWgJ1FV57At+eUn53Pjnyb4+q0jREKSVQvDfON9cyiUNMm44taHM/z7L/YjBSydF+Z7/3IYv3togiuvGyQRVVNaZQJBWDQnxAfP6eSoWSGkJfjWrSP88PdpUnFVZ1IFE1mPy/6hk5ctifGeq/cQj0j8SUJXUZ6lBNmCz6tXJ/jc2/ooFHx8IUhEFfO6bJ5KlwnFGpgnBOD5XpuUqmIJobTROiZasdWHOV02wpIY4zU4RG0Cidy0p8y1d4/ha4M2sGF3iQ++tpMFvU4gpSpg1FM7imzZUSRfbgRmQgRS++dnChRLBo3BL+gADHsGEVWM5X3ecGKKL90wxFM7ijy0Mc/xR0V599mdpNMen/7pIGt3FAH45Pk9WBHJ/gmPJzbliSYtCkUNlaotDknueiLLzQ9PcMfnDufoZVF2DlV4cmOeWLtFPueDZwKAnnY5ZVWCJfPCPPLIBMQUSIETCfIFZddAxUDOo7vNQqqpRYLCEszptDGumcoENwZ04Woyzhd1+enGKF9Db7tVw8CNiQ2DCil+8+cMZVfTHrcQAtJZj9sfy/Lh87rRZY/JJqJYSGJFJLGQbBlxJqMK1/NZMT/Cpa/uCEyJgbAtiDiSjqTF9y+fy9mf34GSgk/9eB+ve3mKn96dZt2uIo4teO9rOnnjSW2Q9wnbAiemkEJw0antnHJMnGJR88sHxtm0p0T/sMtP7k3z5WPi2EpgxSS2ElxxXg9LDwvhuoaKa3jZ4iiHdTt87RMLiEck2wcrfPv2Ecqe4axj41x4SjuZrMfiuSEqZYMUomaKetqtFmX4KWxm0JblaWMZDALR0ke2xVujG0sJigWf2/6cQSDoTil8P2DALY9M8IGzOxsQkzaB85tpOZYxUKxo5vfYXPbWPihWtcA1FDMe2YzHq45N8IGzu/jyTUNEfMk//t+d7B1xsZXgsG6Hf7uwl0LeJxoNlqUZA/my5vRj4lzyj71g4OgFYV7z2e1YliBb1LXv1ibwKxed3M5LTkxCzgclMFmfimv48LndEJGsXZ/jm7eOUChrls0Lc8mbuiHrgYZ8UTeAlPa4mkIEzfUBjPJ8z7KM1mpm6C6IhVWrvhViUckf1+dZv6uI7wc3PlHw+e8bh3lyW5Gntxc57sgoxbI+aKhoKcHwhM/Df5qg5Gp8H+Z0WizoDSEkFPM+/3ZhL79/MsuWvWUe3lLAsQSuZ7jqrb30dtmMjXtE64ZK2EqwZW+Zpx/PUipp/nfNWK3b7TWrE+BPITtLwZ825fExFIoaS8HR8yOEbcH4hEe8IhnP+zWtLbsGb8Ijm/WwlZyG3mKRxl6o6XVrP2RhgoWvopWOUEUYTYk9XbVxNz88Qb6kcRzBWccmGMv7fO2WETIFn1seyXD80himdHC4WmtDzJE8ub3ASR/fim0JSuMeH7mol/9+/xwy4x7GQCKquPqyObz2yu3EwpJ0zueiU9p5yyntZLMe9RVBXxvaEopv3jbCV28ZxujAGcfDkv++dDZvfEUK8j5SBkIVcSSfvHYAX4P2IRoWPPn1RSzocXB9g6VEg1YLEQiNpUQD8SeJ7tgHnrng+zpkPZ+gxrEEY2Medz6RxQCrj4zwshUxdMWw/LAQ63eV+e1jGT5+Xg+OgvJBNjVoA9GQZE6nhZIwFld0JRVG1+F/Kdg9VMHTprbgRevWyWUR1FrpbbNIxQKztGe4QsU3/OIP45y0LMaRCyM1/6YNzOm0CTsS3zNEQgFxDX+5l4VAixny4obAEVHXS6u1IRa3uPPJcZ4dKBN1JNGQ5Du3jgQSGlFEQoKNu8s8tDnPWccnKEw0eqLJOMDXoKupDSUF+bLHK1ck+MXHF5AvBfbUVoHpEVIQsgV79lf45I/3YSnBeN4nEVX8/P5xTlsZ59JzukiPeXXBUgARP3VBN5e/oZtySbNmbY5Lvr6HOx+a4PMpi59+7vCgH0dCsay55vK5nHlcglw16o+EAhMnDyElYurioQPlm5SSFUtI6R8oNZIvtXbjNz04gecb4mHJPU9kuefBieBERNGZskiXPH790ARnvTTZXJWgPWkFOSXTWPjQBsKOJNHrkJh0wtpQyvv4vsEJKa68bpB9aZd4RHHRq9q47bEssbDks9ft59RVceZ2Og2eXpsAYYU6bUJFzQlLYoRtSSRhsX5XCYp+LWDTBnrb7OD7c14QtZU1+ZJ+XtKdL+lWNYG69nlVspQQfnMWtP41nvMb/ELYlgwMV/jD+jzRkCQZU5x5XKLmJ7SBBzfnibqSe5/OkU67hJ0ANzuWIFfUfOu2kQBFlQ3HHRFhYZ9Tg6o7Biv83x8O4PpTMPQdp3XQ1+twx0PjXP/AOCFbsmJ+mGs+Np9PfqefL980hDbwiR/t44ZPLajrUYVERPKbRzL0pz08z/CnjXmKFU3Z1fSkLAgF2VElBJGQ5Nq70zywMYfnGcoVwwlLY5y5OoCwtSCtmvN/jlIzY1m/Nj6qRfMulrI8SwilRZDDU9PUSBr2j3m1/I6vDXZYcdPvJti5twwGLn9dF//ng3PRGS947oTFe/9jF9fcMsIzWZ/f/DnDu87oYCznUyoZtu4r88Gv7Ak0YMzlnRf18ZV3z2I041PxDE9uL/Lk+lw1hNYQtXjLq9oYHnV5/7f6KRR8LFvyhbf14buaT17Qw11PZXlia5Eb14zx5cVRPvauWZQqmkrWQyZtbn9ogtvvHwvI5whQgra44mPndQfJv4rBy/oULcH3bxuuBmISxlze8/ZZvPbEJLlCwABPG8bzPqboUSiblmI7GXcNjXnMwKVqKkt6FvhCSJnXWidFMwcU9I94GE/X2jN81zA07nHq8QlsJTjvFSnccY9COVgxEsXnole1sW1fGa1hYNTF9w2nrYozOM/DsQPJUUqQyfu8bHEUIQSvPT6B6xlUFVGIKooJ2ZK2uOKuJ7Ic0eewbF6IlyyKcvLKOLmMTyquuPo9c/jiL/djKcGT24rkRlwW9Dic8fIU8chUKmIyqTe/x+Edp3Ww4rAQfs5n+fwQp5+QJBlTU63oUpDN+7xkURS/YlBVAWyPW7zxhCSliubYI8L4npmWMRdCYDxD/6iLsFvXHYQQJQBx9Ktf/l879u4+v+KWD6sPxoSAStGwqifOfV85HNsSteDGsQV21XmWXYNXh6WNAdsSOJaotogbKp4hGpaIFtk2b/J8aOZUcaGskQLCoamuu0knbQyEbIFliVpmtFDS2LaoQehp0MgS6LKmUDZIGZhGy2r9t57XCESUDPxUkC0OzFS9FphqRtb1DKd8ZDvrMmVCMUlDzQaErdTgkfMP/7FVKBXbHcfeX3bLh4m6dIQxYNkwkHYZTHscPsuuZQ/LrqFUaUwV13O54hrKbkMjNLmiPz0fbaYK39kZzlNN6PkGsnm/wZlPfmepYjDlxkJ6xTWUK7RaJB/M1pHV1LWp+3yLbG+tMG9qVXWyeb9G6GahMgZsR7Bnv8e+MRc7Mm3knDEY4djOUKlUSlmFYmF2JBTal83npsVsyhKkxzye7XdZdFQSO9e6IPNiv4JBHfIFF8PqiWLMi1uQmTG40gYrrnh2oMBowSeUlM3pF4OAkBPalysW+qxCsTi/t6vnARhtiWhdAWv+vJ+je/YykTUNkaY5UFXlBdSvYrEY+XwBg3nBVbHJkR2xWJR8Pv8XJL2oMSAZl9z7iI0nBWHRmi7RSGRgbGL8WKtcKc8POc7t07rhqqySlscjWx0moq+j4oAraNGqV78GoEVpTRy42lTvvHytufsPD3Dqqa+vrlJ+fvXb5s/dct/9nPyqc5BSHLAyd6jXbzAs1RMFW/Do9ttRoRza2NMhqBFEw+GxfcPlBZZvdNTXvm1b1mAl6Iyo8wMCyzFsG/ZQiz7KkvnzKJfd2vLO2qoXMb29sJ4/coYquJhe2ydiwZMTN/DoqOGSt55PwQPLeh7aJcDzIGrB9396PaljT2TV2W+i5E8veT5fs9b8b20gbMGOvUNsG/4NVlhMLwOAsKUaNSB87bdZBsjmcvOi0dimcmZ8VnXmj5rksxWyGdzfz/333sol73oXmfxYsCKmbnVLwwIYmtsR66YdivryoJm+BgvIGMPFF53Lpz7zaf70UB+vePkJZLLZ6urLgx1PWZ2wEk/wxz89yI5nn+aLV32BbG78Ba26bO6Qa/637/tEU+2suetm9o30E5vfiW6ctGIMRkQikS3ZQqHPVAEGmWx2eXuybctMzUnGlvzurnuCnIiyQSqEVAhpVX9Ovm91HOhc66NUrnDFh/+Zn1//K9JjE4ScCAh50J8HSciJMJIe5xe/uoF//vBHKJUrh3wfh3pIZeNpw+2/+32gytO13iCgLZHcmM1mlhOgMWFKldIR0XBoXAlZoiki1toQSkR48NGH2bxlM5FIpI775oX4qxmEV1CuVOjp6uGC88/na9/4OuFQGN/3D+kIh8Jc/Y2v85YLL6Srs4uKW3nRpH8m5BaJRNi4eRN//PPDhFOxYMxBczOFEW48Eh8ulouLZXXmg9YYK5PL9cUi0bU6sG6NK/lsxUhmlF/fcgvhcLh24YYp2s/JjINnllKKiewErzrxlfT29nL9Db8klUiRiCdIxpMHPBLxBKlEip9d/3Nmz57NSSecyERu4kXtW5qJAY7lcMNNNzGSS6NCVvMja4MhEo5sypeKHT4mBPgitKjLN8E4mk293b1rtu/d+YHmDjkBeEWXIzrnceett5NIJKoDLkQtRTEpvdN9wPRV8aJudUkrP1Bre9SaSDjChz/yz/T3DwQLNPSBM5NSSvKFAr29vXz7G9+kUCz8RfB/czuiUopMNsspZ53BjvwgdsxpFjlfC6Pm9877fnp8dHW2VDhWIrRVzcyZQrm0JBoO3WxJNeFrnRJNrtuOhnhm51ZuuOkmPvTBDzKaPvCihxfaVWiMCXpTPY9169fzwJr7CMVjB8WAci7PK089Bdd97tUxL0rw5fskYgm+94Mf8szubYHz1dP6qJRC5ROx2P49g3uPnoT9k9NSfI1RPe2dtyIwQ+nR17fUgoLLUT0LuPPW24jFYmjfD1oIm2KDZi2YpgHV/xljZtQArTXxWJxHH3+MM1/zmibf81wgKFjmetfvfsdLVh9PvpB/UbVgmvRLRS6f49RXn8XWib3YiVBjt2BV+jsT7b+3bTszmB568+QEFVlzDgjSE+On9Hb2rJUtxm0ZA048xKadz/DDa68lmUziPc85DuYgbaoUkrvuvrsWwR6sAwbI5/PcdffdSCGfU2teqPRHI1G+98MfsnH7FpxEuDaUqkEmjDB9Xb2PjYylTwuWCgf0rSey72k/MZHNzEslkg9Wazm60YhpIt0JvvvD77Nx40Zi0VhtoNGBKHsg0FTvvOslSylFqVLirrvvxnGcQyKi1hrHcbjr7rspV8qt1u6+aI43Gomy+dnN/M93v43THq2aHtHURGJkIhp7LFfId3vG66gb29+4UFsgzL7h/efM7Zt9/7QYrprTkBGbwdwoX/jSl2rz1SaJN7OJaM2BmWBhDdJt3MjadeuIRqOHzIBoNMradevYsGkjkVDkRdOCyUmNk8JjWRaf+/cvsG9iGOVYM6Lueb1z7h4c2X+OMI0pH9mcDXB9r3Mim5nblkzdr4NxBbr+Str3ifWm+PUdt/LT666js6MD1/NQUmE7dlVTfDzfDybe+n7QtTA9J3vAh7Skxd333ksmkznoFY6N9VaLTCbDPffcg5LqkBhgqhOyfH/qOSY/7zhOsDLI80jFU/zkuv/lhltvJtIRR2t/2vJGjZHJaOLhfKnYWfYrk5kG0YoBNS0YGBp808I58++ViEozK4UQaGGwOyN87gtXsXb9ehLxOIVigYGBAQASiQRd7R10tHeQSqWIRMIBEUwwJ3Ra9YjpkK7iVvj9XXdhH6L5qWei7Tj8/q67cD33oOKAyYkqSikikQjJeJJUPBnEILEExhj6+/spFArEojE2bNrIv33us6iUE4y0bLHAVCL8hfMOu2Pv/oHzmqUfWs+M0xoje9o7b7MtK7d3ePAtjcOp7aBQIQXl4RwvOWoV9955F//x5f/kK1/9GkuXLmHOnDksXLCAIw4/nIULFzJv7ly6u7tpS6Vw7BC5Yn5qOmETGpo0H5s3b+bUM88MmsBeQMZSCsF9d9/N0iVLZhz6YQwoJYOxNtpnIjPB0NAQe/buZfv2HWzbvo3tO3bQ39/Pxo0b+di/fJRPfOxjnHLWGTy0/nFC7dFgIYYUqMjUcHMtjOpp67pZSunVI5/GvqBWUBqhh8dGzz5mydGfHxkb21vxKnOnsqSiaoo0oa44j258indccjHr1q3D9VzWb9jAE089hV8dN+Y4DolEgu6ubmbPnsXiRYv4109+sra4WdbNZJicFWQrm3vWrGFsbIyurq7nPTXRtixGRka45941rFi2YmqMTpO5sSyLiYkJPvGlf2XzlmcY2DfA8PAw2WyWciWYHa2UqoGBn13/c9Zv2sjDax8j3BGbcrwNSTekI62hOT2zn3h6y7rPyhmmJ840NdEYjAg5oa2LFh71s7Vb1n9WIhqng5tgGrk0An+4SEQ41WrZ9IkjU8O4PcrFIvevWcOJr3gF2WwOpWRNC0zVRCUSCd7wpjdxz5o1pJLJ5xzWesCURibDGaedxi033kQunwsGyLaINx586EFOOvlkQpEItmVh2zZKqepKz/rpKQZfG4p+GVJ2MI29VvFvnC6/fMHiL+0c2P36Qrm4XMwwxFXOnNAVfrFSOnI0Pbyor6vnBh+tqrPjpv5CCDQGqyuCjNiYqgT7DQ5Y12b3t6dShMJhdu3ahRIqmO9fZZAQgkg4QkdbB88++yyPPf44iXj8eRO/FqHG4/z50UfZtmMbbck2QqFQTSgmiSoQ7Ny1i1A4THtb8DeTg729pmcBEQz1Tk4SX0zfUUQY1Z3qvG0in52VrxSXH2iMsXVAAUL6/cP737Jy8YqrMtnspkKluFTW7xEgBEIGvTI65BHRCukyzWlOIiBtDK7rsnXbtuqOGEH50RKKfDHP2rVrWbtuPRs2bKgNeH2xBrd+73s/4NhjjmHVqpUsOmoRju2gjU8ml8X3fbZu24brug0wc5q0KomxBDlZqq5tbl5KL7QWRkXs0PY5vbMffXrL+iubMwqHwoDJYpbZuHXTB1cvO+bLj2186lMGk6j5g6oXlRK0ZShGfCKiygRfz5DfkezYubOKSgSPPfY4Tz31FPv2DZBMJlm2bBmvO+dsXvPqV/PBD3+I7du309nZ+bxGF4+m0yxcsIBvfeMbrFxxNI88+mdu/+0d3FC8ifnz53Pcscdw5JFHopRi+/btwc5NMxJfoS3IizJGVokvmzupjJDIwoqjln3v6S3rPkSLIX3TpPw5pqcLgTC+0bGJzET30iMXXbt/fPSU6uxo6pkgEGhp8JVGGYk00x9GNPSvGO68805GR0dYunQJrzvndZx52hkcdcSRGGFYsmgxbz73TezZu4fHHn+cUCiEZVnPyQSlAsw/mk5z3rnncv1113HM0atQtmLF0uWc9IoTWbxkEblcjocefoQ1961h957d3HHnnaTTaWzbnvYd0lL4lqEgKxhVJ/nNmF8YefSSZf+5fc+uswvl0pIXY3j3lDlFq+5U5x3ds3q3PLNn2/Tx9dXuVmM0+IZQWWFXwPd1w8ydyTTBNd/+Nq886STaU+3o6nRd13WR1Q1+XM8jEgoTckJ889vf4sqrPk+5VCaRSMxokizLIpvN4Tg2n/vMZ/nw5ZdTcSuUyiUsZdXMi+M4hJ1gIORIeoQ/PPAAH7j88tqERlO/542lqEifoqxUTW5L4vs+Wh0xd+G3iqYye2h85I0HGld8ME64pT8YyaT/IVfI9szvnfc9LYyifgVUdUNCISQoSSnsUwobpK0ClDBpgoTAdV2OOPxwkokko2OjZDKZ2tCnybFntmVRditkchk+9IF/4s7bbmf58uUMj4zU5n82m5yRkRGWLF7EHbfexhWXf4hsLkulUsFSVu27pZR4nkcml2FsYoyuji6WLVsWpK4np7sTTN2VtqKoXAqyEoSoByD+/L65P/a0G9mfHn6jOkjiHwoDppzyyNBFGCPnds36yXQmiNqNCilxHU1elTFWMB+aKgGy2Sxr16+vEaRhpGRdykhVz6Un0qxevZq77riD9192GWPj47Wx+JP7BaTH0rz74ku4587f8/KXvZTxzHjdThymZd0gkHbN008/TTabrW15Ii2FcSTFsE9ZelNDvmcg/uzuvl9Yll3Yva//YlW/rdWLzAAMRikj/F1De9+tlKws6DvsmioTpqqTk3u0VJngSUNOligpD2krLNvC8z369+6tTqF1MUYj6meMAsF2wsGkWtu2yWQzWLbF/1z9DX78gx8Qi8XIZrNkq/u//OC713DNt75NKBwik80+Z/5Ia12VesnevXuDiVfKQtqKSshQjHj49tQ8axrhpgF0VfKvjYQi6e17d7xfTmYMDkWqD2UTHwRIS0kR7JtyfCwS3TSrs/ve0YmxE6quSddoODmirLoaxhM+nvCRSiE02LbDmaefTndnd9Xmu/h+0HBbC2yYYoqSCl/7FEtFXrr6JZxz9mt56umn6e3p4Zc//wVnnX4m45nxWi7nQEk2gEgkQiKWYDQ9yje//W129e9BxR2Kjo9nB2hNSBFMOmlKL1e3bRRHzFv4P9oYa+fA7sskUiNQ0lJ/3Y3culOdt83p7n18/fbNV/i+TjXgXgN+sRLccnWfALTBFham5DOvZw4Xnvdmzjv3XJYvW4YlLcpumXK5gjZBylxOalM1BWKMoVwu09XexV33BsWaN77uDYyMjRByQtNjjyrBJ4PBkB3C1x4bNm7ihl/fxPU3/oq9I4PIuI0ndc3OTwZYfsmbtpGbFCK//MilXxtKDy8ZHB06rzpfW/5NtjL0hVGJcOyxpYcvunHDtk1vzZdLK1Td1lZ+0a0uGZqc7VBNYQiBX/bwciW62ro46WWv4Jx/eC0nnXgiCxcuwLGCVTOu71JxXXzPx1R3rfC1Tzwa5/Y7fksul+PC8y8km8sgpap2MwdO2bZtQnbAlLJbZufOnfzxT3/itjvu4I+PPMRIbhQnFcWKOHUphcluvyoDmrYyjDqRLUcvWn7t5h3PvG4in3mFqjc7f7PNPIVRtrL2L1u46DuD6eGl+9PDFwjTYjPPujEmRk/Okgg286zkiggf+rp6a5t5rj7uOBYvWkRvdTNP1eSy1vzhPjKZDG845/UYpnZW8bRLNptjcP9+nqlu5vnIo39m7YZ1DI6NYEKSSDKKciy0qTbiyNb4vn4zz57Orl/P7Zn95PpnN11W8dy5fw+beTbYRTDM6Z31k7ZE265ndm17Z9mtHNZyO9t6RhhT3Qa4mlsSUCmUMSUXW9p0JNuZ3dvHvNlzmT27fjvbDrY8s4VSqcwxq1YxPDpSt53tAHv7+xnYP0h6Io3rVcBR2NEQTiISZHPrMphCNM46nXwmqtvZOsoeWLTgiGsz+Vzvnn17L6l6uL+b7WwbyOoLI2Kh8PpF84/41VB6eHH/7v7ztTF2tQ3DzMSIyc03VdiuwlIxtaFzxcWvuOBOzjoICqa2bYM2wYbOkxcUgCURtoVlW7UNnbUxtetTy9rSMqIFhMYIAbo73n7jrK7etc9s33petpQ/pqqFrRus/162NNcYJRD0dHbd0JfofHr73t2nTGTGTzeTniqIHdR09hlk2Ka57U6IplnUkzPctMEvuQ1reGvVWlPX/DVZ+ZHV+5fQom2+nvAk48k/HD7nsLv79/YvGxweOt9glPo739J8mvr6GGRFj87pnXVjMhof2jPY/8qJbOZkg5ncnNmfiqHrrl8/7srUdU60qO37JXdqrgKN86cbovQqwesqVpP3aajbSz4Ri/3psL659+VLxfa9g/1vLuUKPdKI2jO9SPT5izNgCiUVXeUbn5DlDMzq6bs9lUjtGxjed8z4+PjJnvZT1GuFQKiw0zhF1TS9ae73KzYyoIH601aAYFTYmRwMqnTVZCmhsu2J1B/6unufyBXy3QPDg2dXvMo8YQS66PoYo/5C9PmLMwC/6BphjNYYpTHYyhrtbO+6t7ejY3OukO8cHk2/tFDMr/QxDgKscAgxNTl1Khab4Vtb7dhNoxGbPCmNQMiwDRKkEW4kEl3X3db+aDyWGBodTx81MjZ6uqu9bmEE1d4d6RddcdDzLf9OGTBJIFNdBKMMGokkGok80dnR+WgyGh/OF/Od6YmJZWXjLnG131vbotjQPFhYNzj9qeuL+vSKaerXFggsSw0n2ts2tyfbNsajseFcsdA5OjbyknyxcJwWRtYTfvJ6B2Dw/3MMaMij1ExA0G5RiYQjmxOJ5IZUd/uAEuhisdSeLxZnF8ul2a7n9fi+32aMjpqmfrqmLccnt0ApWkqN25Y9FA6HB6KR6EAkEk0jjCi45dnZXGZpoVxc5mNCmAZgIJs17f+PDGhw1tUSjdIYjAA77KAsNR6yQztjkejOaCS2LxIJTygh3SDFoC1fa8v1vJDv+SFdclFKVmzLLgkpPEtKD6GM57t2qVRO5Yu5vnyhuLBULi3wjd8uIw40ojFxIOf6l2bA/welFx0My73NIQAAAABJRU5ErkJggg==">Alex<span>Bet</span></h1>
+  <div class="hbtns">
+    <button class="ibtn" id="btnRefresh" onclick="updateAll()" aria-label="Actualizar datos" title="Actualizar datos">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="ibtn" onclick="openSettings()" aria-label="Ajustes" title="Ajustes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+
+  <div id="home">
+    <div class="leagues" id="leagueChips"></div>
+    <div class="dates" id="dateChips"></div>
+    <div class="data-status" id="dataStatus"></div>
+    <div class="section-label"><span id="matchesLabel">Partidos</span><span id="matchCount"></span></div>
+    <div id="matchList"></div>
+    <div class="foot-note" id="homeNote"></div>
+  </div>
+
+  <div id="detail">
+    <button class="back-btn" onclick="goHome()">‹ Volver a los partidos</button>
+    <div id="detailContent"></div>
+  </div>
+
+</main>
+
+<div id="settings" onclick="if(event.target===this)closeSettings()">
+  <div class="sheet">
+    <h2>Ajustes y actualización</h2>
+    <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
+    <button class="btn primary" id="btnUpdate" onclick="updateAll()">⟳ Actualizar ahora</button>
+    <div class="set-box" id="setInfo"></div>
+    <label>Apariencia</label>
+    <div class="themes" id="themeBox"></div>
+    <label for="inKey">Clave de football-data.org</label>
+    <input id="inKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega tu clave aquí">
+    <label for="inSeason">Temporada (vacío = automática)</label>
+    <input id="inSeason" type="number" inputmode="numeric" placeholder="Ej: 2026">
+    <button class="btn" onclick="saveSettings()">Guardar y actualizar</button>
+    <button class="btn ghost" onclick="clearData()">Borrar datos guardados</button>
+    <button class="btn ghost" onclick="closeSettings()">Cerrar</button>
+  </div>
+</div>
+
+<script>
+// ---------- Data model ----------
+// Each team carries season-average rates used to project a match.
+// gf/ga = goals for/against per game, cards = cards per game, corners = corners per game
+// Fixture dates are ISO ('YYYY-MM-DDTHH:mm') starting today.
+const STATIC_LEAGUES = [
+  {
+    id:'bra', name:'Brasileirão', color:'#38d68f', utcOffset:-3,
+    teams:{
+      'Palmeiras': {gf:1.7, ga:0.8, cards:2.1, corners:5.4},
+      'Flamengo':  {gf:1.9, ga:1.0, cards:2.3, corners:5.9},
+      'Botafogo':  {gf:1.5, ga:1.0, cards:2.6, corners:4.8},
+      'Grêmio':    {gf:1.3, ga:1.2, cards:2.8, corners:4.6},
+      'Cruzeiro':  {gf:1.2, ga:1.0, cards:2.4, corners:4.3},
+      'Corinthians':{gf:1.1, ga:1.1, cards:2.7, corners:4.5},
+      'Bahia':     {gf:1.4, ga:1.1, cards:2.9, corners:5.1},
+      'Remo':      {gf:1.0, ga:1.3, cards:2.0, corners:4.0},
+      'Vasco da Gama':{gf:1.1, ga:1.4, cards:2.5, corners:4.2},
+      'Internacional':{gf:1.6, ga:1.0, cards:2.3, corners:5.2},
+      'Atlético-GO':{gf:1.0, ga:1.4, cards:2.4, corners:4.0},
+      'Athletico-PR':{gf:1.2, ga:1.2, cards:2.3, corners:4.4},
+      'Fortaleza': {gf:1.2, ga:1.3, cards:2.5, corners:4.3},
+      'Juventude': {gf:1.1, ga:1.3, cards:2.4, corners:4.1},
+      'Vitória':   {gf:1.0, ga:1.3, cards:2.3, corners:4.0},
+      'São Paulo': {gf:1.4, ga:1.0, cards:2.2, corners:4.9},
+      'Fluminense':{gf:1.3, ga:1.1, cards:2.3, corners:4.6},
+      'Cuiabá':    {gf:1.0, ga:1.4, cards:2.4, corners:4.0},
+      'Criciúma':  {gf:0.9, ga:1.4, cards:2.3, corners:3.9},
+      'Red Bull Bragantino':{gf:1.3, ga:1.1, cards:2.2, corners:4.7},
+      'Atlético-MG':{gf:1.4, ga:1.1, cards:2.5, corners:4.8},
+    },
+    // Rodadas 27-29 confirmadas oficialmente por la CBF (fuente: soccerway.com, comunicado de la CBF).
+    // Los promedios de goles/tarjetas/córners por equipo siguen siendo estimaciones propias.
+    fixtures:[
+      ['Vitória','Juventude','2026-09-21T16:00'],
+      ['Corinthians','Atlético-GO','2026-09-21T16:00'],
+      ['Fluminense','Botafogo','2026-09-21T18:30'],
+      ['Fortaleza','Bahia','2026-09-21T21:00'],
+      ['Atlético-MG','Red Bull Bragantino','2026-09-22T16:00'],
+      ['Vasco da Gama','Palmeiras','2026-09-22T16:00'],
+      ['São Paulo','Internacional','2026-09-22T18:30'],
+      ['Cuiabá','Cruzeiro','2026-09-22T18:30'],
+      ['Criciúma','Athletico-PR','2026-09-22T18:30'],
+      ['Grêmio','Flamengo','2026-09-22T18:30'],
+      ['Palmeiras','Atlético-MG','2026-09-28T18:30'],
+      ['Botafogo','Grêmio','2026-09-28T21:00'],
+      ['Internacional','Vitória','2026-09-29T11:00'],
+      ['São Paulo','Corinthians','2026-09-29T16:00'],
+      ['Fortaleza','Cuiabá','2026-09-29T16:00'],
+      ['Atlético-GO','Fluminense','2026-09-29T16:00'],
+      ['Cruzeiro','Vasco da Gama','2026-09-29T18:30'],
+      ['Bahia','Criciúma','2026-09-29T18:30'],
+      ['Juventude','Red Bull Bragantino','2026-09-29T18:30'],
+      ['Flamengo','Athletico-PR','2026-09-29T20:00'],
+      ['Criciúma','Atlético-GO','2026-10-03T19:00'],
+      ['Fluminense','Cruzeiro','2026-10-03T21:30'],
+      ['Grêmio','Fortaleza','2026-10-04T21:30'],
+      ['Atlético-MG','Vitória','2026-10-05T16:30'],
+      ['Red Bull Bragantino','Palmeiras','2026-10-05T16:30'],
+      ['Athletico-PR','Botafogo','2026-10-05T16:30'],
+      ['Bahia','Flamengo','2026-10-05T19:00'],
+      ['Corinthians','Internacional','2026-10-05T19:00'],
+      ['Cuiabá','São Paulo','2026-10-05T19:00'],
+      ['Vasco da Gama','Juventude','2026-10-05T21:00'],
+    ]
+  },
+  {
+    id:'laliga', name:'La Liga', color:'#f5c344', utcOffset:2,
+    teams:{
+      'Real Madrid':{gf:2.1, ga:0.8, cards:1.8, corners:5.7, lastMatch:{opponent:'Betis', where:'A', score:'0-1', outcome:'L'}},
+      'Barcelona':  {gf:2.3, ga:1.0, cards:1.9, corners:6.1},
+      'Atlético Madrid':{gf:1.6, ga:0.8, cards:2.5, corners:5.0, lastMatch:{opponent:'Athletic Club', where:'A', score:'0-3', outcome:'L'}},
+      'Real Sociedad':{gf:1.3, ga:1.1, cards:2.1, corners:4.7},
+      'Villarreal': {gf:1.5, ga:1.2, cards:2.0, corners:4.9},
+      'Athletic Club':{gf:1.4, ga:1.0, cards:2.2, corners:4.6, lastMatch:{opponent:'Atlético Madrid', where:'H', score:'3-0', outcome:'W'}},
+      'Sevilla':    {gf:1.2, ga:1.3, cards:2.4, corners:4.4},
+      'Betis':      {gf:1.3, ga:1.2, cards:2.3, corners:4.5, lastMatch:{opponent:'Real Madrid', where:'H', score:'1-0', outcome:'W'}},
+      'Getafe':     {gf:1.1, ga:1.1, cards:2.6, corners:4.2, lastMatch:{opponent:'Celta Vigo', where:'H', score:'1-1', outcome:'D'}},
+      'Málaga':     {gf:1.0, ga:1.3, cards:2.3, corners:4.0, lastMatch:{opponent:'Levante', where:'H', score:'0-0', outcome:'D'}},
+      'Deportivo La Coruña':{gf:1.1, ga:1.2, cards:2.2, corners:4.1},
+      'Levante':    {gf:1.0, ga:1.4, cards:2.1, corners:3.9, lastMatch:{opponent:'Málaga', where:'A', score:'0-0', outcome:'D'}},
+      'Valencia':   {gf:1.3, ga:1.2, cards:2.3, corners:4.6},
+      'Espanyol':   {gf:1.0, ga:1.3, cards:2.4, corners:4.0},
+      'Rayo Vallecano':{gf:1.2, ga:1.1, cards:2.5, corners:4.3},
+      'Alavés':     {gf:1.0, ga:1.2, cards:2.3, corners:4.0},
+    },
+    // Fixture dates/times below match the real jornada you shared (converted from the
+    // Ecuador times shown back to Spain's local CEST kickoff, so the app's Ecuador
+    // conversion reproduces them exactly).
+    fixtures:[
+      ['Getafe','Málaga','2026-09-20T14:00'],
+      ['Atlético Madrid','Real Madrid','2026-09-20T16:15'],
+      ['Deportivo La Coruña','Betis','2026-09-20T18:30'],
+      ['Villarreal','Levante','2026-09-20T18:30'],
+      ['Valencia','Real Sociedad','2026-09-20T21:00'],
+      ['Málaga','Espanyol','2026-10-09T21:00'],
+      ['Rayo Vallecano','Athletic Club','2026-10-10T14:00'],
+      ['Alavés','Atlético Madrid','2026-10-10T16:15'],
+      ['Barcelona','Getafe','2026-10-10T18:30'],
+    ]
+  },
+  {
+    id:'epl', name:'Premier League', color:'#7c9cff', utcOffset:1,
+    teams:{
+      'Manchester City':{gf:2.2, ga:0.9, cards:1.6, corners:6.0},
+      'Arsenal':    {gf:1.9, ga:0.7, cards:1.8, corners:5.8},
+      'Liverpool':  {gf:2.0, ga:1.0, cards:1.7, corners:5.9},
+      'Chelsea':    {gf:1.7, ga:1.1, cards:2.0, corners:5.3},
+      'Tottenham':  {gf:1.8, ga:1.3, cards:2.1, corners:5.5},
+      'Newcastle':  {gf:1.6, ga:1.0, cards:1.9, corners:5.2},
+      'Aston Villa':{gf:1.5, ga:1.2, cards:2.0, corners:4.9},
+      'Brighton':   {gf:1.4, ga:1.2, cards:1.8, corners:5.0},
+      'Bournemouth':{gf:1.4, ga:1.3, cards:1.9, corners:4.8},
+      'Leeds United':{gf:1.3, ga:1.4, cards:2.0, corners:4.5},
+      'Crystal Palace':{gf:1.3, ga:1.2, cards:2.1, corners:4.6},
+      'Sunderland': {gf:1.1, ga:1.4, cards:2.0, corners:4.2},
+      'Fulham':     {gf:1.4, ga:1.2, cards:1.9, corners:4.9},
+      'Manchester United':{gf:1.7, ga:1.1, cards:2.0, corners:5.3},
+      'Ipswich Town':{gf:1.0, ga:1.5, cards:2.1, corners:4.0},
+      'Brentford':  {gf:1.5, ga:1.2, cards:2.0, corners:5.1},
+    },
+    fixtures:[
+      ['Bournemouth','Liverpool','2026-09-20T14:00'],
+      ['Leeds United','Crystal Palace','2026-09-20T14:00'],
+      ['Manchester City','Sunderland','2026-09-20T14:00'],
+      ['Fulham','Manchester United','2026-09-20T16:30'],
+      ['Arsenal','Leeds United','2026-10-10T12:30'],
+      ['Sunderland','Brighton','2026-10-10T15:00'],
+      ['Aston Villa','Brentford','2026-10-10T15:00'],
+      ['Chelsea','Bournemouth','2026-10-10T15:00'],
+      ['Ipswich Town','Fulham','2026-10-10T15:00'],
+      ['Manchester United','Tottenham','2026-10-10T17:30'],
+    ]
+  },
+  {
+    id:'seriea', name:'Serie A', color:'#5ac8fa', utcOffset:2,
+    teams:{
+      'Inter':      {gf:2.0, ga:0.9, cards:1.9, corners:5.4},
+      'Juventus':   {gf:1.6, ga:0.8, cards:2.0, corners:5.1},
+      'Milan':      {gf:1.7, ga:1.0, cards:1.9, corners:5.3},
+      'Napoli':     {gf:1.8, ga:0.9, cards:2.1, corners:5.2},
+      'Roma':       {gf:1.4, ga:1.1, cards:2.3, corners:4.8},
+      'Atalanta':   {gf:1.9, ga:1.1, cards:2.0, corners:5.6},
+      'Fiorentina': {gf:1.3, ga:1.2, cards:2.2, corners:4.7},
+      'Lazio':      {gf:1.4, ga:1.1, cards:2.4, corners:4.6},
+      'Lecce':      {gf:1.0, ga:1.5, cards:2.2, corners:4.1},
+    },
+    // Solo cargo los partidos de la 5ª giornata que pude confirmar con una fuente sólida.
+    // El resto de esa jornada (Monza-Sassuolo, Bologna-Torino, Udinese-Cagliari, Roma-Inter,
+    // Venezia-Lazio, Frosinone-Como, Parma-Genoa, Juventus-Atalanta) no lo agrego por no tener
+    // el horario exacto verificado — mándame una captura y lo cargo igual que La Liga/Premier.
+    fixtures:[
+      ['Fiorentina','Napoli','2026-09-20T12:30'],
+      ['Milan','Lecce','2026-09-20T20:45'],
+    ]
+  },
+  {
+    id:'bundes', name:'Bundesliga', color:'#ff5c7a', utcOffset:2,
+    teams:{
+      'Bayern Múnich':{gf:2.6, ga:0.8, cards:1.6, corners:6.2},
+      'Bayer Leverkusen':{gf:2.0, ga:1.0, cards:1.8, corners:5.7},
+      'RB Leipzig': {gf:1.9, ga:1.0, cards:1.9, corners:5.4},
+      'Borussia Dortmund':{gf:1.9, ga:1.2, cards:2.0, corners:5.6},
+      'Stuttgart':  {gf:1.6, ga:1.2, cards:2.1, corners:5.0},
+      'Frankfurt':  {gf:1.5, ga:1.3, cards:2.2, corners:4.9},
+      'Schalke 04': {gf:1.1, ga:1.4, cards:2.3, corners:4.2},
+      'SV Elversberg':{gf:1.0, ga:1.4, cards:2.2, corners:4.0},
+      'SC Paderborn 07':{gf:1.1, ga:1.4, cards:2.1, corners:4.1},
+      'TSG Hoffenheim':{gf:1.4, ga:1.2, cards:2.0, corners:4.8},
+      'Werder Bremen':{gf:1.3, ga:1.3, cards:2.1, corners:4.7},
+      'Hamburger SV':{gf:1.1, ga:1.4, cards:2.0, corners:4.2},
+      'Augsburg':   {gf:1.2, ga:1.3, cards:2.1, corners:4.5},
+      'Mainz 05':   {gf:1.2, ga:1.2, cards:2.0, corners:4.6},
+      'Union Berlin':{gf:1.2, ga:1.2, cards:2.2, corners:4.5},
+    },
+    // Jornada real que compartiste (horas de Ecuador convertidas de vuelta a hora de Alemania).
+    fixtures:[
+      ['Bayer Leverkusen','RB Leipzig','2026-09-20T15:30'],
+      ['Schalke 04','SV Elversberg','2026-09-20T17:30'],
+      ['SC Paderborn 07','TSG Hoffenheim','2026-09-20T19:30'],
+      ['Borussia Dortmund','Werder Bremen','2026-10-09T20:30'],
+      ['TSG Hoffenheim','Hamburger SV','2026-10-10T15:30'],
+      ['Augsburg','Bayern Múnich','2026-10-10T15:30'],
+      ['Mainz 05','Bayer Leverkusen','2026-10-10T15:30'],
+      ['Union Berlin','SV Elversberg','2026-10-10T15:30'],
+    ]
+  },
+  {
+    id:'ligue1', name:'Ligue 1', color:'#a3e635', utcOffset:2,
+    teams:{
+      'Paris Saint-Germain':{gf:2.4, ga:0.8, cards:1.9, corners:6.0},
+      'Marseille':  {gf:1.7, ga:1.1, cards:2.4, corners:5.2},
+      'Monaco':     {gf:1.8, ga:1.1, cards:2.0, corners:5.3},
+      'Lille':      {gf:1.5, ga:1.0, cards:2.1, corners:4.9},
+      'Lyon':       {gf:1.6, ga:1.2, cards:2.3, corners:5.0},
+      'Nice':       {gf:1.3, ga:1.1, cards:2.2, corners:4.6},
+      'Auxerre':    {gf:1.1, ga:1.3, cards:2.2, corners:4.2},
+      'Brest':      {gf:1.2, ga:1.2, cards:2.0, corners:4.4},
+      'Lens':       {gf:1.4, ga:1.1, cards:2.1, corners:4.8},
+      'Le Havre':   {gf:1.0, ga:1.4, cards:2.1, corners:4.0},
+      'Angers':     {gf:1.0, ga:1.3, cards:2.2, corners:4.1},
+      'Lorient':    {gf:1.1, ga:1.4, cards:2.0, corners:4.2},
+      'Paris FC':   {gf:1.1, ga:1.3, cards:2.1, corners:4.3},
+      'Toulouse':   {gf:1.1, ga:1.3, cards:2.2, corners:4.3},
+    },
+    // Jornada real que compartiste (horas de Ecuador convertidas de vuelta a hora de Francia).
+    fixtures:[
+      ['Auxerre','Brest','2026-09-20T15:00'],
+      ['Nice','Lille','2026-09-20T17:15'],
+      ['Marseille','Paris Saint-Germain','2026-09-20T20:45'],
+      ['Lens','Lyon','2026-10-09T20:45'],
+      ['Lille','Le Havre','2026-10-10T17:15'],
+      ['Brest','Angers','2026-10-10T20:45'],
+      ['Lorient','Paris FC','2026-10-10T20:45'],
+      ['Monaco','Toulouse','2026-10-10T20:45'],
+    ]
+  },
+  {
+    id:'portugal', name:'Primeira Liga', color:'#e0592a', utcOffset:1,
+    teams:{
+      'Benfica':    {gf:2.0, ga:0.9, cards:2.0, corners:5.6},
+      'Porto':      {gf:1.9, ga:0.9, cards:2.2, corners:5.5},
+      'Sporting CP':{gf:2.1, ga:0.8, cards:1.9, corners:5.8},
+      'Braga':      {gf:1.5, ga:1.1, cards:2.1, corners:4.8},
+      'Vitória SC': {gf:1.2, ga:1.3, cards:2.3, corners:4.3},
+      'Estrela Amadora':{gf:1.0, ga:1.4, cards:2.2, corners:4.0},
+      'Académico Viseu':{gf:0.9, ga:1.4, cards:2.1, corners:3.9},
+      'Vitória Guimarães':{gf:1.3, ga:1.1, cards:2.1, corners:4.6},
+      'Moreirense': {gf:1.1, ga:1.2, cards:2.0, corners:4.2},
+      'Estoril':    {gf:1.2, ga:1.2, cards:2.1, corners:4.4},
+      'Casa Pia':   {gf:1.1, ga:1.2, cards:2.0, corners:4.3},
+      'Santa Clara':{gf:1.1, ga:1.3, cards:2.1, corners:4.2},
+      'Gil Vicente':{gf:1.1, ga:1.2, cards:2.0, corners:4.3},
+    },
+    // Jornada real que compartiste (horas de Ecuador convertidas de vuelta a hora de Portugal).
+    fixtures:[
+      ['Estrela Amadora','Académico Viseu','2026-09-20T15:30'],
+      ['Vitória Guimarães','Moreirense','2026-09-20T15:30'],
+      ['Estoril','Casa Pia','2026-09-20T18:00'],
+      ['Santa Clara','Braga','2026-09-20T18:00'],
+      ['Porto','Benfica','2026-09-20T20:30'],
+      ['Moreirense','Gil Vicente','2026-10-09T18:45'],
+      ['Braga','Sporting CP','2026-10-09T20:15'],
+      ['Casa Pia','Santa Clara','2026-10-10T15:30'],
+    ]
+  },
+  {
+    id:'turkey', name:'Süper Lig', color:'#ffd166', utcOffset:3,
+    teams:{
+      'Galatasaray':{gf:2.1, ga:0.9, cards:2.6, corners:5.7},
+      'Fenerbahçe': {gf:2.0, ga:1.0, cards:2.7, corners:5.6},
+      'Beşiktaş':   {gf:1.6, ga:1.2, cards:2.9, corners:5.0},
+      'Trabzonspor':{gf:1.5, ga:1.2, cards:2.5, corners:4.8},
+      'Erzurumspor':{gf:1.0, ga:1.4, cards:2.6, corners:4.1},
+      'Samsunspor': {gf:1.2, ga:1.2, cards:2.5, corners:4.4},
+      'Eyüpspor':   {gf:1.1, ga:1.3, cards:2.4, corners:4.2},
+      'Amedspor':   {gf:1.0, ga:1.4, cards:2.6, corners:4.0},
+      'Göztepe':    {gf:1.2, ga:1.3, cards:2.5, corners:4.3},
+      'Rizespor':   {gf:1.1, ga:1.3, cards:2.4, corners:4.2},
+      'Kasımpaşa':  {gf:1.1, ga:1.4, cards:2.5, corners:4.1},
+      'Gençlerbirliği':{gf:1.0, ga:1.3, cards:2.4, corners:4.1},
+      'Alanyaspor': {gf:1.2, ga:1.3, cards:2.4, corners:4.3},
+    },
+    // Jornada real que compartiste (horas de Ecuador convertidas de vuelta a hora de Turquía).
+    fixtures:[
+      ['Erzurumspor','Samsunspor','2026-09-20T17:00'],
+      ['Fenerbahçe','Eyüpspor','2026-09-20T17:00'],
+      ['Amedspor','Beşiktaş','2026-09-20T20:00'],
+      ['Göztepe','Rizespor','2026-09-20T20:00'],
+      ['Galatasaray','Kasımpaşa','2026-10-09T20:00'],
+      ['Gençlerbirliği','Amedspor','2026-10-10T13:30'],
+      ['Alanyaspor','Erzurumspor','2026-10-10T16:00'],
+      ['Samsunspor','Trabzonspor','2026-10-10T16:00'],
+    ]
+  },
+  {
+    id:'netherlands', name:'Eredivisie', color:'#f97316', utcOffset:2,
+    teams:{
+      'Ajax':       {gf:2.0, ga:1.0, cards:1.9, corners:5.7},
+      'PSV':        {gf:2.3, ga:0.9, cards:1.8, corners:5.9},
+      'Feyenoord':  {gf:1.9, ga:1.0, cards:2.0, corners:5.4},
+      'AZ Alkmaar': {gf:1.6, ga:1.1, cards:2.0, corners:5.0},
+      'FC Utrecht': {gf:1.3, ga:1.2, cards:2.0, corners:4.7},
+      'SC Telstar': {gf:0.9, ga:1.5, cards:2.1, corners:3.9},
+      'Twente':     {gf:1.5, ga:1.1, cards:1.9, corners:4.9},
+      'NEC Nijmegen':{gf:1.1, ga:1.3, cards:2.0, corners:4.3},
+      'Go Ahead Eagles':{gf:1.2, ga:1.2, cards:2.0, corners:4.4},
+      'Heerenveen': {gf:1.1, ga:1.3, cards:1.9, corners:4.3},
+      'Sparta Rotterdam':{gf:1.0, ga:1.3, cards:2.0, corners:4.1},
+      'Fortuna Sittard':{gf:1.0, ga:1.4, cards:2.0, corners:4.0},
+    },
+    // Jornada real que compartiste (horas de Ecuador convertidas de vuelta a hora de Países Bajos).
+    fixtures:[
+      ['Feyenoord','FC Utrecht','2026-09-20T12:15'],
+      ['AZ Alkmaar','SC Telstar','2026-09-20T14:30'],
+      ['Twente','PSV','2026-09-20T14:30'],
+      ['NEC Nijmegen','Go Ahead Eagles','2026-09-20T16:45'],
+      ['PSV','Heerenveen','2026-10-09T20:00'],
+      ['Go Ahead Eagles','Sparta Rotterdam','2026-10-10T16:30'],
+      ['Feyenoord','AZ Alkmaar','2026-10-10T18:45'],
+      ['Fortuna Sittard','Twente','2026-10-10T20:00'],
+    ]
+  },
+  {
+    id:'ucl', name:'Champions League', color:'#4da3ff', utcOffset:2, teams:{}, fixtures:[],
+  },
+  {
+    id:'uel', name:'Europa League', color:'#ff9f43', utcOffset:2, teams:{}, fixtures:[],
+  },
+  {
+    id:'uecl', name:'Conference League', color:'#2dd4bf', utcOffset:2, teams:{}, fixtures:[],
+  },
+];
+let LEAGUES = STATIC_LEAGUES;
+
+// ---------- Probability model (Poisson-based estimates from season averages) ----------
+function poissonP(k, lambda){
+  return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k);
+}
+function factorial(n){ let r=1; for(let i=2;i<=n;i++) r*=i; return r; }
+function poissonAtLeast(k, lambda){ // P(X >= k)
+  let p=0; for(let i=0;i<k;i++) p+=poissonP(i, lambda);
+  return 1-p;
+}
+function poissonOverHalf(line, lambda){ // for lines like 1.5, 2.5 -> P(X >= line+0.5)
+  return poissonAtLeast(Math.ceil(line), lambda);
+}
+
+function project(home, away){
+  const lambdaHome = (home.gf + away.ga)/2;
+  const lambdaAway = (away.gf + home.ga)/2;
+  const lambdaTotal = lambdaHome + lambdaAway;
+
+  const over15 = poissonOverHalf(1.5, lambdaTotal);
+  const over25 = poissonOverHalf(2.5, lambdaTotal);
+
+  const pHomeScores = 1 - Math.exp(-lambdaHome);
+  const pAwayScores = 1 - Math.exp(-lambdaAway);
+  const btts = pHomeScores * pAwayScores;
+
+  // Total cards/corners in a match ≈ sum of each side's per-game average, not their average.
+  const lambdaCards = (home.cards + away.cards);
+  const over35cards = poissonOverHalf(3.5, lambdaCards);
+  const over45cards = poissonOverHalf(4.5, lambdaCards);
+
+  const lambdaCorners = (home.corners + away.corners);
+  const over85corners = poissonOverHalf(8.5, lambdaCorners);
+  const over105corners = poissonOverHalf(10.5, lambdaCorners);
+
+  // Scoreline matrix (independent Poisson home/away goals, 0-6) for 1X2 and most likely score.
+  const MAXG = 6;
+  const matrix = [];
+  let winP=0, drawP=0, lossP=0;
+  for(let h=0; h<=MAXG; h++){
+    matrix[h] = [];
+    for(let a=0; a<=MAXG; a++){
+      const p = poissonP(h, lambdaHome) * poissonP(a, lambdaAway);
+      matrix[h][a] = p;
+      if(h>a) winP+=p; else if(h===a) drawP+=p; else lossP+=p;
+    }
+  }
+  const norm = winP+drawP+lossP; // ~1, renormalize away tiny truncation
+  const scores = [];
+  for(let h=0; h<=MAXG; h++) for(let a=0; a<=MAXG; a++) scores.push({h,a,p:matrix[h][a]/norm});
+  scores.sort((x,y)=> y.p-x.p);
+  const topScores = scores.slice(0,4);
+
+  return {
+    lambdaHome, lambdaAway, lambdaTotal, lambdaCards, lambdaCorners,
+    over15: pct(over15), over25: pct(over25), btts: pct(btts),
+    under25: 100-pct(over25),
+    over35cards: pct(over35cards), over85corners: pct(over85corners),
+    over45cards: pct(over45cards), over105corners: pct(over105corners),
+    winPct: pct(winP/norm), drawPct: pct(drawP/norm), lossPct: pct(lossP/norm),
+    topScore: topScores[0], topScores,
+  };
+}
+function pct(x){ return Math.round(x*100); }
+
+function ringHTML(pctVal, color, size){
+  size = size || 64;
+  const r = (size-10)/2;
+  const c = 2*Math.PI*r;
+  const offset = (c - (pctVal/100)*c).toFixed(1);
+  const fontSize = size>=72 ? 15 : 11.5;
+  return `<div class="ring" style="width:${size}px;height:${size}px;">
+    <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--track)" stroke-width="7"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="7"
+        stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${offset}"
+        transform="rotate(-90 ${size/2} ${size/2})"/>
+    </svg>
+    <div class="ring-text" style="font-size:${fontSize}px;">${pctVal}%</div>
+  </div>`;
+}
+
+function initials(name){
+  return name.split(' ').filter(w=>w.length>2 || w===name.split(' ')[0]).slice(0,2).map(w=>w[0]).join('').toUpperCase().slice(0,2);
+}
+function hashColor(name){
+  let h=0; for(let i=0;i<name.length;i++) h = name.charCodeAt(i) + ((h<<5)-h);
+  const hue = Math.abs(h)%360;
+  return `linear-gradient(150deg, hsl(${hue} 62% 58%), hsl(${(hue+18)%360} 58% 36%))`;
+}
+
+// Fixture times are stored as the LOCAL kickoff time in the host country.
+// Ecuador is fixed at UTC-5 (no DST), so we convert using each league's utcOffset.
+const ECUADOR_OFFSET = -5;
+function toEcuador(iso, leagueUtcOffset){
+  const [datePart, timePart] = iso.split('T');
+  const [Y,M,D] = datePart.split('-').map(Number);
+  const [h,m] = timePart.split(':').map(Number);
+  const diffHours = leagueUtcOffset - ECUADOR_OFFSET; // hours Ecuador is behind the host country
+  const ms = Date.UTC(Y, M-1, D, h, m) - diffHours*3600*1000;
+  return new Date(ms); // read back with getUTC*, represents Ecuador wall-clock time
+}
+function isoDateOnlyEcuador(iso, leagueUtcOffset){
+  const d = toEcuador(iso, leagueUtcOffset);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+function fmtParts(iso, off){
+  const d = toEcuador(iso, off);
+  const p2 = n=>String(n).padStart(2,'0');
+  return {date:`${p2(d.getUTCDate())}/${p2(d.getUTCMonth()+1)}`, time:`${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`};
+}
+function fmtDisplay(iso, leagueUtcOffset){
+  const d = toEcuador(iso, leagueUtcOffset);
+  const dd = String(d.getUTCDate()).padStart(2,'0');
+  const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+  const hh = String(d.getUTCHours()).padStart(2,'0');
+  const mi = String(d.getUTCMinutes()).padStart(2,'0');
+  return `${dd}/${mm} · ${hh}:${mi} (Ecuador)`;
+}
+
+// ---------- Calendar / date strip ----------
+const DOW = ['dom','lun','mar','mié','jue','vie','sáb'];
+const todayDate = new Date(); todayDate.setHours(0,0,0,0);
+function ymd(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+const dateRange = [];
+for(let i=0;i<18;i++){
+  const d = new Date(todayDate); d.setDate(d.getDate()+i);
+  dateRange.push(d);
+}
+
+// ---------- Render ----------
+let activeLeague = LEAGUES[0].id;
+let activeDate = 'all';
+
+function renderChips(){
+  const el = document.getElementById('leagueChips');
+  el.innerHTML = LEAGUES.map(l =>
+    `<button class="chip ${l.id===activeLeague?'active':''}" onclick="selectLeague('${l.id}')">${l.name}</button>`
+  ).join('');
+}
+
+function renderDateChips(){
+  const el = document.getElementById('dateChips');
+  let html = `<div class="datechip all ${activeDate==='all'?'active':''}" onclick="selectDate('all')">Todos</div>`;
+  html += dateRange.map(d => {
+    const key = ymd(d);
+    const isToday = key === ymd(todayDate);
+    return `<div class="datechip ${isToday?'today':''} ${activeDate===key?'active':''}" onclick="selectDate('${key}')">
+      <div class="dow">${isToday?'hoy':DOW[d.getDay()]}</div>
+      <div class="num">${d.getDate()}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
+}
+
+function selectLeague(id){
+  activeLeague = id;
+  renderChips();
+  renderMatches();
+  if(typeof renderStatus==='function') renderStatus();
+}
+function selectDate(key){
+  activeDate = key;
+  renderDateChips();
+  renderMatches();
+}
+
+function renderMatches(){
+  const league = LEAGUES.find(l=>l.id===activeLeague);
+  const list = document.getElementById('matchList');
+
+  let fixtures = league.fixtures
+    .map((f, idx) => ({ f, idx }))
+    .filter(({f}) => activeDate==='all' || isoDateOnlyEcuador(f[2], league.utcOffset)===activeDate)
+    .sort((a,b)=> a.f[2].localeCompare(b.f[2]));
+
+  document.getElementById('matchCount').textContent = fixtures.length + (fixtures.length===1?' partido':' partidos');
+
+  if(fixtures.length===0){
+    if(league.fixtures.length===0){
+      list.innerHTML = league.note && !league.live ? `<div class="empty-state">${league.note}</div>` : `<div class="empty-state">${league.live ? 'No hay partidos de '+league.name+' programados en los próximos días.' : (typeof cupMsg==='function' && cupMsg(league) ? league.name+': '+cupMsg(league) : 'Todavía no hay partidos cargados para '+league.name+'. Pulsa ⟳ arriba para descargarlos.')}</div>`;
+    } else {
+      list.innerHTML = `<div class="empty-state">No hay partidos de ${league.name} programados para esta fecha. Prueba con "Todos" u otro día.</div>`;
+    }
+    return;
+  }
+
+  list.innerHTML = fixtures.map(({f, idx}) => {
+    const [homeName, awayName, when] = f;
+    const home = league.teams[homeName], away = league.teams[awayName];
+    const p = project(home, away);
+    return `
+    <div class="match-card" onclick="openMatch('${league.id}', ${idx})">
+      <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora Ecuador</span></div>
+      <div class="teams-row">
+        <div class="team">
+          <div class="badge" style="background:${hashColor(homeName)}">${initials(homeName)}</div>
+          <div class="team-name">${homeName}</div>
+        </div>
+        <div class="ko"><b>${fmtParts(when, league.utcOffset).time}</b><span>${fmtParts(when, league.utcOffset).date}</span></div>
+        <div class="team away">
+          <div class="badge" style="background:${hashColor(awayName)}">${initials(awayName)}</div>
+          <div class="team-name">${awayName}</div>
+        </div>
+      </div>
+      <div class="mini1x2">
+        <span style="width:${p.winPct}%; background:var(--over);"></span>
+        <span style="width:${p.drawPct}%; background:var(--draw);"></span>
+        <span style="width:${p.lossPct}%; background:var(--accent);"></span>
+      </div>
+      <div class="mini1x2-labels">
+        <span>${homeName} ${p.winPct}%</span>
+        <span>Emp. ${p.drawPct}%</span>
+        <span>${awayName} ${p.lossPct}%</span>
+      </div>
+      <div class="quick-probs">
+        <div class="ring-item">${ringHTML(p.over25, p.over25>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+2.5 goles</div></div>
+        <div class="ring-item">${ringHTML(p.btts, p.btts>=60?'var(--over)':'var(--accent)', 54)}<div class="l">Ambos anotan</div></div>
+        <div class="ring-item">${ringHTML(p.over35cards, p.over35cards>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+3.5 tarj.</div></div>
+        <div class="ring-item">${ringHTML(p.over85corners, p.over85corners>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+8.5 córn.</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function barRow(label, value){
+  const strong = value>=65 ? 'strong' : '';
+  return `<div class="line-item">
+    <div class="line-label">${label}</div>
+    <div class="bar-track"><div class="bar-fill ${strong}" style="width:${value}%"></div></div>
+    <div class="line-pct">${value}%</div>
+  </div>`;
+}
+
+function lastMatchHTML(teamName, team){
+  if(team.lastMatches){
+    if(!team.lastMatches.length) return `<div class="empty-state" style="padding:16px;">Aún no hay partidos jugados de ${teamName} esta temporada.</div>`;
+    const colorOf = o => o==='W' ? 'var(--over)' : (o==='L' ? 'var(--under)' : 'var(--draw)');
+    const dots = team.lastMatches.map(m=>`<span style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:${colorOf(m.outcome)};color:#0c0e12;font-size:10.5px;font-weight:700;">${m.outcome==='W'?'G':(m.outcome==='L'?'P':'E')}</span>`).join('');
+    const rows = team.lastMatches.map(m=>{
+      const dd = m.date ? m.date.slice(8,10)+'/'+m.date.slice(5,7) : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);">
+        <div style="width:8px;height:8px;border-radius:50%;background:${colorOf(m.outcome)};flex:0 0 auto;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.where==='H'?'vs':'en'} ${m.opponent}</div>
+          <div style="font-size:11px;color:var(--ink-dim);">${m.where==='H'?'Local':'Visitante'} · ${dd}</div>
+        </div>
+        <div style="font-family:var(--font-head);font-weight:700;font-size:15px;">${m.score}</div>
+      </div>`;}).join('');
+    return `<div class="match-card" style="cursor:default;padding:12px 14px;">
+      <div style="display:flex;gap:5px;margin-bottom:6px;">${dots}</div>${rows}</div>`;
+  }
+  if(!team.lastMatch){
+    return `<div class="empty-state" style="padding:16px;">Sin resultado reciente verificado para ${teamName}. Pulsa ⟳ para descargar los resultados reales.</div>`;
+  }
+  const m = team.lastMatch;
+  const color = m.outcome==='W' ? 'var(--over)' : (m.outcome==='L' ? 'var(--under)' : 'var(--draw)');
+  const label = m.outcome==='W' ? 'Victoria' : (m.outcome==='L' ? 'Derrota' : 'Empate');
+  const vs = m.where==='H' ? `vs ${m.opponent}` : `en casa de ${m.opponent}`;
+  return `<div class="match-card" style="cursor:default; padding:12px 14px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div style="width:8px; height:8px; border-radius:50%; background:${color}; flex:0 0 auto;"></div>
+      <div style="flex:1;">
+        <div style="font-size:13.5px; font-weight:600;">${teamName} ${vs}</div>
+        <div style="font-size:11.5px; color:var(--ink-dim); margin-top:2px;">${label} · Jornada anterior</div>
+      </div>
+      <div style="font-family:var(--font-head); font-weight:700; font-size:16px;">${m.score}</div>
+    </div>
+  </div>`;
+}
+
+function baseNote(name, t){
+  if(t.n===undefined) return '';
+  const g = t.estG ? 'goles: promedio de liga (pocos partidos)' : `goles: ${t.n} partidos`;
+  const c = t.estC ? 'tarjetas: estimado' : `tarjetas: ${t.ny} partidos`;
+  const k = t.estK ? 'córners: estimado' : `córners: ${t.nc} partidos`;
+  return `${name} → ${g} · ${c} · ${k}`;
+}
+
+function playersHTML(league, homeName, awayName, home, away, p){
+  if(!league.live) return '';
+  if(!league.scorers) return `<div class="prob-card"><h3><span class="dot"></span>Jugadores a seguir</h3><div class="empty-state" style="padding:14px;">Aún no se descargaron los goleadores. Pulsa ⟳ arriba.</div></div>`;
+  const col = (name, t, lam) => {
+    const arr = league.scorers.filter(x=>sameTeam(x.t,name)).slice(0,3);
+    if(!arr.length) return `<div class="pl-team">${name}</div><div class="pl-none">Sin jugadores en el top de goleadores de ${league.name}.</div>`;
+    const scale = t.gf>0 ? lam/t.gf : 1;
+    return `<div class="pl-team">${name}</div>` + arr.map(x=>{
+      const rate = x.m>0 ? x.g/x.m : 0;
+      const pr = Math.round((1-Math.exp(-rate*scale))*100);
+      return `<div class="pl-row"><div class="pl-n">${x.p}<small>${x.g} goles · ${x.a} asist. · ${x.m} partidos</small></div><div class="pl-p"><b>${pr}%</b><small>marca</small></div></div>`;
+    }).join('');
+  };
+  return `<div class="prob-card"><h3><span class="dot"></span>Jugadores a seguir</h3>
+    ${col(homeName, home, p.lambdaHome)}${col(awayName, away, p.lambdaAway)}
+    <div class="pl-note">Solo aparecen los máximos goleadores de la competición. La probabilidad de marcar es una estimación: goles por partido del jugador ajustados al ataque esperado de su equipo en este partido.</div>
+  </div>`;
+}
+
+function openMatch(leagueId, idx){
+  const league = LEAGUES.find(l=>l.id===leagueId);
+  const [homeName, awayName, when] = league.fixtures[idx];
+  const home = league.teams[homeName], away = league.teams[awayName];
+  const p = project(home, away);
+
+  const html = `
+    <div class="matchup-hero">
+      <div class="meta">${league.name.toUpperCase()}</div>
+      <div class="row">
+        <div class="team-big">
+          <div class="badge-lg" style="background:${hashColor(homeName)}">${initials(homeName)}</div>
+          <div class="name">${homeName}</div>
+        </div>
+        <div class="center-vs"><div class="ko-big">${fmtParts(when, league.utcOffset).time}<small>${fmtParts(when, league.utcOffset).date} Ecuador</small></div></div>
+        <div class="team-big">
+          <div class="badge-lg" style="background:${hashColor(awayName)}">${initials(awayName)}</div>
+          <div class="name">${awayName}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="prob-card">
+      <h3><span class="dot"></span>Resultado 1X2</h3>
+      <div class="bar1x2">
+        <span style="width:${p.winPct}%; background:var(--over);"></span>
+        <span style="width:${p.drawPct}%; background:var(--draw);"></span>
+        <span style="width:${p.lossPct}%; background:var(--accent);"></span>
+      </div>
+      <div class="bar1x2-labels">
+        <div><div class="v">${p.winPct}%</div><div class="l">Gana ${homeName}</div></div>
+        <div><div class="v">${p.drawPct}%</div><div class="l">Empate</div></div>
+        <div><div class="v">${p.lossPct}%</div><div class="l">Gana ${awayName}</div></div>
+      </div>
+    </div>
+
+    <div class="prob-card">
+      <h3><span class="dot"></span>Probabilidad de goles</h3>
+      <div class="stat-grid">
+        <div class="stat-tile">${ringHTML(p.over15,'var(--over)',72)}<div class="l">Más de 1.5 goles</div></div>
+        <div class="stat-tile">${ringHTML(p.over25,'var(--accent)',72)}<div class="l">Más de 2.5 goles</div></div>
+        <div class="stat-tile">${ringHTML(p.btts,'var(--over)',72)}<div class="l">Ambos anotan</div></div>
+        <div class="stat-tile">${ringHTML(p.under25,'var(--accent)',72)}<div class="l">Menos de 2.5 goles</div></div>
+      </div>
+      <div class="line-item" style="border-top:1px solid var(--line);">
+        <div class="line-label">Esperados</div>
+        <div style="font-size:13px; color:var(--ink-dim);">${p.lambdaHome.toFixed(1)} - ${p.lambdaAway.toFixed(1)} (${homeName} - ${awayName})</div>
+      </div>
+      <div class="line-item">
+        <div class="line-label">Marcador más probable</div>
+        <div style="font-size:13px; color:var(--ink-dim);">${p.topScore.h} - ${p.topScore.a}</div>
+      </div>
+      <div style="margin-top:8px;">
+        ${p.topScores.map(s=>`
+          <div class="score-row">
+            <div class="sc">${s.h}-${s.a}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${(s.p*100).toFixed(1)}%"></div></div>
+            <div class="pct">${(s.p*100).toFixed(1)}%</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="prob-card">
+      <h3><span class="dot"></span>Tarjetas amarillas</h3>
+      <div class="num-grid">
+        <div class="num-tile"><div class="plain-v">${home.cards.toFixed(1)}</div><div class="l">${homeName}${home.estC?" (est.)":""}</div></div>
+        <div class="num-tile"><div class="plain-v">${away.cards.toFixed(1)}</div><div class="l">${awayName}${away.estC?" (est.)":""}</div></div>
+        <div class="num-tile"><div class="plain-v">${p.lambdaCards.toFixed(1)}</div><div class="l">Total esperado</div></div>
+        <div class="num-tile"><div class="plain-v">${p.over35cards}%</div><div class="l">Más de 3.5</div></div>
+        <div class="num-tile"><div class="plain-v">${p.over45cards}%</div><div class="l">Más de 4.5</div></div>
+      </div>
+    </div>
+
+    <div class="prob-card">
+      <h3><span class="dot"></span>Córners</h3>
+      <div class="num-grid">
+        <div class="num-tile"><div class="plain-v">${home.corners.toFixed(1)}</div><div class="l">${homeName}${home.estK?" (est.)":""}</div></div>
+        <div class="num-tile"><div class="plain-v">${away.corners.toFixed(1)}</div><div class="l">${awayName}${away.estK?" (est.)":""}</div></div>
+        <div class="num-tile"><div class="plain-v">${p.lambdaCorners.toFixed(1)}</div><div class="l">Total esperado</div></div>
+        <div class="num-tile"><div class="plain-v">${p.over85corners}%</div><div class="l">Más de 8.5</div></div>
+        <div class="num-tile"><div class="plain-v">${p.over105corners}%</div><div class="l">Más de 10.5</div></div>
+      </div>
+    </div>
+
+    ${playersHTML(league, homeName, awayName, home, away, p)}
+
+    <div class="prob-card">
+      <h3><span class="dot"></span>Últimos partidos</h3>
+      <div class="last-matches">
+        <div class="team-h">${homeName}</div>
+        ${lastMatchHTML(homeName, home)}
+        <div class="team-h">${awayName}</div>
+        ${lastMatchHTML(awayName, away)}
+      </div>
+    </div>
+
+    <div class="foot-note">
+      Hora mostrada: Ecuador (UTC-5). ${league.live
+        ? 'Modelo de Poisson sobre los últimos partidos reales de cada equipo. Tarjetas y córners: reales cuando hay datos suficientes; "(est.)" = estimación.<br>'+baseNote(homeName,home)+'<br>'+baseNote(awayName,away)
+        : 'Datos de ejemplo guardados (estimaciones propias). Pulsa ⟳ arriba para usar datos reales.'}
+      Es una estimación estadística, no garantiza el resultado.
+    </div>
+  `;
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('home').classList.add('hide');
+  document.getElementById('detail').classList.add('show');
+  window.scrollTo(0,0);
+}
+
+function goHome(){
+  document.getElementById('detail').classList.remove('show');
+  document.getElementById('home').classList.remove('hide');
+  window.scrollTo(0,0);
+}
+
+// ---------- Datos reales (football-data.org) ----------
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+function setBusy(b){
+  updating = b;
+  document.getElementById('btnRefresh').classList.toggle('spin', b);
+  const bu = document.getElementById('btnUpdate'); if(bu){ bu.disabled=b; bu.textContent = b ? 'Actualizando…' : '⟳ Actualizar ahora'; }
+}
+function setStatus(msg){ statusMsg = msg; renderStatus(); const si=document.getElementById('setInfo'); if(si && document.getElementById('settings').classList.contains('show')) renderSettings(); }
+
+const FD_BASE = 'https://api.football-data.org/v4';
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+const CSV_BASE = 'https://www.football-data.co.uk/mmz4281/';
+const DEFAULT_KEY = '';
+// Fuentes por liga. fd = football-data.org (partidos y goleadores), espn = ESPN (partidos y estadísticas por partido),
+// csv = football-data.co.uk (tarjetas y córners reales). primary = fuente principal de partidos.
+const SRC = {
+  ucl:        {fd:'CL',  espn:'uefa.champions',      primary:'espn'},
+  uel:        {             espn:'uefa.europa',         primary:'espn'},
+  uecl:       {             espn:'uefa.europa.conf',    primary:'espn'},
+  bra:        {fd:'BSA', espn:'bra.1',                primary:'espn'},
+  laliga:     {fd:'PD',  espn:'esp.1', csv:'SP1', primary:'fd'},
+  epl:        {fd:'PL',  espn:'eng.1', csv:'E0',  primary:'fd'},
+  seriea:     {fd:'SA',  espn:'ita.1', csv:'I1',  primary:'fd'},
+  bundes:     {fd:'BL1', espn:'ger.1', csv:'D1',  primary:'fd'},
+  ligue1:     {fd:'FL1', espn:'fra.1', csv:'F1',  primary:'fd'},
+  portugal:   {fd:'PPL', espn:'por.1', csv:'P1',  primary:'fd'},
+  turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
+  netherlands:{fd:'DED', espn:'ned.1', csv:'N1',  primary:'fd'},
+};
+const FINISHED = ['FT','AET','PEN'];
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
+
+function apiKey(){ return String(LS.get('ab_fdkey','')||DEFAULT_KEY).trim(); }
+function seasonYear(id){
+  const o = parseInt(LS.get('ab_season',''),10);
+  if(o) return o;
+  const now = new Date(), y = now.getFullYear();
+  return id==='bra' ? y : (now.getMonth()>=6 ? y : y-1);
+}
+function friendlyErr(e){
+  const m = String(e && e.message || e);
+  if(e instanceof TypeError || /failed to fetch|network|load failed/i.test(m)) return 'Sin conexión (revisa tu internet). En la vista previa web esto no funciona; sí en la app instalada.';
+  if(e && e.status===401) return 'Clave inválida. Revísala en Ajustes.';
+  if(e && e.status===403) return 'No incluido en el plan gratuito. '+m;
+  if(e && e.status===404) return 'No encontrado (la fuente puede haber cambiado).';
+  return m;
+}
+async function fdGet(path){
+  for(let attempt=0; attempt<3; attempt++){
+    const wait = 6500-(Date.now()-lastFdAt);
+    if(wait>0) await sleep(wait);
+    lastFdAt = Date.now();
+    const r = await fetch(FD_BASE+path, {headers:{'X-Auth-Token':apiKey()}});
+    if(r.status===429){ await sleep(20000); continue; }
+    let j = {}; try{ j = await r.json(); }catch(e){}
+    if(!r.ok){ const err = new Error(j.message || ('Error HTTP '+r.status)); err.status = r.status; throw err; }
+    return j;
+  }
+  throw new Error('Límite de consultas por minuto, intenta otra vez en un minuto.');
+}
+const CORS_PROXIES = [u=>'https://corsproxy.io/?url='+encodeURIComponent(u), u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
+async function webGet(url, asText){
+  let r;
+  try{ r = await fetch(url); }
+  catch(e){
+    // En el navegador (iPhone/web) football-data.co.uk no permite CORS: se intenta con un proxy público.
+    if(!/football-data\.co\.uk/.test(url)) throw e;
+    let last = e;
+    for(const mk of CORS_PROXIES){
+      try{ const rr = await fetch(mk(url)); if(rr.ok) return asText ? rr.text() : rr.json(); }catch(e2){ last = e2; }
+    }
+    throw last;
+  }
+  if(!r.ok){ const e = new Error('Error HTTP '+r.status); e.status = r.status; throw e; }
+  return asText ? r.text() : r.json();
+}
+
+function normName(s){
+  return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/manchester/g,'man').replace(/internazionale/g,'inter').replace(/\bnott'?m\b/g,'nottingham')
+    .replace(/\b(fc|cf|ac|as|sc|afc|ss|us|ud|rc|cd|fk|sk|bk|sv|vfb|vfl|tsg|rb|1\.|\d{4})\b/g,'')
+    .replace(/[^a-z0-9]+/g,' ').trim();
+}
+function sameTeam(a,b){
+  const x = normName(a), y = normName(b);
+  if(!x || !y) return false;
+  if(x===y || x.includes(y) || y.includes(x)) return true;
+  const tx = x.split(' ').filter(w=>w.length>=4), ty = y.split(' ');
+  return tx.some(w=>ty.includes(w));
+}
+function staticStatsFor(leagueId, name){
+  const n = normName(name);
+  for(const sl of STATIC_LEAGUES){
+    for(const k of Object.keys(sl.teams)){
+      const t = normName(k);
+      if(t && n && (t===n || n.includes(t) || t.includes(n))) return sl.teams[k];
+    }
+  }
+  return null;
+}
+
+const FD_STATUS = {FINISHED:'FT', SCHEDULED:'NS', TIMED:'NS', IN_PLAY:'LIVE', PAUSED:'LIVE', POSTPONED:'PST', SUSPENDED:'PST', CANCELLED:'CANC', AWARDED:'FT'};
+function mapFd(j){
+  return (j.matches||[]).map(m=>({i:'f'+m.id, h:m.homeTeam.shortName||m.homeTeam.name, a:m.awayTeam.shortName||m.awayTeam.name,
+    d:String(m.utcDate).slice(0,16), s:FD_STATUS[m.status]||'NS',
+    g:[m.score&&m.score.fullTime?m.score.fullTime.home:null, m.score&&m.score.fullTime?m.score.fullTime.away:null]}));
+}
+function mapEspn(j){
+  const out = [];
+  for(const ev of (j.events||[])){
+    const c = ev.competitions && ev.competitions[0]; if(!c || !c.competitors) continue;
+    const h = c.competitors.find(x=>x.homeAway==='home'), a = c.competitors.find(x=>x.homeAway==='away');
+    if(!h || !a) continue;
+    const st = (c.status && c.status.type) || (ev.status && ev.status.type) || {};
+    let s = 'NS';
+    if(st.completed) s = 'FT'; else if(st.state==='in') s = 'LIVE'; else if(/postpon|cancel|suspend|abandon/i.test((st.name||'')+(st.description||''))) s = 'PST';
+    const num = v => { const n = parseInt(v,10); return isNaN(n) ? null : n; };
+    out.push({i:'e'+ev.id, h:h.team.displayName||h.team.name, a:a.team.displayName||a.team.name,
+      d:String(ev.date).slice(0,16), s, g:s==='FT' ? [num(h.score),num(a.score)] : [null,null]});
+  }
+  return out;
+}
+const ymdc = d => `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
+
+async function loadFixtures(sl, log, st){
+  const cfg = SRC[sl.id];
+  const order = cfg.primary==='espn' ? ['espn','fd'] : ['fd','espn'];
+  const errs = [];
+  for(const src of order){
+    if(!cfg[src] || (src==='fd' && (fdDead || !apiKey()))) continue;
+    try{
+      let fx, y = seasonYear(sl.id);
+      if(src==='fd'){
+        const so = parseInt(LS.get('ab_season',''),10);
+        fx = mapFd(await fdGet(`/competitions/${cfg.fd}/matches` + (so?`?season=${so}`:'')));
+      } else {
+        const from = sl.id==='bra' ? `${y}0101` : `${y}0801`;
+        const to = ymdc(new Date(Date.now()+19*86400e3));
+        fx = mapEspn(await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${from}-${to}&limit=1000`));
+      }
+      if(!fx.length){ errs.push(`${src==='fd'?'football-data.org':'ESPN'}: sin partidos`); continue; }
+      LS.set('ab_fx_'+sl.id, {t:Date.now(), season:y, fx, src});
+      st.ok++;
+      log.push({name:sl.name, ok:true, msg:`${fx.length} partidos · ${src==='fd'?'football-data.org':'ESPN'}`});
+      return;
+    }catch(e){
+      errs.push(`${src==='fd'?'football-data.org':'ESPN'}: ${friendlyErr(e)}`);
+      if(src==='fd' && e.status===401) fdDead = true;
+    }
+  }
+  log.push({name:sl.name, ok:false, msg:errs.join(' · ') || 'Sin fuente'});
+}
+
+// ---- tarjetas y córners reales ----
+function applyCsv(txt, fx, stats){
+  const lines = txt.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2) return 0;
+  const head = lines[0].replace(/^﻿/,'').split(',');
+  const ix = n => head.indexOf(n);
+  const iD=ix('Date'), iH=ix('HomeTeam'), iA=ix('AwayTeam'), iHG=ix('FTHG'), iAG=ix('FTAG'), iHY=ix('HY'), iAY=ix('AY'), iHC=ix('HC'), iAC=ix('AC');
+  if(iD<0||iH<0||iHG<0||iHY<0||iHC<0) return 0;
+  const fin = fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null);
+  let n = 0;
+  for(let k=1;k<lines.length;k++){
+    const c = lines[k].split(',');
+    const hg = parseInt(c[iHG],10), ag = parseInt(c[iAG],10);
+    if(isNaN(hg)||isNaN(ag)) continue;
+    const m = String(c[iD]).match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if(!m) continue;
+    let yy = +m[3]; if(yy<100) yy += 2000;
+    const day = Math.floor(Date.UTC(yy,+m[2]-1,+m[1])/864e5);
+    let cand = fin.filter(f=>f.g[0]===hg && f.g[1]===ag && Math.abs(Math.floor(Date.parse(f.d+':00Z')/864e5)-day)<=1);
+    if(cand.length>1) cand = cand.filter(f=>sameTeam(f.h,c[iH])||sameTeam(f.a,c[iA]));
+    if(cand.length!==1) continue;
+    const v = i => { const x = parseInt(c[i],10); return isNaN(x)?null:x; };
+    const hy=v(iHY), ay=v(iAY), hc=v(iHC), ac=v(iAC);
+    if(hy==null||ay==null||hc==null||ac==null) continue;
+    stats[cand[0].i] = {y:[hy,ay], c:[hc,ac]};
+    n++;
+  }
+  return n;
+}
+function applySummary(j, id, stats){
+  const teams = j && j.boxscore && j.boxscore.teams;
+  if(!teams || teams.length<2){ stats[id] = {n:1}; return false; }
+  const get = (t,name) => { const it=(t.statistics||[]).find(s=>s.name===name); if(!it) return null; const v=parseInt(it.displayValue!=null?it.displayValue:it.value,10); return isNaN(v)?null:v; };
+  const h = teams.find(t=>t.homeAway==='home')||teams[0], a = teams.find(t=>t.homeAway==='away')||teams[1];
+  const y=[get(h,'yellowCards'),get(a,'yellowCards')], c=[get(h,'wonCorners'),get(a,'wonCorners')];
+  if(y[0]==null&&y[1]==null&&c[0]==null&&c[1]==null){ stats[id] = {n:1}; return false; }
+  stats[id] = {y, c}; return true;
+}
+async function statsWorker(log){
+  const stats = LS.get('ab_stats',{});
+  // 1) CSV de football-data.co.uk
+  for(const sl of STATIC_LEAGUES){
+    const cfg = SRC[sl.id]; if(!cfg.csv) continue;
+    const d = LS.get('ab_fx_'+sl.id,null); if(!d) continue;
+    const y = seasonYear(sl.id);
+    const code = String(y%100).padStart(2,'0') + String((y+1)%100).padStart(2,'0');
+    try{
+      const n = applyCsv(await webGet(`${CSV_BASE}${code}/${cfg.csv}.csv`, true), d.fx, stats);
+      log.push({name:'Tarjetas/córners '+sl.name, ok:n>0, msg: n>0 ? `${n} partidos · football-data.co.uk` : 'No se pudieron enlazar partidos con el CSV'});
+    }catch(e){ log.push({name:'Tarjetas/córners '+sl.name, ok:false, msg:friendlyErr(e)}); }
+  }
+  LS.set('ab_stats', stats);
+  // 2) ESPN: estadísticas por partido para las ligas sin CSV (copas y Brasileirão)
+  const todo = [];
+  for(const sl of STATIC_LEAGUES){
+    const cfg = SRC[sl.id]; if(cfg.csv) continue;
+    const d = LS.get('ab_fx_'+sl.id,null); if(!d || d.src!=='espn') continue;
+    const fin = d.fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null).sort((a,b)=>b.d.localeCompare(a.d));
+    const cnt = {};
+    for(const f of fin){
+      if((cnt[f.h]||0)<8 || (cnt[f.a]||0)<8){
+        if(!stats[f.i]) todo.push({id:f.i, slug:cfg.espn});
+        cnt[f.h]=(cnt[f.h]||0)+1; cnt[f.a]=(cnt[f.a]||0)+1;
+      }
+    }
+  }
+  const batch = todo.slice(0,80); let okN = 0, bad = 0;
+  for(let i=0;i<batch.length;i+=4){
+    setStatus(`Estadísticas de partidos (ESPN) ${Math.min(i,batch.length)}/${batch.length}…`);
+    await Promise.all(batch.slice(i,i+4).map(async t=>{
+      try{ const j = await webGet(`${ESPN_BASE}/${t.slug}/summary?event=${t.id.slice(1)}`); if(applySummary(j,t.id,stats)) okN++; }
+      catch(e){ bad++; }
+    }));
+    LS.set('ab_stats', stats);
+  }
+  if(todo.length) log.push({name:'Estadísticas ESPN', ok:okN>0, msg:`${okN} partidos con datos${bad?`, ${bad} con error`:''}${todo.length>batch.length?` · faltan ${todo.length-batch.length}`:''}`});
+}
+async function scorersWorker(log){
+  const DAY = 20*3600e3;
+  for(let i=0;i<STATIC_LEAGUES.length;i++){
+    const sl = STATIC_LEAGUES[i], cfg = SRC[sl.id];
+    if(!cfg.fd || fdDead || !apiKey()) continue;
+    const old = LS.get('ab_sc_'+sl.id,null);
+    if(old && Date.now()-old.t < DAY) continue;
+    try{
+      const j = await fdGet(`/competitions/${cfg.fd}/scorers?limit=80`);
+      const list = (j.scorers||[]).map(x=>({p:x.player.name, t:x.team.shortName||x.team.name, g:x.goals||0, a:x.assists||0, pen:x.penalties||0, m:x.playedMatches||0}));
+      LS.set('ab_sc_'+sl.id, {t:Date.now(), list});
+    }catch(e){
+      log.push({name:'Goleadores '+sl.name, ok:false, msg:friendlyErr(e)});
+      if(e instanceof TypeError || e.status===401){ if(e.status===401) fdDead = true; break; }
+    }
+  }
+}
+
+async function updateAll(){
+  if(updating) return;
+  setBusy(true); fdDead = false;
+  const log = [], st = {ok:0};
+  try{
+    const fdL = STATIC_LEAGUES.filter(l=>SRC[l.id].primary==='fd');
+    const esL = STATIC_LEAGUES.filter(l=>SRC[l.id].primary==='espn');
+    let done = 0; const total = STATIC_LEAGUES.length;
+    const run = async list => { for(const sl of list){ setStatus(`Descargando partidos… ${done}/${total}`); await loadFixtures(sl, log, st); done++; } };
+    await Promise.all([run(fdL), run(esL)]);
+    if(st.ok>0){
+      applyLive();
+      setStatus('Descargando estadísticas y goleadores…');
+      await Promise.all([statsWorker(log), scorersWorker(log)]);
+      LS.set('ab_last', Date.now());
+    }
+  }catch(e){
+    log.push({name:'General', ok:false, msg:friendlyErr(e)});
+  }
+  LS.set('ab_log', log);
+  statusMsg = '';
+  setBusy(false);
+  applyLive();
+  if(document.getElementById('settings').classList.contains('show')) renderSettings();
+}
+
+function buildLive(){
+  const out = {};
+  const stats = LS.get('ab_stats',{});
+  const byAll = {}, dataBy = {};
+  let cS=0,cN=0,kS=0,kN=0;
+  for(const sl of STATIC_LEAGUES){
+    const d = LS.get('ab_fx_'+sl.id,null);
+    if(!d || !d.fx || !d.fx.length) continue;
+    dataBy[sl.id] = d;
+    for(const f of d.fx){
+      if(!(FINISHED.includes(f.s)&&f.g&&f.g[0]!=null&&f.g[1]!=null)) continue;
+      const s = stats[f.i], has = s && s.y;
+      if(has){
+        if(s.y[0]!=null&&s.y[1]!=null){ cS+=s.y[0]+s.y[1]; cN+=2; }
+        if(s.c[0]!=null&&s.c[1]!=null){ kS+=s.c[0]+s.c[1]; kN+=2; }
+      }
+      (byAll[f.h]=byAll[f.h]||[]).push({f, home:true,  gf:f.g[0], ga:f.g[1], opp:f.a, y:has?s.y[0]:null, c:has?s.c[0]:null});
+      (byAll[f.a]=byAll[f.a]||[]).push({f, home:false, gf:f.g[1], ga:f.g[0], opp:f.h, y:has?s.y[1]:null, c:has?s.c[1]:null});
+    }
+  }
+  Object.values(byAll).forEach(a=>a.sort((x,y)=>x.f.d.localeCompare(y.f.d)));
+  const lgCards = cN ? cS/cN : 2.0, lgCorners = kN ? kS/kN : 4.8;
+  // búsqueda tolerante: el mismo equipo puede llamarse distinto según la fuente
+  const keyIndex = {}; Object.keys(byAll).forEach(k=>{ keyIndex[normName(k)] = k; });
+  const histFor = n => {
+    if(byAll[n]) return byAll[n];
+    const nn = normName(n);
+    if(keyIndex[nn]) return byAll[keyIndex[nn]];
+    const k = Object.keys(keyIndex).find(x=>x.length>3 && (x.includes(nn)||nn.includes(x)));
+    return k ? byAll[keyIndex[k]] : [];
+  };
+  for(const sl of STATIC_LEAGUES){
+    const d = dataBy[sl.id]; if(!d) continue;
+    const fin = d.fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null&&f.g[1]!=null);
+    const goals = fin.reduce((t,f)=>t+f.g[0]+f.g[1],0);
+    const lgGoals = fin.length ? goals/(2*fin.length) : 1.3;
+    const names = new Set(); d.fx.forEach(f=>{ names.add(f.h); names.add(f.a); });
+    const avg = (arr,fn)=> arr.reduce((t,x)=>t+fn(x),0)/arr.length;
+    const teams = {};
+    names.forEach(n=>{
+      const ms = histFor(n), rec = ms.slice(-10);
+      const sy = ms.filter(x=>x.y!=null).slice(-8), sc = ms.filter(x=>x.c!=null).slice(-8);
+      const stEst = staticStatsFor(sl.id, n);
+      teams[n] = {
+        gf: rec.length>=3 ? avg(rec,x=>x.gf) : lgGoals,
+        ga: rec.length>=3 ? avg(rec,x=>x.ga) : lgGoals,
+        cards: sy.length>=3 ? avg(sy,x=>x.y) : (stEst ? stEst.cards : lgCards),
+        corners: sc.length>=3 ? avg(sc,x=>x.c) : (stEst ? stEst.corners : lgCorners),
+        n: rec.length, ny: sy.length, nc: sc.length,
+        estG: rec.length<3, estC: sy.length<3, estK: sc.length<3,
+        lastMatches: ms.slice(-5).reverse().map(x=>({opponent:x.opp, where:x.home?'H':'A', score:`${x.gf}-${x.ga}`,
+          outcome:x.gf>x.ga?'W':(x.gf<x.ga?'L':'D'), date:x.f.d}))
+      };
+    });
+    const now = Date.now();
+    const fixtures = d.fx
+      .filter(f=>!FINISHED.includes(f.s) && !['PST','CANC','ABD','AWD','WO'].includes(f.s))
+      .filter(f=>{ const t=Date.parse(f.d+':00Z'); return t>=now-2*3600e3 && t<=now+19*86400e3; })
+      .sort((x,y)=>x.d.localeCompare(y.d))
+      .map(f=>[f.h,f.a,f.d]);
+    const sc = LS.get('ab_sc_'+sl.id,null);
+    out[sl.id] = {id:sl.id, name:sl.name, color:sl.color, utcOffset:0, teams, fixtures, live:true, season:d.season, t:d.t, nMatches:fin.length, scorers: sc?sc.list:null};
+  }
+  return out;
+}
+
+function applyLive(){
+  const built = buildLive();
+  LEAGUES = STATIC_LEAGUES.map(s=>built[s.id]||s);
+  renderChips(); renderMatches(); renderStatus();
+}
+
+function cupMsg(league){
+  const e = LS.get('ab_log',[]).find(l=>l.name===league.name && !l.ok);
+  return e ? e.msg : '';
+}
+function ago(t){
+  const m = Math.round((Date.now()-t)/60000);
+  if(m<1) return 'hace un momento';
+  if(m<60) return `hace ${m} min`;
+  const h = Math.round(m/60);
+  return h<24 ? `hace ${h} h` : `hace ${Math.round(h/24)} d`;
+}
+
+function renderStatus(){
+  const el = document.getElementById('dataStatus'), note = document.getElementById('homeNote');
+  if(!el) return;
+  const cur = LEAGUES.find(l=>l.id===activeLeague);
+  const anyLive = LEAGUES.some(l=>l.live);
+  const last = LS.get('ab_last',0);
+  if(updating){
+    el.innerHTML = `<b>⟳</b> ${statusMsg||'Actualizando…'}`;
+  } else if(cur && cur.live){
+    el.innerHTML = `<b>● Datos reales</b> · football-data.org + ESPN · actualizado ${last?ago(last):'—'}`;
+  } else if(anyLive){
+    const cm = cur ? cupMsg(cur) : '';
+    el.innerHTML = cm ? `<span class="warn">○ ${cur.name}:</span> ${cm}` : `<span class="warn">○ ${cur?cur.name:'Esta liga'} aún usa datos de ejemplo.</span> Pulsa ⟳ para intentar descargarla.`;
+  } else {
+    el.innerHTML = `<span class="warn">○ Datos de ejemplo guardados.</span> Pulsa ⟳ para cargar partidos reales.`;
+  }
+  if(note) note.innerHTML = (cur && cur.live)
+    ? 'Horarios en hora de Ecuador (UTC-5). Partidos y resultados: football-data.org y ESPN. Tarjetas y córners: datos reales de football-data.co.uk y ESPN cuando existen; si no, estimados (est.). Modelo de Poisson con los últimos 10 partidos (goles) y 8 (tarjetas y córners).'
+    : 'Horarios en hora de Ecuador (UTC-5). Estos son datos de ejemplo guardados en la app, no se actualizan solos hasta que descargues los reales con ⟳.';
+}
+
+function renderSettings(){
+  const log = LS.get('ab_log',[]), last = LS.get('ab_last',0), rem = LS.get('ab_rem',null);
+  const stats = LS.get('ab_stats',{});
+  const nst = Object.values(stats).filter(s=>s&&s.y).length;
+  const remTxt = rem && rem.day===new Date().toDateString() ? `${rem.v} de 100` : '—';
+  const logHtml = log.length ? log.map(l=>`<div class="row"><span>${l.name}</span><span class="${l.ok?'ok':'bad'}" style="text-align:right;max-width:68%;">${l.msg}</span></div>`).join('') : '<div class="row"><span>Aún no se ha actualizado.</span></div>';
+  document.getElementById('setInfo').innerHTML =
+    (updating ? `<div class="row"><span><b>⟳</b> ${statusMsg}</span></div>` : '') +
+    `<div class="row"><span>Última actualización</span><span>${last?ago(last):'nunca'}</span></div>
+     <div style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px;">${logHtml}</div>`;
+}
+const THEMES = [['estadio','Estadio','linear-gradient(90deg,#17642f,#f5c542)'],['noche','Noche','linear-gradient(90deg,#1d3f8a,#4da3ff)'],['clasico','Clásico','linear-gradient(90deg,#2f8a40,#e8590c)'],['fuego','Fuego','linear-gradient(90deg,#33200f,#ff7a3d)']];
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t); LS.set('ab_theme', t);
+  const b = document.getElementById('themeBox');
+  if(b) b.innerHTML = THEMES.map(x=>`<button class="theme-btn ${x[0]===t?'on':''}" onclick="setTheme('${x[0]}')"><i style="background:${x[2]}"></i>${x[1]}</button>`).join('');
+}
+function openSettings(){
+  setTheme(LS.get('ab_theme','estadio'));
+  document.getElementById('inKey').value = LS.get('ab_fdkey','') || '';
+  document.getElementById('inKey').placeholder = DEFAULT_KEY ? 'Usando la clave incluida (…'+DEFAULT_KEY.slice(-4)+')' : 'Pega aquí tu clave de football-data.org (opcional)';
+  document.getElementById('inSeason').value = LS.get('ab_season','') || '';
+  renderSettings();
+  document.getElementById('settings').classList.add('show');
+}
+function closeSettings(){ document.getElementById('settings').classList.remove('show'); }
+function saveSettings(){
+  LS.set('ab_fdkey', document.getElementById('inKey').value.trim());
+  LS.set('ab_season', document.getElementById('inSeason').value.trim());
+  updateAll();
+}
+function clearData(){
+  if(!confirm('¿Borrar todos los datos descargados? Tendrás que volver a actualizar.')) return;
+  STATIC_LEAGUES.forEach(s=>LS.del('ab_fx_'+s.id));
+  ['ab_stats','ab_last','ab_log'].forEach(k=>LS.del(k));
+  applyLive(); renderSettings();
+}
+
+// ---------- Arranque ----------
+if('serviceWorker' in navigator && location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+document.documentElement.setAttribute('data-theme', LS.get('ab_theme','estadio'));
+LEAGUES = STATIC_LEAGUES.map(s=>buildLive()[s.id]||s);
+renderChips();
+renderDateChips();
+renderMatches();
+renderStatus();
+if(Date.now() - LS.get('ab_last',0) > 6*3600e3) setTimeout(updateAll, 400);
+</script>
+</body>
+</html>
