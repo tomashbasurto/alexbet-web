@@ -231,6 +231,25 @@
   .line-pct{ font-family:var(--font-head); font-size:14px; font-weight:700; width:42px; text-align:right; flex:0 0 auto; }
 
 
+  .tabs{ display:flex; gap:4px; padding:4px; margin:2px 0 10px; background:var(--surface); border:1px solid var(--line); border-radius:14px; }
+  .tab{ flex:1; padding:9px 6px; border:none; border-radius:10px; background:transparent; color:var(--ink-dim); font-size:13.5px; font-weight:600; font-family:var(--font-body); cursor:pointer; }
+  .tab.active{ background:var(--accent); color:var(--on-accent); }
+  .pick-row{ display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); cursor:pointer; }
+  .pick-row:first-of-type{ border-top:none; }
+  .pick-main{ flex:1; min-width:0; }
+  .pick-main b{ display:block; font-size:13.5px; line-height:1.25; }
+  .pick-main small{ display:block; font-size:11px; color:var(--ink-dim); margin-top:2px; }
+  .pick-pct{ text-align:right; font-family:var(--font-head); }
+  .pick-pct b{ font-size:19px; display:block; line-height:1; }
+  .badge-c{ display:inline-block; margin-top:4px; padding:2px 7px; border-radius:99px; font-size:9.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; font-family:var(--font-body); }
+  .badge-c.alta{ background:rgba(52,211,153,.18); color:var(--over); }
+  .badge-c.media{ background:var(--accent-dim); color:var(--accent); }
+  .badge-c.est{ background:var(--surface-2); color:var(--ink-dim); }
+  .pk-line{ display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--line); }
+  .pk-line .t{ flex:1; font-size:13px; font-weight:600; line-height:1.25; }
+  .pk-line .t small{ display:block; font-weight:400; font-size:10.5px; color:var(--ink-dim); margin-top:1px; }
+  .pk-line .bar-track{ width:70px; flex:0 0 auto; }
+  .pk-line .v{ font-family:var(--font-head); font-weight:700; font-size:14px; width:40px; text-align:right; }
   .hbtns{ display:flex; gap:8px; }
   .ibtn{ width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink); display:grid; place-items:center; cursor:pointer; padding:0; }
   .ibtn.spin svg{ animation:spin 1s linear infinite; }
@@ -318,6 +337,10 @@
 <main>
 
   <div id="home">
+    <div class="tabs" id="tabs">
+      <button class="tab active" id="tabMatches" onclick="setView('matches')">Partidos</button>
+      <button class="tab" id="tabPicks" onclick="setView('picks')">Sugerencias</button>
+    </div>
     <div class="leagues" id="leagueChips"></div>
     <div class="dates" id="dateChips"></div>
     <div class="data-status" id="dataStatus"></div>
@@ -805,9 +828,110 @@ for(let i=0;i<18;i++){
 let activeLeague = LEAGUES[0].id;
 let activeDate = 'all';
 
+let viewMode = 'matches';
+function setView(v){
+  viewMode = v;
+  document.getElementById('tabMatches').classList.toggle('active', v==='matches');
+  document.getElementById('tabPicks').classList.toggle('active', v==='picks');
+  if(v==='picks' && activeDate==='all') activeDate = ymd(todayDate);
+  if(v==='matches' && activeLeague==='all') activeLeague = LEAGUES[0].id;
+  renderChips(); renderDateChips(); renderMatches();
+  if(typeof renderStatus==='function') renderStatus();
+}
+
+// ---- Sugerencias: mejores mercados por partido según el modelo ----
+function matchPicks(league, f){
+  const home = league.teams[f[0]], away = league.teams[f[1]];
+  if(!home || !away) return null;
+  const p = project(home, away);
+  const live = !!league.live;
+  const gEst = !live || home.estG || away.estG;
+  const cEst = !live || home.estC || away.estC;
+  const kEst = !live || home.estK || away.estK;
+  const over35 = pct(poissonOverHalf(3.5, p.lambdaTotal));
+  const hn = f[0], an = f[1];
+  const c = [];
+  const add = (cat, label, prob, est, why) => c.push({cat, label, prob, est, why});
+  const gWhy = `Goles esperados: ${p.lambdaTotal.toFixed(1)}`;
+  add('goles','Más de 1.5 goles', p.over15, gEst, gWhy);
+  add('goles','Más de 2.5 goles', p.over25, gEst, gWhy);
+  add('goles','Menos de 2.5 goles', p.under25, gEst, gWhy);
+  add('goles','Menos de 3.5 goles', 100-over35, gEst, gWhy);
+  add('btts','Ambos equipos anotan', p.btts, gEst, `Goles esperados: ${p.lambdaHome.toFixed(1)} - ${p.lambdaAway.toFixed(1)}`);
+  add('btts','Ambos NO anotan', 100-p.btts, gEst, `Goles esperados: ${p.lambdaHome.toFixed(1)} - ${p.lambdaAway.toFixed(1)}`);
+  add('res',`${hn} o empate`, p.winPct+p.drawPct, gEst, `Gana ${p.winPct}% · Empate ${p.drawPct}%`);
+  add('res',`Empate o ${an}`, p.drawPct+p.lossPct, gEst, `Empate ${p.drawPct}% · Gana ${p.lossPct}%`);
+  if(p.winPct>=55) add('res',`Gana ${hn}`, p.winPct, gEst, `Probabilidad 1X2 del modelo`);
+  if(p.lossPct>=55) add('res',`Gana ${an}`, p.lossPct, gEst, `Probabilidad 1X2 del modelo`);
+  const kWhy = `Tarjetas esperadas: ${p.lambdaCards.toFixed(1)}`;
+  add('tarj','Más de 3.5 tarjetas', p.over35cards, cEst, kWhy);
+  add('tarj','Menos de 4.5 tarjetas', 100-p.over45cards, cEst, kWhy);
+  const rWhy = `Córners esperados: ${p.lambdaCorners.toFixed(1)}`;
+  add('corn','Más de 8.5 córners', p.over85corners, kEst, rWhy);
+  add('corn','Menos de 10.5 córners', 100-p.over105corners, kEst, rWhy);
+  // el mejor de cada categoría; con datos estimados se penaliza
+  const best = {};
+  c.forEach(x=>{ x.score = x.prob - (x.est ? 8 : 0); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
+  const picks = Object.values(best).filter(x=>x.prob>=60).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
+    ...x, conf: (x.prob>=75 && !x.est) ? 'alta' : ((x.prob>=65 && !x.est) ? 'media' : 'est')
+  }));
+  return {picks, best: picks.length ? picks[0].score : 0, p};
+}
+function confBadge(x){
+  return x.conf==='alta' ? '<span class="badge-c alta">Confianza alta</span>'
+       : x.conf==='media' ? '<span class="badge-c media">Confianza media</span>'
+       : '<span class="badge-c est">Dato estimado</span>';
+}
+function renderPicks(){
+  const list = document.getElementById('matchList');
+  const leagues = activeLeague==='all' ? LEAGUES : LEAGUES.filter(l=>l.id===activeLeague);
+  const items = [];
+  leagues.forEach(l=>l.fixtures.forEach((f,idx)=>{
+    if(activeDate!=='all' && isoDateOnlyEcuador(f[2], l.utcOffset)!==activeDate) return;
+    const pk = matchPicks(l,f); if(pk) items.push({l,f,idx,pk});
+  }));
+  items.sort((a,b)=>b.pk.best-a.pk.best);
+  document.getElementById('matchesLabel').textContent = 'Sugerencias';
+  document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
+  if(!items.length){
+    list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha${activeLeague==='all'?'':' en esta liga'}. Prueba otro día o pulsa ⟳ para actualizar.</div>`;
+    return;
+  }
+  const withPicks = items.filter(x=>x.pk.picks.length);
+  const top = withPicks.slice(0,5);
+  let html = '';
+  if(top.length){
+    html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
+      const k = x.pk.picks[0];
+      return `<div class="pick-row" onclick="openMatch('${x.l.id}', ${x.idx})">
+        <div class="pick-main"><b>${k.label}</b><small>${x.f[0]} vs ${x.f[1]} · ${fmtParts(x.f[2], x.l.utcOffset).time} · ${x.l.name}</small></div>
+        <div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>
+      </div>`;
+    }).join('') + `</div>`;
+  }
+  html += items.map(x=>{
+    const [hn, an, when] = x.f;
+    const body = x.pk.picks.length ? x.pk.picks.map(k=>`
+      <div class="pk-line">
+        <div class="t">${k.label}<small>${k.why}</small></div>
+        <div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div>
+        <div class="v">${k.prob}%</div>
+      </div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.pk.picks[0])}</div>`
+      : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado supera el 60% de probabilidad en este partido: no hay una opción clara.</div>`;
+    return `<div class="match-card" onclick="openMatch('${x.l.id}', ${x.idx})">
+      <div class="match-meta"><span><i class="lg-dot" style="background:${x.l.color}"></i>${x.l.name}</span><span>${fmtParts(when, x.l.utcOffset).date} · ${fmtParts(when, x.l.utcOffset).time} Ecuador</span></div>
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${hn} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${an}</div>
+      ${body}
+    </div>`;
+  }).join('');
+  html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app (últimos partidos de cada equipo). No usan cuotas de casas de apuestas, así que no indican si una apuesta tiene valor, y ninguna probabilidad garantiza el resultado. "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
+  list.innerHTML = html;
+}
+
 function renderChips(){
   const el = document.getElementById('leagueChips');
-  el.innerHTML = LEAGUES.map(l =>
+  const all = viewMode==='picks' ? `<button class="chip ${activeLeague==='all'?'active':''}" onclick="selectLeague('all')">Todas</button>` : '';
+  el.innerHTML = all + LEAGUES.map(l =>
     `<button class="chip ${l.id===activeLeague?'active':''}" onclick="selectLeague('${l.id}')">${l.name}</button>`
   ).join('');
 }
@@ -839,6 +963,8 @@ function selectDate(key){
 }
 
 function renderMatches(){
+  if(viewMode==='picks'){ renderPicks(); return; }
+  document.getElementById('matchesLabel').textContent = 'Partidos';
   const league = LEAGUES.find(l=>l.id===activeLeague);
   const list = document.getElementById('matchList');
 
@@ -1118,7 +1244,7 @@ const SRC = {
   turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
   netherlands:{fd:'DED', espn:'ned.1', csv:'N1',  primary:'fd'},
 };
-const APP_VERSION = 'v6 · datos desde GitHub + respaldo directo';
+const APP_VERSION = 'v7 · pestaña Sugerencias';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -1504,7 +1630,7 @@ function ago(t){
 function renderStatus(){
   const el = document.getElementById('dataStatus'), note = document.getElementById('homeNote');
   if(!el) return;
-  const cur = LEAGUES.find(l=>l.id===activeLeague);
+  const cur = LEAGUES.find(l=>l.id===activeLeague) || (LEAGUES.some(l=>l.live) ? LEAGUES.find(l=>l.live) : LEAGUES[0]);
   const anyLive = LEAGUES.some(l=>l.live);
   const last = LS.get('ab_last',0);
   if(updating){
