@@ -24,6 +24,12 @@ const LEAGUES = [
   {id:'portugal', name:'Primeira Liga', fd:'PPL', espn:'por.1', csv:'P1', primary:'fd'},
   {id:'turkey', name:'Süper Lig', espn:'tur.1', csv:'T1', primary:'espn'},
   {id:'netherlands', name:'Eredivisie', fd:'DED', espn:'ned.1', csv:'N1', primary:'fd'},
+  {id:'lib', name:'Copa Libertadores', espn:'conmebol.libertadores', primary:'espn'},
+  {id:'sud', name:'Copa Sudamericana', espn:'conmebol.sudamericana', primary:'espn'},
+  {id:'arg', name:'Liga Argentina', espn:'arg.1', primary:'espn'},
+  {id:'col', name:'Liga Colombia', espn:'col.1', primary:'espn'},
+  {id:'mex', name:'Liga MX', espn:'mex.1', primary:'espn'},
+  {id:'mls', name:'MLS', espn:'usa.1', primary:'espn'},
 ];
 const FINISHED = ['FT','AET','PEN'];
 const log = [];
@@ -32,7 +38,7 @@ let lastFd = 0, fdDead = !FD_KEY;
 
 function seasonYear(id){
   const now = new Date(), y = now.getUTCFullYear();
-  return (id==='bra' || id==='ecuador') ? y : (now.getUTCMonth()>=6 ? y : y-1);
+  return ['bra','ecuador','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
 }
 async function getJson(url, headers){
   const r = await fetch(url, {headers: headers || {}});

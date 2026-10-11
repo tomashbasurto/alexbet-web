@@ -257,6 +257,16 @@
   .data-status{ font-size:11.5px; color:var(--ink-dim); padding:2px 4px 8px; line-height:1.4; }
   .data-status b{ color:var(--over); font-weight:600; }
   .data-status .warn{ color:var(--accent); }
+  .lg-btn{ width:100%; display:flex; align-items:center; gap:10px; padding:11px 14px; margin:0 0 8px; border-radius:14px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:14.5px; font-weight:700; font-family:var(--font-body); cursor:pointer; text-align:left; }
+  .lg-btn .cur{ flex:1; }
+  .lg-btn small{ font-weight:500; color:var(--ink-dim); font-size:11.5px; }
+  .lg-group{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); margin:14px 0 4px; }
+  .lg-opt{ width:100%; display:flex; align-items:center; gap:10px; padding:12px 6px; border:none; border-top:1px solid var(--line); background:transparent; color:var(--ink); font-size:14.5px; font-family:var(--font-body); cursor:pointer; text-align:left; }
+  .lg-opt .n{ flex:1; }
+  .lg-opt small{ color:var(--ink-dim); font-size:12px; }
+  .lg-opt.active{ color:var(--accent); font-weight:700; }
+  #settings, #leaguePicker{ position:fixed; inset:0; z-index:50; display:none; background:rgba(0,0,0,.6); }
+  #leaguePicker.show{ display:block; }
   #settings{ position:fixed; inset:0; z-index:50; display:none; background:rgba(0,0,0,.6); }
   #settings.show{ display:block; }
   .sheet{ position:absolute; left:0; right:0; bottom:0; max-height:90vh; overflow:auto; max-width:640px; margin:0 auto;
@@ -341,7 +351,7 @@
       <button class="tab active" id="tabMatches" onclick="setView('matches')">Partidos</button>
       <button class="tab" id="tabPicks" onclick="setView('picks')">Sugerencias</button>
     </div>
-    <div class="leagues" id="leagueChips"></div>
+    <div id="leagueChips"></div>
     <div class="dates" id="dateChips"></div>
     <div class="data-status" id="dataStatus"></div>
     <div class="section-label"><span id="matchesLabel">Partidos</span><span id="matchCount"></span></div>
@@ -356,6 +366,9 @@
 
 </main>
 
+<div id="leaguePicker" onclick="if(event.target===this)closeLeaguePicker()">
+  <div class="sheet"><h2>Elegir liga</h2><div class="sub">Los números son los partidos de la fecha elegida.</div><div id="leagueList"></div></div>
+</div>
 <div id="settings" onclick="if(event.target===this)closeSettings()">
   <div class="sheet">
     <h2>Ajustes y actualización</h2>
@@ -690,6 +703,24 @@ const STATIC_LEAGUES = [
   {
     id:'uecl', name:'Conference League', color:'#2dd4bf', utcOffset:2, teams:{}, fixtures:[],
   },
+  {
+    id:'lib', name:'Copa Libertadores', color:'#f5c542', utcOffset:-5, teams:{}, fixtures:[],
+  },
+  {
+    id:'sud', name:'Copa Sudamericana', color:'#ef476f', utcOffset:-5, teams:{}, fixtures:[],
+  },
+  {
+    id:'arg', name:'Liga Argentina', color:'#4cc9f0', utcOffset:-3, teams:{}, fixtures:[],
+  },
+  {
+    id:'col', name:'Liga Colombia', color:'#fcd34d', utcOffset:-5, teams:{}, fixtures:[],
+  },
+  {
+    id:'mex', name:'Liga MX', color:'#34d399', utcOffset:-6, teams:{}, fixtures:[],
+  },
+  {
+    id:'mls', name:'MLS', color:'#a78bfa', utcOffset:-5, teams:{}, fixtures:[],
+  },
 ];
 let LEAGUES = STATIC_LEAGUES;
 
@@ -928,14 +959,43 @@ function renderPicks(){
   list.innerHTML = html;
 }
 
+const LG_GROUPS = [
+  ['Ecuador', ['ecuador']],
+  ['Sudamérica', ['lib','sud','bra','arg','col']],
+  ['Norteamérica', ['mex','mls']],
+  ['Copas de Europa', ['ucl','uel','uecl']],
+  ['Ligas de Europa', ['laliga','epl','seriea','bundes','ligue1','portugal','turkey','netherlands']],
+];
+function lgCount(l){
+  if(activeDate==='all') return l.fixtures.length;
+  return l.fixtures.filter(f=>isoDateOnlyEcuador(f[2], l.utcOffset)===activeDate).length;
+}
 function renderChips(){
   const el = document.getElementById('leagueChips');
-  const all = viewMode==='picks' ? `<button class="chip ${activeLeague==='all'?'active':''}" onclick="selectLeague('all')">Todas</button>` : '';
-  el.innerHTML = all + LEAGUES.map(l =>
-    `<button class="chip ${l.id===activeLeague?'active':''}" onclick="selectLeague('${l.id}')">${l.name}</button>`
-  ).join('');
+  const cur = LEAGUES.find(l=>l.id===activeLeague);
+  const name = activeLeague==='all' ? 'Todas las ligas' : (cur ? cur.name : '');
+  const dot = cur && activeLeague!=='all' ? `<i class="lg-dot" style="background:${cur.color}"></i>` : '';
+  el.innerHTML = `<button class="lg-btn" onclick="openLeaguePicker()">${dot}<span class="cur">${name}</span><small>Cambiar liga ▾</small></button>`;
 }
-
+function openLeaguePicker(){
+  const opt = (id,name,color,n) => `<button class="lg-opt ${id===activeLeague?'active':''}" onclick="pickLeague('${id}')">${color?`<i class="lg-dot" style="background:${color}"></i>`:'<i class="lg-dot" style="background:var(--ink-dim)"></i>'}<span class="n">${name}</span><small>${n}</small></button>`;
+  let h = '';
+  if(viewMode==='picks'){
+    h += opt('all','Todas las ligas','',LEAGUES.reduce((t,l)=>t+lgCount(l),0));
+  }
+  const used = new Set();
+  LG_GROUPS.forEach(([title, ids])=>{
+    const ls = ids.map(id=>LEAGUES.find(l=>l.id===id)).filter(Boolean);
+    ls.forEach(l=>used.add(l.id));
+    if(ls.length) h += `<div class="lg-group">${title}</div>` + ls.map(l=>opt(l.id,l.name,l.color,lgCount(l))).join('');
+  });
+  const rest = LEAGUES.filter(l=>!used.has(l.id));
+  if(rest.length) h += `<div class="lg-group">Otras</div>` + rest.map(l=>opt(l.id,l.name,l.color,lgCount(l))).join('');
+  document.getElementById('leagueList').innerHTML = h;
+  document.getElementById('leaguePicker').classList.add('show');
+}
+function closeLeaguePicker(){ document.getElementById('leaguePicker').classList.remove('show'); }
+function pickLeague(id){ closeLeaguePicker(); selectLeague(id); }
 function renderDateChips(){
   const el = document.getElementById('dateChips');
   let html = `<div class="datechip all ${activeDate==='all'?'active':''}" onclick="selectDate('all')">Todos</div>`;
@@ -1243,8 +1303,14 @@ const SRC = {
   portugal:   {fd:'PPL', espn:'por.1', csv:'P1',  primary:'fd'},
   turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
   netherlands:{fd:'DED', espn:'ned.1', csv:'N1',  primary:'fd'},
+  lib:        {             espn:'conmebol.libertadores', primary:'espn'},
+  sud:        {             espn:'conmebol.sudamericana', primary:'espn'},
+  arg:        {             espn:'arg.1', primary:'espn'},
+  col:        {             espn:'col.1', primary:'espn'},
+  mex:        {             espn:'mex.1', primary:'espn'},
+  mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v7 · pestaña Sugerencias';
+const APP_VERSION = 'v9 · selector de ligas';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -1254,7 +1320,7 @@ function seasonYear(id){
   const o = parseInt(LS.get('ab_season',''),10);
   if(o) return o;
   const now = new Date(), y = now.getFullYear();
-  return (id==='bra' || id==='ecuador') ? y : (now.getMonth()>=6 ? y : y-1);
+  return ['bra','ecuador','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
 }
 function friendlyErr(e){
   const m = String(e && e.message || e);
