@@ -286,6 +286,12 @@
   .lv-score .tn{ flex:1; font-size:14px; font-weight:700; line-height:1.2; }
   .lv-score .tn.r{ text-align:right; }
   .lv-score .sc{ font-family:var(--font-head); font-size:30px; font-weight:800; letter-spacing:.02em; white-space:nowrap; }
+  .pl-row{ display:flex; align-items:center; gap:9px; padding:7px 0; border-top:1px solid var(--line); }
+  .pl-img{ width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--line); flex:0 0 auto; display:inline-block; vertical-align:middle; }
+  .pl-main{ flex:1; min-width:0; } .pl-main b{ display:block; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .pl-main small{ white-space:nowrap; font-size:10px; color:var(--ink-dim); }
+  .pl-stats{ display:flex; gap:6px; font-size:10.5px; color:var(--ink-dim); text-align:center; } .pl-stats b{ display:block; font-size:13px; color:var(--ink); }
+  .pl-proj{ font-size:10px; color:var(--ink-dim); text-align:right; min-width:52px; white-space:nowrap; } .pl-proj b{ font-size:14px; color:var(--over); } .pl-proj small{ display:block; }
+  .pl-tbl td .pl-img{ display:none; } .pl-tbl td, .pl-tbl th{ padding:6px 3px; white-space:nowrap; font-size:12px; } .pl-nm{ display:inline-block; vertical-align:middle; white-space:nowrap; } .pl-nm small{ color:var(--ink-dim); margin-left:4px; font-size:10px; }
   .lv-stats{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:11.5px; color:var(--ink-dim); margin:8px 0 2px; }
   .lv-stats b{ color:var(--ink); font-weight:700; }
   .lv-h{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); margin:12px 0 2px; }
@@ -1451,6 +1457,150 @@ function updateLiveBadge(){
 }
 // ---- pantallas
 function usSeasonTag(g){ return g.stype===1 ? 'Pretemporada' : g.stype===3 ? 'Postemporada' : ''; }
+// ---------- Jugadores NBA / MLB (ESPN byathlete + box score) ----------
+const PL = {nba:{t:0,byTeam:{},season:'',err:'',loading:false}, mlb:{t:0,byTeam:{},season:'',err:'',loading:false}};
+const PL_BASE = 'https://site.web.api.espn.com/apis/common/v3/sports';
+function plUrl(sp, extra){
+  const b = `${PL_BASE}/${US[sp].path}/statistics/byathlete?region=us&lang=en&contentorigin=espn&isqualified=false&page=1&limit=300&seasontype=2${extra||''}`;
+  return sp==='nba' ? b+'&sort=offensive.avgPoints%3Adesc' : b+'&category=batting&sort=batting.atBats%3Adesc';
+}
+function plParse(sp, j){
+  const names = {}; (j.categories||[]).forEach(c=>{ names[c.name] = c.names||[]; });
+  const out = {}; let n = 0;
+  (j.athletes||[]).forEach(x=>{
+    const a = x.athlete||{}, S = {};
+    (x.categories||[]).forEach(c=>{ const nm = names[c.name]||[]; (c.values||[]).forEach((v,i)=>{ if(nm[i]!=null && S[nm[i]]==null) S[nm[i]] = v; }); });
+    const gp = S.gamesPlayed||0; if(!gp || !a.teamId) return;
+    const base = {id:String(a.id), name:a.displayName, pos:(a.position&&a.position.abbreviation)||'', head:(a.headshot&&a.headshot.href)||'', gp};
+    const p = sp==='nba'
+      ? {...base, mpg:S.avgMinutes||0, ppg:S.avgPoints||0, rpg:S.avgRebounds||0, apg:S.avgAssists||0, tpg:S.avgThreePointFieldGoalsMade||0}
+      : {...base, ab:S.atBats||0, avg:S.avg||0, hr:S.homeRuns||0, rbi:S.RBIs||0, ops:S.OPS||0, hits:S.hits||0, bb:S.walks||0, so:S.strikeouts||0};
+    (out[String(a.teamId)] = out[String(a.teamId)]||[]).push(p); n++;
+  });
+  Object.keys(out).forEach(k=>out[k].sort((x,y)=> sp==='nba' ? y.ppg-x.ppg : y.ab-x.ab));
+  return {byTeam:out, n, season:(j.requestedSeason&&(j.requestedSeason.displayName||j.requestedSeason.year))||'', year:(j.requestedSeason&&j.requestedSeason.year)||null};
+}
+function plLoad(sp){ const D = PL[sp]; if(D.loading) return D.p; D.p = plLoad2(sp); return D.p; }
+async function plLoad2(sp){
+  const D = PL[sp];
+  const cache = LS.get('ab_pl_'+sp, null);
+  if(!D.t && cache && cache.byTeam){ Object.assign(D, cache); }
+  if(D.t && Date.now()-D.t < 12*3600e3 && Object.keys(D.byTeam).length) return;
+  D.loading = true; D.err = '';
+  try{
+    let r = plParse(sp, await webGet(plUrl(sp)));
+    if(r.n < 60 && r.year) r = plParse(sp, await webGet(plUrl(sp, '&season='+(r.year-1))));
+    if(!r.n) throw new Error('ESPN no devolvió estadísticas de jugadores');
+    D.byTeam = r.byTeam; D.season = String(r.season); D.t = Date.now();
+    LS.set('ab_pl_'+sp, {byTeam:D.byTeam, season:D.season, t:D.t});
+  }catch(e){ D.err = e.message||String(e); }
+  D.loading = false;
+  if(sport===sp && !document.getElementById('detail').classList.contains('show')) renderMatches();
+}
+function plTeam(sp, side){ return PL[sp].byTeam[String(side.id)] || []; }
+function plShort(n){ const p = String(n).split(' '); return p.length>1 ? p[0][0]+'. '+p.slice(1).join(' ') : n; }
+// ---- proyecciones (estimaciones)
+function plNba(p, m, isHome){
+  const T = isHome ? m.H : m.A, exp = isHome ? m.eh : m.ea;
+  const f = Math.max(.88, Math.min(1.12, exp/(T.pf||exp)));
+  const proj = p.ppg*f, sd = Math.max(5, .3*proj), L = Math.floor(p.ppg)+0.5;
+  return {proj, L, pOver:1-normCdf((L-proj)/sd)};
+}
+function plMlb(p){
+  const wA = p.ab/(p.ab+50), avg = wA*p.avg + (1-wA)*0.245;
+  const rate = (p.hr + 1.2)/(p.gp + 40);
+  return {pHit:1-Math.pow(1-avg,4), pHR:1-Math.exp(-rate), avg};
+}
+function plHead(p){
+  return p.head ? `<img class="pl-img" src="${p.head}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">` : '<span class="pl-img"></span>';
+}
+function plStarsLine(sp, g){
+  const one = side => { const L = plTeam(sp, side); if(!L.length) return ''; const p = L[0];
+    return sp==='nba' ? `${plShort(p.name)} ${p.ppg.toFixed(1)} pts` : (()=>{ const b = L.filter(x=>x.ab>=100).sort((x,y)=>y.ops-x.ops)[0] || L[0]; return `${plShort(b.name)} ${b.avg.toFixed(3).replace(/^0/,'')} · ${b.hr} HR`; })(); };
+  const a = one(g.h), b = one(g.a);
+  return (a||b) ? `<div class="lv-stats" style="justify-content:center;margin-top:2px;"><span>${IC('target',12)} ${[a,b].filter(Boolean).join(' · ')}</span></div>` : '';
+}
+function plPickLines(sp, g, m){
+  const out = [];
+  [[g.h,true],[g.a,false]].forEach(([side,isHome])=>{
+    const L = plTeam(sp, side); if(!L.length) return;
+    if(sp==='nba'){
+      const p = L[0], r = plNba(p, m, isHome);
+      out.push({label:`${p.name} · más de ${r.L} pts`, prob:Math.round(r.pOver*100), why:`Promedio ${p.ppg.toFixed(1)} · proyección ${r.proj.toFixed(1)} (${PL.nba.season||'temporada'})`});
+    } else {
+      const c = L.filter(x=>x.ab>=100).map(p=>({p,r:plMlb(p)})).sort((x,y)=>y.r.pHit-x.r.pHit)[0]; if(!c) return;
+      out.push({label:`${c.p.name} · conecta hit`, prob:Math.round(c.r.pHit*100), why:`Promedio de bateo ${c.p.avg.toFixed(3).replace(/^0/,'')} · ${c.p.hr} HR (est.)`});
+    }
+  });
+  return out;
+}
+function plPickHTML(lines, est){
+  if(!lines.length) return '';
+  return `<div class="lv-h" style="margin-top:8px;">Jugadores a seguir</div>` + lines.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div></div>`).join('') + `<div class="lv-stats" style="margin-top:2px;">Proyección del modelo con estadísticas reales de ESPN${est?'':''}; no considera lesiones ni minutos reales.</div>`;
+}
+function plSection(sp, g, m){
+  const D = PL[sp];
+  if(D.loading && !Object.keys(D.byTeam).length) return `<div class="prob-card"><h3><span class="dot"></span>Jugadores a seguir</h3><div class="pl-none">Cargando jugadores…</div></div>`;
+  if(!Object.keys(D.byTeam).length) return `<div class="prob-card"><h3><span class="dot"></span>Jugadores a seguir</h3><div class="pl-none">No pude cargar las estadísticas de jugadores${D.err?' ('+D.err+')':''}. <a href="#" onclick="plLoad('${sp}').then(()=>usOpen('${sp}','${g.id}',true));return false;" style="color:var(--accent);">Reintentar</a></div></div>`;
+  const side = (s, isHome) => {
+    const L = plTeam(sp, s).slice(0, sp==='nba' ? 6 : 7); if(!L.length) return `<div class="lv-h">${s.name}</div><div class="pl-none" style="padding:6px 0;">Sin estadísticas de jugadores para este equipo.</div>`;
+    const rows = L.map(p=>{
+      if(sp==='nba'){ const r = plNba(p, m, isHome);
+        return `<div class="pl-row">${plHead(p)}<div class="pl-main"><b>${plShort(p.name)}</b><small>${p.pos} · ${p.mpg.toFixed(0)} min · ${p.gp} PJ</small></div>
+          <div class="pl-stats"><span><b>${p.ppg.toFixed(1)}</b> pts</span><span><b>${p.rpg.toFixed(1)}</b> reb</span><span><b>${p.apg.toFixed(1)}</b> ast</span></div>
+          <div class="pl-proj">Proy. <b>${r.proj.toFixed(1)}</b><small>+${r.L}: ${Math.round(r.pOver*100)}%</small></div></div>`; }
+      const r = plMlb(p);
+      return `<div class="pl-row">${plHead(p)}<div class="pl-main"><b>${plShort(p.name)}</b><small>${p.pos} · ${p.gp} J · ${p.ab} AB</small></div>
+        <div class="pl-stats"><span><b>${p.avg.toFixed(3).replace(/^0/,'')}</b> avg</span><span><b>${p.hr}</b> HR</span><span><b>${p.rbi}</b> RBI</span></div>
+        <div class="pl-proj">Hit <b>${Math.round(r.pHit*100)}%</b><small>HR ${Math.round(r.pHR*100)}%</small></div></div>`;
+    }).join('');
+    return `<div class="lv-h">${s.name}</div>${rows}`;
+  };
+  return `<div class="prob-card"><h3><span class="dot"></span>Jugadores a seguir</h3>${side(g.h,true)}${side(g.a,false)}
+    <div class="lv-stats" style="margin-top:8px;">Estadísticas reales de ESPN${D.season?' · temporada '+D.season:''}. ${sp==='nba'?'La proyección ajusta los puntos del promedio según los puntos que el modelo espera de su equipo; es una estimación.':'Probabilidades estimadas con su promedio de bateo y jonrones (4 turnos al bate aprox.); no consideran el lanzador rival.'}</div></div>`;
+}
+// ---- caja de jugadores en vivo
+function plParseBox(j, homeId){
+  const out = {h:[], a:[]};
+  ((j.boxscore && j.boxscore.players) || []).forEach((t,i)=>{
+    const side = t.team ? (String(t.team.id)===String(homeId) ? 'h' : 'a') : (i===0 ? 'a' : 'h');
+    (t.statistics||[]).forEach(gr=>{
+      const labels = gr.labels || gr.keys || gr.names || [], grp = String(gr.type||gr.name||'');
+      (gr.athletes||[]).forEach(a=>{
+        if(a.didNotPlay || !a.athlete) return;
+        const S = {}; (a.stats||[]).forEach((v,k)=>{ if(labels[k]!=null) S[labels[k]] = v; });
+        out[side].push({name:a.athlete.displayName||a.athlete.shortName, pos:(a.athlete.position&&a.athlete.position.abbreviation)||'', head:(a.athlete.headshot&&a.athlete.headshot.href)||'', starter:!!a.starter, grp, S});
+      });
+    });
+  });
+  return out;
+}
+function plLiveTables(m, D){
+  const P = D && D.players; if(!P || (!P.h.length && !P.a.length)) return `<div class="empty-state">ESPN todavía no publica las estadísticas de jugadores de este partido.</div>`;
+  const num = v => { const f = parseFloat(v); return isNaN(f) ? 0 : f; };
+  const sp = ld.sp, lm = usLiveModel(m), elapsed = sp==='nba' ? Math.max(0, 48-lm.rem) : 0;
+  const table = (name, rows, cols, sortKey, extra) => {
+    if(!rows.length) return '';
+    rows = rows.slice().sort((x,y)=>num(y.S[sortKey])-num(x.S[sortKey])).slice(0, 9);
+    const head = cols.map(c=>`<th>${c}</th>`).join('') + (extra?`<th>${extra.h}</th>`:'');
+    const body = rows.map(r=>`<tr><td>${plHead(r)}<span class="pl-nm">${plShort(r.name)}<small>${r.pos}</small></span></td>${cols.map(c=>`<td>${r.S[c]!=null?r.S[c]:'-'}</td>`).join('')}${extra?`<td>${extra.f(r)}</td>`:''}</tr>`).join('');
+    return `<div class="lv-h">${name}</div><div style="overflow-x:auto"><table class="ld-tbl pl-tbl"><tr><th></th>${head}</tr>${body}</table></div>`;
+  };
+  let html = '';
+  [['h',m.h.name||m.h],['a',m.a.name||m.a]].forEach(([k,nm])=>{
+    const rows = P[k];
+    if(sp==='nba'){
+      const have = ['MIN','PTS','REB','AST','STL','BLK'].filter(c=>rows.some(r=>r.S[c]!=null));
+      html += table(nm, rows, have, 'PTS', elapsed>=6 && lm.rem>0 && ld.m.period<=4 ? {h:'Ritmo', f:r=>{ const mn = parseFloat(r.S.MIN)||0; return (num(r.S.PTS)*48/elapsed).toFixed(0); }} : null);
+    } else {
+      const bat = rows.filter(r=>/bat/i.test(r.grp)), pit = rows.filter(r=>/pitch/i.test(r.grp));
+      html += table(nm+' · bateo', bat, ['AB','R','H','RBI','HR','BB','K'].filter(c=>bat.some(r=>r.S[c]!=null)), 'H');
+      html += table(nm+' · lanzadores', pit, ['IP','H','R','ER','BB','K','HR'].filter(c=>pit.some(r=>r.S[c]!=null)), 'IP');
+    }
+  });
+  return `<div class="prob-card">${html}<div class="lv-stats" style="margin-top:8px;">Estadísticas reales de ESPN en este partido${sp==='nba'?'. "Ritmo" = puntos finales si mantiene el ritmo actual (no considera descansos ni sustituciones)':''}.</div></div>`;
+}
+
 function usTeamRow(g, mid){
   return `<div class="teams-row">
     <div class="team">${badgeHTML(g.h.name,false,g.h.abbr)}<div class="team-name">${g.h.name}</div></div>
@@ -1476,6 +1626,7 @@ function usRenderMatches(){
   const sp = sport, list = document.getElementById('matchList');
   document.getElementById('matchesLabel').textContent = 'Partidos';
   if(!usData[sp].games.length && !usData[sp].loading && !usData[sp].err) usLoad(sp);
+  plLoad(sp);
   const games = usGamesForDay(sp);
   document.getElementById('matchCount').textContent = games.length + (games.length===1?' partido':' partidos');
   if(!games.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'en esta fecha'); return; }
@@ -1494,6 +1645,7 @@ function usRenderMatches(){
       <div class="mini1x2"><span style="width:${pH}%; background:var(--over);"></span><span style="width:${pA}%; background:var(--accent);"></span></div>
       <div class="mini1x2-labels"><span>${g.h.name} ${pH}%</span><span>${g.a.name} ${pA}%</span></div>
       <div class="lv-stats" style="justify-content:center;margin-top:8px;"><span>${proj}${m.est?' (est.)':''}</span></div>
+      ${plStarsLine(sp,g)}
     </div>`;
   }).join('') + `<div class="foot-note">Probabilidades del modelo con los promedios reales de cada equipo en la temporada (ESPN). No usan cuotas ni consideran lesiones${sp==='mlb'?' ni lanzadores abridores':''}. "(est.)" = pocos partidos jugados o pretemporada. No garantizan el resultado.</div>`;
 }
@@ -1501,6 +1653,7 @@ function usRenderPicks(){
   const sp = sport, list = document.getElementById('matchList');
   document.getElementById('matchesLabel').textContent = 'Sugerencias';
   if(!usData[sp].games.length && !usData[sp].loading && !usData[sp].err) usLoad(sp);
+  plLoad(sp);
   const items = usGamesForDay(sp).filter(g=>g.state==='pre' && !g.postponed).map(g=>{ const m = usPre(g); const picks = usPicks(g,m); return {g,m,picks,best:picks.length?picks[0].score:0}; });
   items.sort((a,b)=>b.best-a.best);
   document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
@@ -1516,7 +1669,7 @@ function usRenderPicks(){
     const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div></div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
       : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado supera el 60% en este partido: no hay una opción clara.</div>`;
     return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador</span></div>
-      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${body}</div>`;
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
   html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo). No usan cuotas de casas de apuestas, no consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado. "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
@@ -1527,6 +1680,7 @@ function usRenderLive(){
   document.getElementById('matchCount').textContent = L.t ? (L.list.length + (L.list.length===1?' partido':' partidos')) : '';
   if(!L.t){ list.innerHTML = `<div class="empty-state">Buscando partidos en vivo…</div>`; return; }
   if(L.err){ list.innerHTML = `<div class="empty-state">No pude conectar con ESPN (${L.err}).<br><br><button class="btn primary" onclick="usLiveFetch()">Reintentar</button></div>`; return; }
+  plLoad(sp);
   const ago = Math.max(0, Math.round((Date.now()-L.t)/1000));
   let html = `<div class="data-status" style="display:block"><b>● En vivo</b> · ESPN · ${US[sp].name} · se actualiza cada minuto · hace ${ago<60?ago+' s':Math.round(ago/60)+' min'} <a href="#" onclick="usLiveFetch();return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
   if(!L.list.length){ list.innerHTML = html + `<div class="empty-state">No hay partidos de ${US[sp].name} en vivo ahora mismo. Cuando empiece alguno aparecerá aquí con su pronóstico.</div>`; return; }
@@ -1539,13 +1693,14 @@ function usRenderLive(){
       <div class="lv-h">Quién gana (modelo)</div>${bar(g.h.name,m.pH)}${bar(g.a.name,m.pA)}
       <div class="lv-h">Mejores opciones ahora</div>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('') : `<div class="pl-none" style="padding:6px 0;">Ningún mercado supera el 60% con la información actual: no hay una opción clara.</div>`}
       <div class="lv-stats"><span>Proyección final: <b>${m.projH.toFixed(sp==='nba'?0:1)} - ${m.projA.toFixed(sp==='nba'?0:1)}</b> (total ${m.projT.toFixed(sp==='nba'?0:1)})</span>${m.extra?'<span>Entradas extra: cálculo aproximado</span>':''}</div>
+      ${plStarsLine(sp,g)}
       ${m.est?`<div class="foot-note" style="margin:8px 0 0;">(est.) Pocos partidos jugados o pretemporada: el pronóstico usa promedios parciales.</div>`:''}
     </div>`;
   }).join('');
   html += `<div class="foot-note">Pronóstico en vivo: el modelo reparte el promedio de cada equipo en el tiempo que falta y lo suma al marcador. No considera el ritmo real, lesiones, faltas${sp==='mlb'?', lanzadores en el montículo':''} ni cuotas, y ninguna probabilidad garantiza el resultado. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
-function usOpen(sp, id){
+function usOpen(sp, id, keep){
   const g = usData[sp].games.find(x=>x.id===id); if(!g) return;
   const m = usPre(g), f = fmtParts(g.d,0), tag = usSeasonTag(g);
   const ringC = p => p>=60 ? 'var(--over)' : 'var(--accent)';
@@ -1586,13 +1741,15 @@ function usOpen(sp, id){
       <div class="bar1x2-labels"><div><div class="v">${pH}%</div><div class="l">${g.h.name}</div></div><div><div class="v">${pA}%</div><div class="l">${g.a.name}</div></div></div>
       <div class="lv-stats" style="justify-content:center;">Proyección: <b>${m.eh.toFixed(sp==='nba'?0:1)} - ${m.ea.toFixed(sp==='nba'?0:1)}</b>${m.est?' (est.)':''}</div></div>
     ${markets}
+    ${plSection(sp,g,m)}
     <div class="prob-card"><h3><span class="dot"></span>Forma de los equipos</h3>${teamInfo(g.h, m.H)}${teamInfo(g.a, m.A)}</div>
     <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo basado en los promedios reales de la temporada de cada equipo (ESPN)${sp==='nba'?', con ventaja de local de 2.5 puntos (supuesto)':', con ligera ventaja de local (supuesto)'}. No considera lesiones${sp==='mlb'?' ni lanzadores':''}${g.stype===1?'. Pretemporada: los titulares suelen jugar poco, así que el pronóstico es menos fiable':''}. Es una estimación estadística, no garantiza el resultado.</div>`;
   document.getElementById('detailContent').innerHTML = html;
   document.getElementById('home').classList.add('hide');
   document.getElementById('detail').classList.add('show');
-  window.scrollTo(0,0);
+  if(!keep){ window.scrollTo(0,0); usOpenCur = {sp,id}; if(!PL[sp].t && !PL[sp].err) plLoad(sp).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); }
 }
+let usOpenCur = null;
 function updateChrome(){
   const live = viewMode==='live', fut = sport==='futbol';
   const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
@@ -1614,7 +1771,7 @@ let ld = {kind:'', sp:'', id:'', tab:'general', m:null, data:null, loading:false
 function ldStop(){ if(ld.timer){ clearInterval(ld.timer); ld.timer = null; } }
 function ldNum(v){ const f = parseFloat(String(v).replace('%','')); return isNaN(f) ? null : f; }
 function ldParse(j){
-  const out = {score:null, ls:[[],[]], label:'', stats:{h:{},a:{}}, labels:{}, events:[], homeId:null};
+  const out = {score:null, ls:[[],[]], label:'', stats:{h:{},a:{}}, labels:{}, events:[], homeId:null, players:null};
   const comp = j && j.header && j.header.competitions && j.header.competitions[0];
   const cs = (comp && comp.competitors) || [];
   const H = cs.find(c=>c.homeAway==='home'), A = cs.find(c=>c.homeAway==='away');
@@ -1631,6 +1788,7 @@ function ldParse(j){
     (t.statistics||[]).forEach(s=>{ out.stats[side][s.name] = s.displayValue!=null ? s.displayValue : s.value; if(s.label||s.displayName) out.labels[s.name] = s.label||s.displayName; });
     if(!out.homeId && side==='h' && t.team) out.homeId = String(t.team.id);
   });
+  try{ out.players = plParseBox(j, out.homeId); }catch(e){}
   (j.keyEvents||[]).forEach(e=>{
     const txt = (e.type && e.type.text) || '', dv = e.clock && e.clock.displayValue;
     const mm = String(dv||'').match(/(\d+)(?:'|\s)?(?:\s*\+\s*(\d+))?/); if(!mm) return;
@@ -1717,7 +1875,7 @@ function ldRender(){
     </div>
     <div class="ld-pill"><span class="ld-dot"></span>Partido en vivo · ${lg}</div>
   </div>
-  <div class="ld-tabs"><button class="${ld.tab==='general'?'on':''}" onclick="ldTab('general')">General</button><button class="${ld.tab==='model'?'on':''}" onclick="ldTab('model')">Pronóstico</button></div>`;
+  <div class="ld-tabs"><button class="${ld.tab==='general'?'on':''}" onclick="ldTab('general')">General</button><button class="${ld.tab==='model'?'on':''}" onclick="ldTab('model')">Pronóstico</button>${f?'':`<button class="${ld.tab==='players'?'on':''}" onclick="ldTab('players')">Jugadores</button>`}</div>`;
   if(ld.tab==='general'){
     if(ld.loading && !D) html += `<div class="empty-state">Cargando datos del partido…</div>`;
     else if(ld.err && !D) html += `<div class="empty-state">No pude cargar el detalle (${ld.err}).<br><br><button class="btn primary" onclick="ld.loading=true;ldRender();ldFetch()">Reintentar</button></div>`;
@@ -1747,6 +1905,8 @@ function ldRender(){
         if(names.length) html += `<div class="prob-card"><h3><span class="dot"></span>Estadísticas</h3>${names.map(k=>ldBar(D.labels[k], S.h[k], S.a[k])).join('')}</div>`;
       }
     }
+  } else if(ld.tab==='players' && !f){
+    html += D ? plLiveTables(m, D) : `<div class="empty-state">Cargando jugadores…</div>`;
   } else {
     html += ldModelHTML(m, D);
   }
@@ -2126,7 +2286,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v14 · temas Neón y Carbono + iconos';
+const APP_VERSION = 'v15 · estadísticas de jugadores NBA y MLB';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
