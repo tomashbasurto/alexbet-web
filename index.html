@@ -142,6 +142,10 @@
     color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.45);
     box-shadow:inset 0 0 0 2px rgba(255,255,255,.28), 0 2px 6px rgba(0,0,0,.35);
   }
+  .badge.logo, .badge-lg.logo{ background:rgba(255,255,255,.94) !important; border-radius:50%; padding:0; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  .badge.logo{ width:36px; height:36px; } .badge-lg.logo{ width:62px; height:62px; }
+  .badge.logo img, .badge-lg.logo img{ width:78%; height:78%; object-fit:contain; display:block; }
+  .lg-img{ width:22px; height:22px; object-fit:contain; background:rgba(255,255,255,.94); border-radius:50%; padding:2px; vertical-align:middle; margin-right:6px; }
   .team-name{ font-size:13.5px; font-weight:600; line-height:1.2; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-word; }
   .vs{ font-family:var(--font-head); font-size:12px; color:var(--ink-dim); padding:0 4px; }
   .mini1x2{ display:flex; height:8px; border-radius:99px; overflow:hidden; margin-top:12px; }
@@ -231,6 +235,9 @@
   .line-pct{ font-family:var(--font-head); font-size:14px; font-weight:700; width:42px; text-align:right; flex:0 0 auto; }
 
 
+  .sports{ display:flex; gap:8px; margin:2px 0 8px; }
+  .sp{ flex:1; padding:8px 6px; border-radius:99px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font-size:13px; font-weight:700; font-family:var(--font-body); cursor:pointer; }
+  .sp.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
   .tabs{ display:flex; gap:4px; padding:4px; margin:2px 0 10px; background:var(--surface); border:1px solid var(--line); border-radius:14px; }
   .tab{ flex:1; padding:9px 6px; border:none; border-radius:10px; background:transparent; color:var(--ink-dim); font-size:13.5px; font-weight:600; font-family:var(--font-body); cursor:pointer; }
   .tab.active{ background:var(--accent); color:var(--on-accent); }
@@ -359,6 +366,11 @@
 <main>
 
   <div id="home">
+    <div class="sports" id="sports">
+      <button class="sp active" id="sp_futbol" onclick="setSport('futbol')">⚽ Fútbol</button>
+      <button class="sp" id="sp_nba" onclick="setSport('nba')">🏀 NBA</button>
+      <button class="sp" id="sp_mlb" onclick="setSport('mlb')">⚾ MLB</button>
+    </div>
     <div class="tabs" id="tabs">
       <button class="tab active" id="tabMatches" onclick="setView('matches')">Partidos</button>
       <button class="tab" id="tabPicks" onclick="setView('picks')">Sugerencias</button>
@@ -878,8 +890,8 @@ function setView(v){
   document.getElementById('tabMatches').classList.toggle('active', v==='matches');
   document.getElementById('tabPicks').classList.toggle('active', v==='picks');
   document.getElementById('tabLive').classList.toggle('active', v==='live');
-  ['leagueChips','dateChips','dataStatus'].forEach(id=>{ const e=document.getElementById(id); if(e) e.style.display = v==='live' ? 'none' : ''; });
-  if(v==='live'){ renderLive(); liveStart(); } else liveStop();
+  updateChrome(); updateLiveBadge();
+  if(v==='live'){ renderLive(); if(sport==='futbol') liveStart(); else usLiveStart(); } else liveStop();
   if(v==='picks' && activeDate==='all') activeDate = ymd(todayDate);
   if(v==='matches' && activeLeague==='all') activeLeague = LEAGUES[0].id;
   if(v==='live') return;
@@ -921,13 +933,14 @@ function matchPicks(league, f){
   const best = {};
   c.forEach(x=>{ x.score = x.prob - (x.est ? 8 : 0); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
   const picks = Object.values(best).filter(x=>x.prob>=60).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
-    ...x, conf: (x.prob>=75 && !x.est) ? 'alta' : ((x.prob>=65 && !x.est) ? 'media' : 'est')
+    ...x, conf: x.est ? 'est' : (x.prob>=75 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))
   }));
   return {picks, best: picks.length ? picks[0].score : 0, p};
 }
 function confBadge(x){
   return x.conf==='alta' ? '<span class="badge-c alta">Confianza alta</span>'
        : x.conf==='media' ? '<span class="badge-c media">Confianza media</span>'
+       : x.conf==='baja' ? '<span class="badge-c est">Confianza baja</span>'
        : '<span class="badge-c est">Dato estimado</span>';
 }
 function renderPicks(){
@@ -1038,7 +1051,7 @@ function livePicks(m, p, est){
   const key = x => /goles/.test(x.label)?'g':/Ambos/.test(x.label)?'b':/Próximo/.test(x.label)?'n':'r';
   const best={}; c.forEach(x=>{ const k=key(x); if(!best[k]||x.prob>best[k].prob) best[k]=x; });
   return Object.values(best).filter(x=>x.prob>=60).sort((a,b)=>b.prob-a.prob).slice(0,3)
-    .map(x=>({...x, conf: est ? 'est' : (x.prob>=80 ? 'alta' : (x.prob>=65 ? 'media' : 'est'))}));
+    .map(x=>({...x, conf: est ? 'est' : (x.prob>=80 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))}));
 }
 async function liveFetch(){
   if(liveBusy) return; liveBusy = true;
@@ -1072,14 +1085,13 @@ async function liveFetch(){
   list.sort((a,b)=>b.min-a.min);
   liveData = {t:Date.now(), list, fail, total, err: (total && fail===total) ? lastErr : ''};
   liveBusy = false;
-  const n = list.length, tb = document.getElementById('tabLive');
-  document.getElementById('liveCount').textContent = n ? ' ('+n+')' : '';
-  tb.classList.toggle('has-live', n>0);
-  if(viewMode==='live') renderLive();
+  updateLiveBadge();
+  if(viewMode==='live' && sport==='futbol') renderLive();
 }
 function liveStart(){ liveStop(); liveFetch(); liveTimer = setInterval(liveFetch, 60000); }
-function liveStop(){ if(liveTimer){ clearInterval(liveTimer); liveTimer = null; } }
+function liveStop(){ if(liveTimer){ clearInterval(liveTimer); liveTimer = null; } if(usLiveTimer){ clearInterval(usLiveTimer); usLiveTimer = null; } }
 function renderLive(){
+  if(sport!=='futbol'){ usRenderLive(); return; }
   const list = document.getElementById('matchList');
   document.getElementById('matchesLabel').textContent = 'En vivo';
   const L = liveData.list;
@@ -1119,7 +1131,7 @@ function renderLive(){
     }
     return `<div class="match-card" style="cursor:default">
       <div class="match-meta"><span><i class="lg-dot" style="background:${m.color}"></i>${m.lname}</span><span class="lv-min"><i></i>${m.label}</span></div>
-      <div class="lv-score"><div class="tn r">${m.h}</div><div class="sc">${m.gh} - ${m.ga}</div><div class="tn">${m.a}</div></div>
+      <div class="lv-score"><div class="tn r">${m.h} ${logoImg(m.h)}</div><div class="sc">${m.gh} - ${m.ga}</div><div class="tn">${logoImg(m.a)}${m.a}</div></div>
       ${stats.length?`<div class="lv-stats">${stats.join('<span style="opacity:.4">·</span>')}</div>`:''}
       ${body}
       ${est?`<div class="foot-note" style="margin:8px 0 0;">(est.) Faltan datos reales de alguno de los equipos: el pronóstico usa promedios estimados.</div>`:''}
@@ -1127,6 +1139,401 @@ function renderLive(){
   }).join('');
   html += `<div class="foot-note">Pronóstico en vivo: el modelo toma los promedios de goles de cada equipo, los reparte por los minutos que faltan y los suma al marcador actual. No considera el ritmo real del partido, las sustituciones ni las cuotas, y ninguna probabilidad garantiza el resultado. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
+}
+
+
+// ---------- Logos de equipos (ESPN) ----------
+let LOGOS_C = null;
+function LG(){ if(!LOGOS_C){ const v = LS.get('ab_logos', null); LOGOS_C = (v && v.map) ? v : {map:{}, t:0}; } return LOGOS_C; }
+const LOGO_MEMO = {};
+function logoFor(name){
+  const m = LG().map, k = normName(name);
+  if(m[k]) return m[k];
+  const mk = k+'|'+Object.keys(m).length;
+  if(mk in LOGO_MEMO) return LOGO_MEMO[mk];
+  let hit = null;
+  for(const key of Object.keys(m)){ if(key.length>=4 && k.length>=4 && (key.includes(k) || k.includes(key))){ hit = m[key]; break; } }
+  return LOGO_MEMO[mk] = hit;
+}
+function badgeHTML(name, big, label){
+  const cls = big ? 'badge-lg' : 'badge', ini = (label||initials(name)).replace(/[<>&"]/g,'');
+  const u = logoFor(name);
+  if(!u) return `<div class="${cls}" style="background:${hashColor(name)}">${ini}</div>`;
+  return `<div class="${cls} logo"><img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="var b=this.parentNode;b.classList.remove('logo');b.style.background='${hashColor(name)}';b.textContent='${ini}'"></div>`;
+}
+function logoImg(name){
+  const u = logoFor(name);
+  return u ? `<img class="lg-img" src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
+}
+function noteLogo(name, url){ if(name && url){ const k = normName(name); if(k) LG().map[k] = url; } }
+let logosBusy = false;
+async function logosLoad(force){
+  if(logosBusy) return;
+  if(!force && Object.keys(LG().map).length > 100 && Date.now()-LG().t < 7*864e5) return;
+  logosBusy = true;
+  const urls = [...new Set(Object.values(SRC).map(c=>c.espn).filter(Boolean))].map(sl=>`${ESPN_BASE}/${sl}/teams`);
+  urls.push(`${US_API}/site/v2/sports/basketball/nba/teams`, `${US_API}/site/v2/sports/baseball/mlb/teams`);
+  let got = 0;
+  await Promise.all(urls.map(async u=>{
+    try{
+      const j = await webGet(u);
+      const ts = (((j.sports||[])[0]||{}).leagues||[])[0];
+      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href) || t.logo; if(lg){ noteLogo(t.displayName, lg); noteLogo(t.shortDisplayName, lg); got++; } });
+    }catch(e){}
+  }));
+  logosBusy = false;
+  if(got){ LG().t = Date.now(); LS.set('ab_logos', LG()); try{ if(document.getElementById('detail').classList.contains('show')===false) renderMatches(); }catch(e){} }
+}
+
+// ---------- NBA y MLB (ESPN) ----------
+let sport = 'futbol';
+const US = {
+  nba:{name:'NBA', path:'basketball/nba', color:'#f97316', avg:{pf:114, pa:114}, k:8,  unit:'puntos'},
+  mlb:{name:'MLB', path:'baseball/mlb',   color:'#60a5fa', avg:{pf:4.5, pa:4.5},  k:20, unit:'carreras'},
+};
+const NBA_HFA = 2.5, NBA_SD_M = 12.5, NBA_SD_T = 18;
+const usData = {nba:{games:[],teams:{},t:0,err:'',loading:false}, mlb:{games:[],teams:{},t:0,err:'',loading:false}};
+const usLive = {nba:{t:0,list:[],err:''}, mlb:{t:0,list:[],err:''}};
+let usLiveTimer = null, usLiveBusy = false;
+const US_API = 'https://site.api.espn.com/apis';
+
+function normCdf(x){
+  const t = 1/(1+0.2316419*Math.abs(x)), d = 0.3989423*Math.exp(-x*x/2);
+  const p = d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0 ? 1-p : p;
+}
+const roundHalf = x => Math.floor(x)+0.5;
+const pc = x => Math.round(Math.max(0,Math.min(1,x))*100);
+
+function usParseStandings(sp, j){
+  const out = {};
+  const walk = node => {
+    if(!node) return;
+    if(node.standings && node.standings.entries) node.standings.entries.forEach(e=>{
+      const S = {}; (e.stats||[]).forEach(s=>{ S[s.name] = s; });
+      const val = n => (S[n] && typeof S[n].value==='number') ? S[n].value : null;
+      const rec = re => { const s=(e.stats||[]).find(x=>x.summary && re.test((x.name||'')+' '+(x.displayName||'')+' '+(x.shortDisplayName||''))); return s ? s.summary : null; };
+      const w = val('wins')||0, l = val('losses')||0, gp = val('gamesPlayed')!=null ? val('gamesPlayed') : (w+l);
+      let pf = val('avgPointsFor'), pa = val('avgPointsAgainst');
+      if(pf==null && val('pointsFor')!=null && gp) pf = val('pointsFor')/gp;
+      if(pa==null && val('pointsAgainst')!=null && gp) pa = val('pointsAgainst')/gp;
+      const t = {id:String(e.team.id), name:e.team.displayName, abbr:e.team.abbreviation, w, l, gp,
+        pf, pa, streak:(S.streak&&S.streak.displayValue)||null, home:rec(/\bhome\b/i), road:rec(/\broad\b|\baway\b/i), l10:rec(/last ?ten|l10/i)};
+      out[t.id] = t; out['n:'+normName(t.name)] = t;
+    });
+    (node.children||[]).forEach(walk);
+  };
+  walk(j);
+  return out;
+}
+function usParseBoard(sp, j, into){
+  for(const ev of (j.events||[])){
+    const c = ev.competitions && ev.competitions[0]; if(!c || !c.competitors) continue;
+    const h = c.competitors.find(x=>x.homeAway==='home'), a = c.competitors.find(x=>x.homeAway==='away'); if(!h||!a) continue;
+    const st = (c.status && c.status.type) || (ev.status && ev.status.type) || {};
+    const stat = c.status || ev.status || {};
+    const side = x => {
+      const ov = (x.records||[]).find(r=>/total|overall/i.test((r.type||'')+(r.name||'')));
+      const pr = x.probables && x.probables[0];
+      noteLogo(x.team.displayName||x.team.name, x.team.logo);
+      return {id:String(x.team.id), name:x.team.displayName||x.team.name, abbr:x.team.abbreviation,
+        score:parseInt(x.score,10), rec:(ov&&ov.summary)||(typeof x.record==='string'?x.record:null),
+        sp: pr && pr.athlete ? {name:pr.athlete.fullName||pr.athlete.displayName, rec:pr.record||''} : null};
+    };
+    into[ev.id] = {id:String(ev.id), sp, d:String(ev.date).slice(0,16), h:side(h), a:side(a),
+      state: st.completed ? 'post' : (st.state==='in' ? 'in' : 'pre'),
+      postponed: /postpon|cancel|suspend/i.test((st.name||'')+(st.description||'')),
+      statusName: st.name||'', detail: st.detail||st.shortDetail||'', period: stat.period||0, clock: String(stat.displayClock||''),
+      stype: (ev.season && ev.season.type) || 2};
+  }
+}
+async function usLoad(sp, force){
+  const D = usData[sp]; if(D.loading) return;
+  if(!force && D.games.length && Date.now()-D.t < 600000) return;
+  D.loading = true; D.err = '';
+  const path = US[sp].path, days = [];
+  for(let i=-1;i<=7;i++){ const x = new Date(todayDate); x.setDate(x.getDate()+i); days.push(ymd(x).replace(/-/g,'')); }
+  const res = await Promise.allSettled([webGet(`${US_API}/v2/sports/${path}/standings`), ...days.map(k=>webGet(`${US_API}/site/v2/sports/${path}/scoreboard?dates=${k}`))]);
+  const into = {}; let okBoards = 0, lastErr = '';
+  res.slice(1).forEach(r=>{ if(r.status==='fulfilled'){ okBoards++; usParseBoard(sp, r.value, into); } else lastErr = (r.reason&&r.reason.message)||String(r.reason); });
+  if(res[0].status==='fulfilled') D.teams = usParseStandings(sp, res[0].value);
+  if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); }
+  else D.err = lastErr || 'sin respuesta de ESPN';
+  D.loading = false;
+  if(sport===sp) renderMatches();
+}
+function usTeam(sp, side){
+  const D = usData[sp], T = D.teams[side.id] || D.teams['n:'+normName(side.name)] || null;
+  const A = US[sp].avg;
+  if(!T || T.pf==null || T.pa==null) return {pf:A.pf, pa:A.pa, gp:0, est:true, T};
+  const w = T.gp/(T.gp+US[sp].k);
+  return {pf:w*T.pf+(1-w)*A.pf, pa:w*T.pa+(1-w)*A.pa, gp:T.gp, est:T.gp<5, T};
+}
+// ---- modelos previos al partido
+function usPre(g){
+  const H = usTeam(g.sp, g.h), A = usTeam(g.sp, g.a);
+  const est = H.est || A.est || g.stype===1;
+  if(g.sp==='nba'){
+    const eh = (H.pf+A.pa)/2 + NBA_HFA/2, ea = (A.pf+H.pa)/2 - NBA_HFA/2;
+    const mu = eh-ea, tot = eh+ea;
+    return {sp:'nba', est, H, A, eh, ea, mu, tot, pH:normCdf(mu/NBA_SD_M), pA:1-normCdf(mu/NBA_SD_M),
+      over:L=>1-normCdf((L-tot)/NBA_SD_T), cover:k=>1-normCdf((k-mu)/NBA_SD_M)};
+  }
+  const lh = (H.pf+A.pa)/2*1.03, la = (A.pf+H.pa)/2*0.97;
+  const N = 20, mat = [];
+  let w=0,d=0,l=0; const margin = {}; const totD = [];
+  for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){
+    const p = poissonP(i,lh)*poissonP(j,la);
+    if(i>j) w+=p; else if(i===j) d+=p; else l+=p;
+    margin[i-j] = (margin[i-j]||0)+p; totD[i+j] = (totD[i+j]||0)+p;
+  }
+  const n = w+d+l, tieH = lh/(lh+la);
+  const pH = (w + d*tieH)/n;
+  const overL = L => { let s=0; totD.forEach((p,t)=>{ if(t>L) s+=p; }); return s/n; };
+  const marginGE = k => { let s=0; Object.keys(margin).forEach(m=>{ if(+m>=k) s+=margin[m]; }); return s/n; };
+  const marginLE = k => { let s=0; Object.keys(margin).forEach(m=>{ if(+m<=k) s+=margin[m]; }); return s/n; };
+  return {sp:'mlb', est, H, A, eh:lh, ea:la, tot:lh+la, mu:lh-la, pH, pA:1-pH, over:overL,
+    homeM15:marginGE(2), awayM15:marginLE(-2)};
+}
+// ---- mercados sugeridos
+function usPicks(g, m){
+  const hn = g.h.name, an = g.a.name, c = [];
+  const add = (cat,label,prob,why) => { const q = Math.round(prob*100); if(q>=60 && q<=97) c.push({cat,label,prob:q,why}); };
+  const fav = m.pH>=m.pA ? 'h' : 'a', favN = fav==='h'?hn:an, dogN = fav==='h'?an:hn, pF = Math.max(m.pH,m.pA);
+  add('ml', `Gana ${favN}`, pF, `${Math.round(pF*100)}% según el modelo`);
+  if(g.sp==='nba'){
+    const am = Math.abs(m.mu);
+    let best = null;
+    [1.5,3.5,5.5,7.5,9.5,11.5,13.5].forEach(k=>{ const p = Math.max(0,Math.min(1,1-normCdf((k-am)/NBA_SD_M))); if(p>=.6) best = {k,p}; });
+    if(best) add('line', `${favN} -${best.k}`, best.p, `Margen esperado: ${am.toFixed(1)} puntos`);
+    else { for(const k of [1.5,3.5,5.5,7.5,9.5]){ const p = normCdf((k-am)/NBA_SD_M); if(p>=.65){ add('line', `${dogN} +${k}`, p, `Margen esperado: ${am.toFixed(1)} puntos`); break; } } }
+  } else {
+    let bo=null; [6.5,7.5,8.5,9.5,10.5].forEach(L=>{ const po=m.over(L), pu=1-po; [[po,'Más'],[pu,'Menos']].forEach(([p,t])=>{ if(p>=.6 && (!bo||p>bo.p)) bo={p,L,t}; }); });
+    if(bo) add('tot', `${bo.t} de ${bo.L} carreras`, bo.p, `Carreras esperadas: ${m.tot.toFixed(1)}`);
+    const favRL = fav==='h' ? m.homeM15 : m.awayM15;
+    add('line', `${dogN} +1.5`, 1-favRL, 'Línea de carreras (+1.5)');
+  }
+  const best = {}; c.forEach(x=>{ x.score = x.prob-(m.est?8:0); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
+  return Object.values(best).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({...x, conf:m.est?'est':(x.prob>=75?'alta':(x.prob>=65?'media':'baja'))}));
+}
+// ---- en vivo
+function usClockMin(s){ const m = String(s).match(/^(\d+):(\d+)/); if(m) return parseInt(m[1],10)+parseInt(m[2],10)/60; const f = parseFloat(s); return isNaN(f)?0:f/60; }
+function usLiveModel(g){
+  const base = usPre(g), gh = g.h.score||0, ga = g.a.score||0, diff = gh-ga;
+  if(g.sp==='nba'){
+    let rem, label;
+    if(/HALF/i.test(g.statusName) && !/FIRST|SECOND/i.test(g.statusName)){ rem = 24; label = 'Descanso'; }
+    else if(g.period>4){ rem = usClockMin(g.clock); label = 'Prórroga '+(g.period-4)+' · '+g.clock; }
+    else { rem = (4-g.period)*12 + usClockMin(g.clock); label = 'Q'+g.period+' · '+g.clock; }
+    const f = Math.max(rem,0)/48, muRem = base.mu*f, sd = Math.max(1.5, NBA_SD_M*Math.sqrt(f)), sdT = Math.max(2, NBA_SD_T*Math.sqrt(f));
+    const pH = normCdf((diff+muRem)/sd), projT = gh+ga+base.tot*f;
+    return {sp:'nba', est:base.est, label, pH, pA:1-pH, projH:gh+base.eh*f, projA:ga+base.ea*f, projT, sd, sdT, rem, over:L=>1-normCdf((L-projT)/sdT), mu:muRem+diff};
+  }
+  const d = String(g.detail), mm = d.match(/(top|bot\w*|mid\w*|end)\s*(?:of\s*the\s*)?(\d+)/i);
+  let elapsed = 2*Math.max(g.period-1,0), label = d||('Entrada '+g.period);
+  if(mm){ const k = mm[1].toLowerCase(), n = parseInt(mm[2],10);
+    elapsed = k==='top' ? 2*(n-1) : (k.startsWith('bot')||k.startsWith('mid')) ? 2*(n-1)+1 : 2*n; }
+  const extra = elapsed>=18, remHalf = extra ? 1 : 18-elapsed, f = remHalf/18;
+  const lh = base.eh*f, la = base.ea*f;
+  let w=0,t=0,l=0; const totD = [];
+  for(let i=0;i<=12;i++) for(let j=0;j<=12;j++){
+    const p = poissonP(i,lh)*poissonP(j,la), fh = gh+i, fa = ga+j;
+    if(fh>fa) w+=p; else if(fh===fa) t+=p; else l+=p;
+    totD[fh+fa] = (totD[fh+fa]||0)+p;
+  }
+  const n = w+t+l, pH = (w + t*(base.eh/(base.eh+base.ea)))/n;
+  return {sp:'mlb', est:base.est, label, extra, pH, pA:1-pH, projT:gh+ga+lh+la, projH:gh+lh, projA:ga+la,
+    over:L=>{ let s=0; totD.forEach((p,k)=>{ if(k>L) s+=p; }); return s/n; }, lh, la};
+}
+function usLivePicks(g, m){
+  const c = [], hn = g.h.name, an = g.a.name, cur = (g.h.score||0)+(g.a.score||0);
+  const add = (cat,label,prob,why) => { const q = Math.round(prob*100); if(q>=60 && q<=96) c.push({cat,label,prob:q,why}); };
+  const fav = m.pH>=m.pA ? hn : an, pF = Math.max(m.pH,m.pA);
+  add('ml', `Gana ${fav}`, pF, `Marcador ${g.h.score||0}-${g.a.score||0}`);
+  if(g.sp==='mlb'){
+    let bo = null;
+    for(let L=cur+0.5; L<=cur+12; L+=1){ const po=m.over(L), pu=1-po; [[po,'Más'],[pu,'Menos']].forEach(([p,t])=>{ if(p>=.6 && p<=.9 && (!bo||p>bo.p)) bo={p,L,t}; }); }
+    if(bo) add('tot', `${bo.t} de ${bo.L} carreras`, bo.p, `Proyección final: ${m.projT.toFixed(1)}`);
+  }
+  const best = {}; c.forEach(x=>{ if(!best[x.cat]||x.prob>best[x.cat].prob) best[x.cat]=x; });
+  return Object.values(best).sort((a,b)=>b.prob-a.prob).map(x=>({...x, conf:m.est?'est':(x.prob>=80?'alta':(x.prob>=65?'media':'baja'))}));
+}
+async function usLiveFetch(){
+  const sp = sport; if(sp==='futbol' || usLiveBusy) return; usLiveBusy = true;
+  const L = usLive[sp]; const into = {};
+  try{
+    await usLoad(sp, false);
+    const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/scoreboard`);
+    usParseBoard(sp, j, into);
+    L.list = Object.values(into).filter(g=>g.state==='in'); L.err = ''; L.t = Date.now();
+  }catch(e){ L.err = e.message||String(e); L.t = Date.now(); L.list = []; }
+  usLiveBusy = false;
+  updateLiveBadge();
+  if(viewMode==='live' && sport===sp) renderLive();
+}
+function usLiveStart(){ liveStop(); usLiveFetch(); usLiveTimer = setInterval(usLiveFetch, 60000); }
+function updateLiveBadge(){
+  const n = sport==='futbol' ? liveData.list.length : usLive[sport].list.length;
+  document.getElementById('liveCount').textContent = n ? ' ('+n+')' : '';
+  document.getElementById('tabLive').classList.toggle('has-live', n>0);
+}
+// ---- pantallas
+function usSeasonTag(g){ return g.stype===1 ? 'Pretemporada' : g.stype===3 ? 'Postemporada' : ''; }
+function usTeamRow(g, mid){
+  return `<div class="teams-row">
+    <div class="team">${badgeHTML(g.h.name,false,g.h.abbr)}<div class="team-name">${g.h.name}</div></div>
+    ${mid}
+    <div class="team away">${badgeHTML(g.a.name,false,g.a.abbr)}<div class="team-name">${g.a.name}</div></div>
+  </div>`;
+}
+function usStatusLine(sp){
+  const D = usData[sp];
+  const ago = D.t ? Math.round((Date.now()-D.t)/60000) : 0;
+  return `<div class="data-status" style="display:block"><b>● Datos reales</b> · ESPN · ${US[sp].name}${D.t?` · actualizado ${ago<1?'hace un momento':'hace '+ago+' min'}`:''} <a href="#" onclick="usLoad('${sp}',true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
+}
+function usGamesForDay(sp){
+  return usData[sp].games.filter(g=> activeDate==='all' || isoDateOnlyEcuador(g.d,0)===activeDate);
+}
+function usEmpty(sp, what){
+  const D = usData[sp];
+  if(D.loading && !D.games.length) return `<div class="empty-state">Cargando ${US[sp].name}…</div>`;
+  if(D.err && !D.games.length) return `<div class="empty-state">No pude conectar con ESPN para ${US[sp].name} (${D.err}).<br><br><button class="btn primary" onclick="usLoad('${sp}',true)">Reintentar</button></div>`;
+  return `<div class="empty-state">No hay partidos de ${US[sp].name} ${what}. Prueba otro día.</div>`;
+}
+function usRenderMatches(){
+  const sp = sport, list = document.getElementById('matchList');
+  document.getElementById('matchesLabel').textContent = 'Partidos';
+  if(!usData[sp].games.length && !usData[sp].loading && !usData[sp].err) usLoad(sp);
+  const games = usGamesForDay(sp);
+  document.getElementById('matchCount').textContent = games.length + (games.length===1?' partido':' partidos');
+  if(!games.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'en esta fecha'); return; }
+  list.innerHTML = usStatusLine(sp) + games.map(g=>{
+    const f = fmtParts(g.d,0), m = usPre(g), tag = usSeasonTag(g);
+    const mid = g.state==='pre'
+      ? `<div class="ko"><b>${f.time}</b><span>${f.date}</span></div>`
+      : `<div class="ko"><b>${g.h.score} - ${g.a.score}</b><span>${g.state==='in'?'En vivo':'Final'}</span></div>`;
+    const pH = pc(m.pH), pA = 100-pH;
+    const proj = sp==='nba'
+      ? `Proyección: ${m.eh.toFixed(0)} - ${m.ea.toFixed(0)} · Total ${m.tot.toFixed(0)}`
+      : `Carreras esperadas: ${m.eh.toFixed(1)} - ${m.ea.toFixed(1)} · Total ${m.tot.toFixed(1)}`;
+    return `<div class="match-card" onclick="usOpen('${sp}','${g.id}')">
+      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${tag?' · '+tag:''}</span><span>${f.date} · hora Ecuador</span></div>
+      ${usTeamRow(g, mid)}
+      <div class="mini1x2"><span style="width:${pH}%; background:var(--over);"></span><span style="width:${pA}%; background:var(--accent);"></span></div>
+      <div class="mini1x2-labels"><span>${g.h.name} ${pH}%</span><span>${g.a.name} ${pA}%</span></div>
+      <div class="lv-stats" style="justify-content:center;margin-top:8px;"><span>${proj}${m.est?' (est.)':''}</span></div>
+    </div>`;
+  }).join('') + `<div class="foot-note">Probabilidades del modelo con los promedios reales de cada equipo en la temporada (ESPN). No usan cuotas ni consideran lesiones${sp==='mlb'?' ni lanzadores abridores':''}. "(est.)" = pocos partidos jugados o pretemporada. No garantizan el resultado.</div>`;
+}
+function usRenderPicks(){
+  const sp = sport, list = document.getElementById('matchList');
+  document.getElementById('matchesLabel').textContent = 'Sugerencias';
+  if(!usData[sp].games.length && !usData[sp].loading && !usData[sp].err) usLoad(sp);
+  const items = usGamesForDay(sp).filter(g=>g.state==='pre' && !g.postponed).map(g=>{ const m = usPre(g); const picks = usPicks(g,m); return {g,m,picks,best:picks.length?picks[0].score:0}; });
+  items.sort((a,b)=>b.best-a.best);
+  document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
+  if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha'); return; }
+  const top = items.filter(x=>x.picks.length).slice(0,5);
+  let html = usStatusLine(sp);
+  if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
+    const k = x.picks[0], f = fmtParts(x.g.d,0);
+    return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')"><div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`;
+  }).join('') + `</div>`;
+  html += items.map(x=>{
+    const f = fmtParts(x.g.d,0);
+    const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div></div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
+      : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado supera el 60% en este partido: no hay una opción clara.</div>`;
+    return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador</span></div>
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${body}</div>`;
+  }).join('');
+  html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo). No usan cuotas de casas de apuestas, no consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado. "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
+  list.innerHTML = html;
+}
+function usRenderLive(){
+  const sp = sport, L = usLive[sp], list = document.getElementById('matchList');
+  document.getElementById('matchesLabel').textContent = 'En vivo';
+  document.getElementById('matchCount').textContent = L.t ? (L.list.length + (L.list.length===1?' partido':' partidos')) : '';
+  if(!L.t){ list.innerHTML = `<div class="empty-state">Buscando partidos en vivo…</div>`; return; }
+  if(L.err){ list.innerHTML = `<div class="empty-state">No pude conectar con ESPN (${L.err}).<br><br><button class="btn primary" onclick="usLiveFetch()">Reintentar</button></div>`; return; }
+  const ago = Math.max(0, Math.round((Date.now()-L.t)/1000));
+  let html = `<div class="data-status" style="display:block"><b>● En vivo</b> · ESPN · ${US[sp].name} · se actualiza cada minuto · hace ${ago<60?ago+' s':Math.round(ago/60)+' min'} <a href="#" onclick="usLiveFetch();return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
+  if(!L.list.length){ list.innerHTML = html + `<div class="empty-state">No hay partidos de ${US[sp].name} en vivo ahora mismo. Cuando empiece alguno aparecerá aquí con su pronóstico.</div>`; return; }
+  html += L.list.map(g=>{
+    const m = usLiveModel(g), picks = usLivePicks(g,m);
+    const bar = (lab,v)=>`<div class="pk-line"><div class="t">${lab}</div><div class="bar-track"><div class="bar-fill ${v>=.5?'strong':''}" style="width:${pc(v)}%"></div></div><div class="v">${pc(v)}%</div></div>`;
+    return `<div class="match-card" style="cursor:default">
+      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(g)?' · '+usSeasonTag(g):''}</span><span class="lv-min"><i></i>${m.label}</span></div>
+      <div class="lv-score"><div class="tn r">${g.h.name}${logoImg(g.h.name).replace("margin-right:6px","")}</div><div class="sc">${g.h.score||0} - ${g.a.score||0}</div><div class="tn">${logoImg(g.a.name)}${g.a.name}</div></div>
+      <div class="lv-h">Quién gana (modelo)</div>${bar(g.h.name,m.pH)}${bar(g.a.name,m.pA)}
+      <div class="lv-h">Mejores opciones ahora</div>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('') : `<div class="pl-none" style="padding:6px 0;">Ningún mercado supera el 60% con la información actual: no hay una opción clara.</div>`}
+      <div class="lv-stats"><span>Proyección final: <b>${m.projH.toFixed(sp==='nba'?0:1)} - ${m.projA.toFixed(sp==='nba'?0:1)}</b> (total ${m.projT.toFixed(sp==='nba'?0:1)})</span>${m.extra?'<span>Entradas extra: cálculo aproximado</span>':''}</div>
+      ${m.est?`<div class="foot-note" style="margin:8px 0 0;">(est.) Pocos partidos jugados o pretemporada: el pronóstico usa promedios parciales.</div>`:''}
+    </div>`;
+  }).join('');
+  html += `<div class="foot-note">Pronóstico en vivo: el modelo reparte el promedio de cada equipo en el tiempo que falta y lo suma al marcador. No considera el ritmo real, lesiones, faltas${sp==='mlb'?', lanzadores en el montículo':''} ni cuotas, y ninguna probabilidad garantiza el resultado. Juega con responsabilidad.</div>`;
+  list.innerHTML = html;
+}
+function usOpen(sp, id){
+  const g = usData[sp].games.find(x=>x.id===id); if(!g) return;
+  const m = usPre(g), f = fmtParts(g.d,0), tag = usSeasonTag(g);
+  const ringC = p => p>=60 ? 'var(--over)' : 'var(--accent)';
+  const pH = pc(m.pH), pA = 100-pH;
+  const teamInfo = (side, X) => {
+    const T = X.T;
+    const rows = [];
+    rows.push(`Récord: <b>${T ? T.w+'-'+T.l : (side.rec||'-')}</b>`);
+    if(T && T.l10) rows.push(`Últimos 10: <b>${T.l10}</b>`);
+    if(T && T.streak) rows.push(`Racha: <b>${T.streak}</b>`);
+    if(T && T.home) rows.push(`Local: <b>${T.home}</b>`);
+    if(T && T.road) rows.push(`Visitante: <b>${T.road}</b>`);
+    const a = X.gp ? `${(T.pf).toFixed(sp==='nba'?1:2)} a favor · ${(T.pa).toFixed(sp==='nba'?1:2)} en contra por partido (${X.gp} jugados)` : 'Sin promedios de temporada todavía: se usa el promedio de la liga (est.)';
+    return `<div style="padding:8px 0;border-top:1px solid var(--line);"><div style="font-weight:700;font-size:14px;">${side.name}</div><div class="lv-stats">${rows.map(r=>`<span>${r}</span>`).join('')}</div><div class="lv-stats" style="margin-top:2px;">${a}</div></div>`;
+  };
+  let markets = '';
+  if(sp==='nba'){
+    const am = Math.abs(m.mu), favN = m.mu>=0 ? g.h.name : g.a.name;
+    const hl = [3.5,6.5,9.5].map(k=>({k, p:pc(1-normCdf((k-am)/NBA_SD_M))}));
+    markets += `<div class="prob-card"><h3><span class="dot"></span>Hándicap (${favN} favorito)</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${hl.map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Gana por ${Math.ceil(x.k)}+ (-${x.k})</div></div>`).join('')}</div></div>`;
+    const lines = [-10,-5,0,5,10].map(d=>roundHalf(m.tot+d));
+    markets += `<div class="prob-card"><h3><span class="dot"></span>Total de puntos</h3><div class="lv-stats" style="margin-top:0;">Proyectado: <b>${m.tot.toFixed(1)}</b> · rango probable (80%): <b>${Math.round(m.tot-1.28*NBA_SD_T)}–${Math.round(m.tot+1.28*NBA_SD_T)}</b></div>` + lines.map(L=>{ const p = pc(m.over(L)); return `<div class="pk-line"><div class="t">Más de ${L}</div><div class="bar-track"><div class="bar-fill ${p>=70?'strong':''}" style="width:${p}%"></div></div><div class="v">${p}%</div></div>`; }).join('') + `<div class="lv-stats">Compara estas líneas con la de tu casa de apuestas: la probabilidad de "Menos de" es 100% menos la de "Más de".</div></div>`;
+  } else {
+    const ls = [6.5,7.5,8.5,9.5,10.5].map(L=>({L,p:pc(m.over(L))}));
+    markets += `<div class="prob-card"><h3><span class="dot"></span>Total de carreras (esperado ${m.tot.toFixed(1)})</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${ls.slice(1,4).map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Más de ${x.L}</div></div>`).join('')}</div>` + ls.map(x=>`<div class="pk-line"><div class="t">Menos de ${x.L}</div><div class="bar-track"><div class="bar-fill ${100-x.p>=70?'strong':''}" style="width:${100-x.p}%"></div></div><div class="v">${100-x.p}%</div></div>`).join('') + `</div>`;
+    markets += `<div class="prob-card"><h3><span class="dot"></span>Línea de carreras (1.5)</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-tile">${ringHTML(pc(m.homeM15), ringC(pc(m.homeM15)), 72)}<div class="l">${g.h.name} -1.5</div></div><div class="stat-tile">${ringHTML(pc(1-m.homeM15), ringC(pc(1-m.homeM15)), 72)}<div class="l">${g.a.name} +1.5</div></div><div class="stat-tile">${ringHTML(pc(m.awayM15), ringC(pc(m.awayM15)), 72)}<div class="l">${g.a.name} -1.5</div></div></div></div>`;
+    if(g.h.sp || g.a.sp) markets += `<div class="prob-card"><h3><span class="dot"></span>Abridores probables</h3><div class="lv-stats" style="margin-top:0;"><span>${g.h.name}: <b>${g.h.sp?g.h.sp.name+' '+g.h.sp.rec:'por confirmar'}</b></span><span>${g.a.name}: <b>${g.a.sp?g.a.sp.name+' '+g.a.sp.rec:'por confirmar'}</b></span></div><div class="lv-stats">El modelo no ajusta por el lanzador: úsalo como dato extra.</div></div>`;
+  }
+  const html = `
+    <div class="matchup-hero"><div class="meta">${US[sp].name.toUpperCase()}${tag?' · '+tag.toUpperCase():''}</div>
+      <div class="row">
+        <div class="team-big">${badgeHTML(g.h.name,true,g.h.abbr)}<div class="name">${g.h.name}</div></div>
+        <div class="center-vs"><div class="ko-big">${g.state==='pre'?f.time:g.h.score+' - '+g.a.score}<small>${f.date} Ecuador${g.state==='post'?' · Final':''}</small></div></div>
+        <div class="team-big">${badgeHTML(g.a.name,true,g.a.abbr)}<div class="name">${g.a.name}</div></div>
+      </div></div>
+    <div class="prob-card"><h3><span class="dot"></span>Quién gana</h3>
+      <div class="bar1x2"><span style="width:${pH}%; background:var(--over);"></span><span style="width:${pA}%; background:var(--accent);"></span></div>
+      <div class="bar1x2-labels"><div><div class="v">${pH}%</div><div class="l">${g.h.name}</div></div><div><div class="v">${pA}%</div><div class="l">${g.a.name}</div></div></div>
+      <div class="lv-stats" style="justify-content:center;">Proyección: <b>${m.eh.toFixed(sp==='nba'?0:1)} - ${m.ea.toFixed(sp==='nba'?0:1)}</b>${m.est?' (est.)':''}</div></div>
+    ${markets}
+    <div class="prob-card"><h3><span class="dot"></span>Forma de los equipos</h3>${teamInfo(g.h, m.H)}${teamInfo(g.a, m.A)}</div>
+    <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo basado en los promedios reales de la temporada de cada equipo (ESPN)${sp==='nba'?', con ventaja de local de 2.5 puntos (supuesto)':', con ligera ventaja de local (supuesto)'}. No considera lesiones${sp==='mlb'?' ni lanzadores':''}${g.stype===1?'. Pretemporada: los titulares suelen jugar poco, así que el pronóstico es menos fiable':''}. Es una estimación estadística, no garantiza el resultado.</div>`;
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('home').classList.add('hide');
+  document.getElementById('detail').classList.add('show');
+  window.scrollTo(0,0);
+}
+function updateChrome(){
+  const live = viewMode==='live', fut = sport==='futbol';
+  const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
+  set('leagueChips', fut && !live); set('dateChips', !live); set('dataStatus', fut && !live); set('homeNote', fut);
+}
+function setSport(sp){
+  if(sp===sport) return;
+  sport = sp; liveStop();
+  ['futbol','nba','mlb'].forEach(k=>document.getElementById('sp_'+k).classList.toggle('active', k===sp));
+  if(sp!=='futbol') usLoad(sp);
+  updateChrome(); updateLiveBadge();
+  if(viewMode==='live'){ renderLive(); if(sp==='futbol') liveStart(); else usLiveStart(); }
+  else { renderChips(); renderDateChips(); renderMatches(); if(sp==='futbol' && typeof renderStatus==='function') renderStatus(); }
 }
 
 const LG_GROUPS = [
@@ -1193,6 +1600,7 @@ function selectDate(key){
 }
 
 function renderMatches(){
+  if(sport!=='futbol'){ if(viewMode==='live') usRenderLive(); else if(viewMode==='picks') usRenderPicks(); else usRenderMatches(); return; }
   if(viewMode==='live'){ renderLive(); return; }
   if(viewMode==='picks'){ renderPicks(); return; }
   document.getElementById('matchesLabel').textContent = 'Partidos';
@@ -1224,12 +1632,12 @@ function renderMatches(){
       <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora Ecuador</span></div>
       <div class="teams-row">
         <div class="team">
-          <div class="badge" style="background:${hashColor(homeName)}">${initials(homeName)}</div>
+          ${badgeHTML(homeName,false)}
           <div class="team-name">${homeName}</div>
         </div>
         <div class="ko"><b>${fmtParts(when, league.utcOffset).time}</b><span>${fmtParts(when, league.utcOffset).date}</span></div>
         <div class="team away">
-          <div class="badge" style="background:${hashColor(awayName)}">${initials(awayName)}</div>
+          ${badgeHTML(awayName,false)}
           <div class="team-name">${awayName}</div>
         </div>
       </div>
@@ -1337,12 +1745,12 @@ function openMatch(leagueId, idx){
       <div class="meta">${league.name.toUpperCase()}</div>
       <div class="row">
         <div class="team-big">
-          <div class="badge-lg" style="background:${hashColor(homeName)}">${initials(homeName)}</div>
+          ${badgeHTML(homeName,true)}
           <div class="name">${homeName}</div>
         </div>
         <div class="center-vs"><div class="ko-big">${fmtParts(when, league.utcOffset).time}<small>${fmtParts(when, league.utcOffset).date} Ecuador</small></div></div>
         <div class="team-big">
-          <div class="badge-lg" style="background:${hashColor(awayName)}">${initials(awayName)}</div>
+          ${badgeHTML(awayName,true)}
           <div class="name">${awayName}</div>
         </div>
       </div>
@@ -1481,7 +1889,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v10 · pestaña En vivo';
+const APP_VERSION = 'v12 · logos de equipos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -1571,6 +1979,7 @@ function mapEspn(j){
     let s = 'NS';
     if(st.completed) s = 'FT'; else if(st.state==='in') s = 'LIVE'; else if(/postpon|cancel|suspend|abandon/i.test((st.name||'')+(st.description||''))) s = 'PST';
     const num = v => { const n = parseInt(v,10); return isNaN(n) ? null : n; };
+    noteLogo(h.team.displayName||h.team.name, h.team.logo); noteLogo(a.team.displayName||a.team.name, a.team.logo);
     out.push({i:'e'+ev.id, h:h.team.displayName||h.team.name, a:a.team.displayName||a.team.name,
       d:String(ev.date).slice(0,16), s, g:s==='FT' ? [num(h.score),num(a.score)] : [null,null]});
   }
@@ -1935,6 +2344,7 @@ renderMatches();
 renderStatus();
 if(Date.now() - LS.get('ab_last',0) > 6*3600e3) setTimeout(updateAll, 400);
 setTimeout(liveFetch, 1500);
+setTimeout(()=>logosLoad(false), 2500);
 </script>
 </body>
 </html>
