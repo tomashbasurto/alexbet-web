@@ -987,7 +987,6 @@ function setView(v){
   updateChrome(); updateLiveBadge();
   if(v==='live'){ renderLive(); if(sport==='futbol') liveStart(); else usLiveStart(); } else liveStop();
   if(v==='picks' && activeDate==='all') activeDate = ymd(todayDate);
-  if(v==='matches' && activeLeague==='all') activeLeague = LEAGUES[0].id;
   if(v==='live') return;
   if(v==='value'){ renderDateChips(); renderMatches(); return; }
   renderChips(); renderDateChips(); renderMatches();
@@ -1939,7 +1938,7 @@ function vaRender(){
 
 // ---------- Alertas: partido movido, valor y cuotas en movimiento ----------
 const AL = {timer:null, busy:false, va:{}, last:0, msg:''};
-const AL_DEF = {on:false, valor:true, mov:true, corners:true, cards:true, pace:true};
+const AL_DEF = {on:false, corners:true, cards:true, pace:true};
 function alCfg(){ return Object.assign({}, AL_DEF, LS.get('ab_al', {})); }
 function alSave(c){ LS.set('ab_al', c); }
 function alLN(){ return (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null; }
@@ -2005,31 +2004,13 @@ function alUs(cfg){
     body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${g.detail}\n${r.R} carreras (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} carreras · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${r.est?' (est.)':''}`}); }catch(e){} });
   return out;
 }
-async function alOdds(cfg){
-  const out = [];
-  for(const sp of ['futbol','nba','mlb']){
-    let c = AL.va[sp];
-    if(!c || Date.now()-c.t > 4*60e3){ try{ const r = await vaFetch(sp); c = AL.va[sp] = {t:Date.now(), rows:r.rows}; }catch(e){ continue; } }
-    c.rows.filter(r=>new Date(r.d+'Z').getTime() <= Date.now()+4*86400e3).forEach(r=>{
-      const f = fmtParts(r.d,0), vs = `${r.h} vs ${r.a} · ${f.date} ${f.time} Ecuador`;
-      const mv = r.mk.filter(x=>Math.abs(x.mov)>=3).sort((a,b)=>Math.abs(b.mov)-Math.abs(a.mov))[0];
-      r.mk.forEach(x=>{
-        if(cfg.valor && x.edge!=null && x.edge>=6 && x.edge<15 && !x.est && r.known)
-          out.push({id:`val|${sp}|${r.h}|${r.a}|${x.label}`, type:'valor', title:`Posible valor · ${r.lname}`, body:`${x.label} (+${x.edge.toFixed(1)} pp)\nModelo ${Math.round(x.model*100)}% · mercado ${Math.round(x.mk*100)}% · cuota ${vaDec(x.odds)}\n${vs}`});
-        if(cfg.mov && x===mv)
-          out.push({id:`mov|${sp}|${r.h}|${r.a}|${x.label}|${Math.round(x.mov)}`, type:'mov', title:`Cuota en movimiento · ${r.lname}`, body:`${x.label} ${x.mov>0?'▲':'▼'} ${Math.abs(x.mov).toFixed(1)} pp (${x.mov>0?'el mercado la ve más probable':'el mercado la ve menos probable'})\n${vs}`});
-      });
-    });
-  }
-  return out;
-}
 async function alTick(manual){
   const cfg = alCfg(); if(!cfg.on && !manual) return;
   if(AL.busy) return; AL.busy = true;
   try{
     await liveFetch();
     if(cfg.pace){ await usLiveFetch('nba'); await usLiveFetch('mlb'); }
-    let found = alLive(cfg).concat(alUs(cfg), await alOdds(cfg));
+    let found = alLive(cfg).concat(alUs(cfg));
     const seen = LS.get('ab_al_seen', {}), now = Date.now(); let n = 0;
     Object.keys(seen).forEach(k=>{ if(now-seen[k] > 12*3600e3) delete seen[k]; });
     for(const a of found){ if(seen[a.id]) continue; seen[a.id] = now; n++; await alNotify(a); }
@@ -2072,12 +2053,12 @@ function alBox(){
   const el = document.getElementById('alBox'); if(!el) return;
   const c = alCfg(), hist = LS.get('ab_al_hist', []);
   const chk = (k,t,sub)=>`<div class="al-row" onclick="alToggle('${k}',${!c[k]})"><i class="al-cb ${c[k]?'on':''}"></i><div class="al-t">${t}<small>${sub}</small></div></div>`;
-  el.innerHTML = chk('on','Activar alertas','Revisa cada 5 min mientras la app esté abierta') +
-    `<div style="opacity:${c.on?1:.5}">` + chk('pace','Partido movido: goles, puntos, carreras','Fútbol (goles), NBA (puntos) y MLB (carreras) por encima del ritmo normal') + chk('corners','Muchos córners','Partido en vivo con más córners de lo normal') + chk('cards','Muchas tarjetas','Partido en vivo con más tarjetas de lo normal') + chk('valor','Posible valor','Modelo ve 6 pp o más que las cuotas') + chk('mov','Cuota en movimiento','La cuota cambió 3 pp o más') + `</div>
+  el.innerHTML = chk('on','Activar alertas en vivo','Avisa solo de partidos que se están jugando · revisa cada 5 min con la app abierta') +
+    `<div style="opacity:${c.on?1:.5}">` + chk('pace','Partido movido: goles, puntos, carreras','Fútbol (goles), NBA (puntos) y MLB (carreras) por encima del ritmo normal') + chk('corners','Muchos córners','Partido en vivo con más córners de lo normal') + chk('cards','Muchas tarjetas','Partido en vivo con más tarjetas de lo normal') + `</div>
     <div class="row" style="gap:8px;"><button class="btn" style="margin:6px 0;flex:1" onclick="alTick(true)">Revisar ahora</button><button class="btn ghost" style="margin:6px 0;flex:1" onclick="alTest()">Probar aviso</button></div>
     <div class="al-st">${AL.msg||''}${AL.last?' · última revisión '+ago(AL.last):''}</div>
     ${hist.length ? `<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px;">${hist.slice(0,6).map(h=>`<div class="al-h"><b>${h.title}</b><span>${h.body.replace(/\n/g,'<br>')}</span><small>${ago(h.t)}</small></div>`).join('')}</div>` : ''}
-    <div class="al-st">Con la app cerrada, los avisos llegan por ntfy (ver instrucciones de la Action). Las probabilidades son estimaciones: ninguna alerta garantiza ganancias.</div>`;
+    <div class="al-st">Las alertas son solo de partidos en vivo. Con la app cerrada, los avisos llegan por ntfy (ver instrucciones de la Action). Las probabilidades son estimaciones: ninguna alerta garantiza ganancias.</div>`;
 }
 
 // ---------- Detalle de partido en vivo ----------
@@ -2268,7 +2249,7 @@ function renderChips(){
 function openLeaguePicker(){
   const opt = (id,name,color,n) => `<button class="lg-opt ${id===activeLeague?'active':''}" onclick="pickLeague('${id}')">${color?`<i class="lg-dot" style="background:${color}"></i>`:'<i class="lg-dot" style="background:var(--ink-dim)"></i>'}<span class="n">${name}</span><small>${n}</small></button>`;
   let h = '';
-  if(viewMode==='picks'){
+  if(viewMode==='picks' || viewMode==='matches'){
     h += opt('all','Todas las ligas','',LEAGUES.reduce((t,l)=>t+lgCount(l),0));
   }
   const used = new Set();
@@ -2316,18 +2297,20 @@ function renderMatches(){
   if(viewMode==='live'){ renderLive(); return; }
   if(viewMode==='picks'){ renderPicks(); return; }
   document.getElementById('matchesLabel').textContent = 'Partidos';
-  const league = LEAGUES.find(l=>l.id===activeLeague);
+  const all = activeLeague==='all';
+  const league = all ? null : LEAGUES.find(l=>l.id===activeLeague);
   const list = document.getElementById('matchList');
 
-  let fixtures = league.fixtures
-    .map((f, idx) => ({ f, idx }))
-    .filter(({f}) => activeDate==='all' || isoDateOnlyEcuador(f[2], league.utcOffset)===activeDate)
-    .sort((a,b)=> a.f[2].localeCompare(b.f[2]));
+  let fixtures = (all ? LEAGUES : [league]).flatMap(L => L.fixtures.map((f, idx) => ({ f, idx, L })))
+    .filter(({f, L}) => L.teams[f[0]] && L.teams[f[1]] && (activeDate==='all' || isoDateOnlyEcuador(f[2], L.utcOffset)===activeDate))
+    .sort((a,b)=> (new Date(toEcuador(a.f[2], a.L.utcOffset)) - new Date(toEcuador(b.f[2], b.L.utcOffset))) || a.f[2].localeCompare(b.f[2]));
 
   document.getElementById('matchCount').textContent = fixtures.length + (fixtures.length===1?' partido':' partidos');
 
   if(fixtures.length===0){
-    if(league.fixtures.length===0){
+    if(all){
+      list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha en ninguna liga. Prueba con "Todos" u otro día, o pulsa ⟳ para actualizar.</div>`;
+    } else if(league.fixtures.length===0){
       list.innerHTML = league.note && !league.live ? `<div class="empty-state">${league.note}</div>` : `<div class="empty-state">${league.live ? 'No hay partidos de '+league.name+' programados en los próximos días.' : (typeof cupMsg==='function' && cupMsg(league) ? league.name+': '+cupMsg(league) : 'Todavía no hay partidos cargados para '+league.name+'. Pulsa ⟳ arriba para descargarlos.')}</div>`;
     } else {
       list.innerHTML = `<div class="empty-state">No hay partidos de ${league.name} programados para esta fecha. Prueba con "Todos" u otro día.</div>`;
@@ -2335,7 +2318,7 @@ function renderMatches(){
     return;
   }
 
-  list.innerHTML = fixtures.map(({f, idx}) => {
+  list.innerHTML = fixtures.map(({f, idx, L: league}) => {
     const [homeName, awayName, when] = f;
     const home = league.teams[homeName], away = league.teams[awayName];
     const p = project(home, away);
@@ -2604,7 +2587,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v18.2 · Valor con selector de fecha';
+const APP_VERSION = 'v18.3 · alertas solo en vivo + todas las ligas en Partidos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

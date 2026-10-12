@@ -1,6 +1,5 @@
 // AlexBet · alertas con la app cerrada (corre en GitHub Actions) -> notificaciones por ntfy.
-// Avisa de: (1) partido en vivo "movido" (muchos córners o tarjetas) y (2) cuotas que se mueven 3 pp o más.
-// (El aviso de "posible valor" necesita el modelo de la app y solo funciona con la app abierta.)
+// Avisa SOLO de partidos en vivo "movidos": goles, córners y tarjetas (fútbol), puntos (NBA) y carreras (MLB) por encima del ritmo normal.
 'use strict';
 const fs = require('fs');
 const TOPIC = (process.env.NTFY_TOPIC || '').trim();
@@ -27,17 +26,6 @@ function nbaPace(T, e, rem){
   const w = e/(e+24), rate = w*(T/e)+(1-w)*norm, mean = T+rate*rem, sd = Math.max(3, 18*Math.sqrt(rem/48)); let best = null;
   for(let L=Math.floor(T)+0.5; L<=mean+40; L+=1){ const p = 1-normCdf((L-mean)/sd); if(p>=0.70) best = {L,p}; }
   return best && {...best, exp:norm*e};
-}
-const am = o => { o = String(o==null?'':o).trim().toUpperCase(); if(o==='EVEN') return .5; const n = parseFloat(o); if(!n) return null; return n<0 ? -n/(-n+100) : 100/(n+100); };
-function fair(a){ const p = a.map(am); if(p.some(x=>x==null)) return null; const s = p.reduce((x,y)=>x+y,0); return p.map(x=>x/s); }
-function mlMoves(od, hn, an){
-  const ml = od && od.moneyline; if(!ml || !ml.home || !ml.away) return null;
-  const sides = [['home',hn],['away',an]]; if(ml.draw) sides.push(['draw','Empate']);
-  const o = [], c = [];
-  for(const [k] of sides){ const x = ml[k]; if(!x || !x.open || !x.close) return null; o.push(x.open.odds); c.push(x.close.odds); }
-  const fo = fair(o), fc = fair(c); if(!fo || !fc) return null;
-  let best = null; sides.forEach(([k,n],i)=>{ const d = (fc[i]-fo[i])*100; if(!best || Math.abs(d)>Math.abs(best.d)) best = {n,d,now:fc[i]}; });
-  return best;
 }
 const stat = (t, n) => { const it = (t.statistics||[]).find(s=>s.name===n); if(!it) return null; const v = parseFloat(it.displayValue!=null?it.displayValue:it.value); return isNaN(v)?null:v; };
 function minuteOf(c){ const dc = String((c.status&&c.status.displayClock)||''); const m = dc.match(/(\d+)/); return m ? parseInt(m[1],10) : null; }
@@ -90,28 +78,6 @@ async function main(){
       }
     }catch(e){ errs.push(f+': '+e.message); }
   }
-  // 2) cuotas en movimiento (próximos partidos)
-  // ESPN rechaza rangos de fechas (HTTP 400) en varias ligas: fútbol por mes, NBA/MLB por día
-  const now = new Date(), days = [0,1,2,3].map(k=>ymd(new Date(now.getTime()+k*86400e3))), months = [...new Set(days.map(d=>d.slice(0,6)))];
-  const feeds = SLUGS.map(s=>({f:`soccer/${s}`, dates:months})).concat([{f:'basketball/nba', dates:days},{f:'baseball/mlb', dates:days}]);
-  await Promise.all(feeds.map(async ({f, dates})=>{
-    try{
-      let evs = [], ok = 0, last = '';
-      for(const d of dates){ try{ const j = await get(`${API}/${f}/scoreboard?dates=${d}`); ok++; evs = evs.concat(j.events||[]); }catch(e){ last = e.message; } }
-      if(!ok) throw new Error(last||'sin respuesta');
-      const ids = {};
-      for(const ev of evs){
-        if(ids[ev.id]) continue; ids[ev.id] = 1;
-        const tt = new Date(ev.date).getTime(); if(tt < Date.now()-3600e3 || tt > Date.now()+4*86400e3) continue;
-        const c = ev.competitions && ev.competitions[0]; if(!c) continue;
-        if(((c.status&&c.status.type)||{}).state!=='pre') continue;
-        const H = c.competitors.find(x=>x.homeAway==='home'), A = c.competitors.find(x=>x.homeAway==='away'); if(!H||!A) continue;
-        const hn = H.team.displayName||H.team.name, an = A.team.displayName||A.team.name;
-        const mv = mlMoves(c.odds && c.odds[0], hn, an);
-        if(mv && Math.abs(mv.d)>=3) found.push({id:`mov|${ev.id}|${mv.n}|${Math.round(mv.d)}`, title:'Cuota en movimiento', msg:`${mv.n} ${mv.d>0?'▲':'▼'} ${Math.abs(mv.d).toFixed(1)} pp (${mv.d>0?'el mercado la ve más probable':'el mercado la ve menos probable'}) · ahora ${Math.round(mv.now*100)}%\n${hn} vs ${an} · ${String(ev.date).slice(0,16).replace('T',' ')} UTC`, tags:'chart_with_upwards_trend', prio:3});
-      }
-    }catch(e){ if(!/HTTP 400/.test(e.message)) errs.push(f+': '+e.message); }
-  }));
   let seen = {}; try{ seen = JSON.parse(fs.readFileSync(SEEN_FILE,'utf8')); }catch(e){}
   const t = Date.now(); Object.keys(seen).forEach(k=>{ if(t-seen[k] > 12*3600e3) delete seen[k]; });
   let sent = 0;
