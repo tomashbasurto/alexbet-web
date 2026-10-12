@@ -1,0 +1,32 @@
+name: Alertas
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'alerts.js'
+      - '.github/workflows/alertas.yml'
+permissions:
+  contents: write
+concurrency:
+  group: alertas
+  cancel-in-progress: false
+jobs:
+  alertas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Buscar alertas y enviar a ntfy
+        run: node alerts.js
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+      - name: Guardar alertas ya enviadas
+        run: |
+          git config user.name "alexbet-bot"
+          git config user.email "alexbet-bot@users.noreply.github.com"
+          git add alerts-seen.json
+          git diff --staged --quiet || (git commit -m "Alertas enviadas" && git pull --rebase -q && git push)
