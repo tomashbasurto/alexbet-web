@@ -1773,8 +1773,8 @@ function mhBack(){
   else goHome();
 }
 function mhTab(t){ mh.tab = t; mh.player = null; mhRender(); }
-function mhPlayer(side, i){ mh.player = {side, i}; mhRender(); }
-function mhClose(){ mh.player = null; mhRender(); }
+function mhPlayer(side, i){ mh.player = {side, i}; mhRefresh(); }
+function mhClose(){ mh.player = null; mhRefresh(); }
 const MH_STATS = [['possessionPct','Posesión %'],['totalShots','Tiros'],['shotsOnTarget','Tiros a puerta'],['blockedShots','Tiros bloqueados'],['wonCorners','Córners'],['foulsCommitted','Faltas'],['yellowCards','Amarillas'],['redCards','Rojas'],['offsides','Fueras de juego'],['saves','Paradas'],['accuratePasses','Pases precisos'],['totalPasses','Pases'],['passPct','Precisión de pases'],['totalTackles','Entradas'],['interceptions','Intercepciones'],['totalClearance','Despejes']];
 function mhSeason(sp, id){
   if(!id || sp==='futbol') return '';
@@ -1804,7 +1804,8 @@ function mhLineRow(side, p, i, sp){
   else { chips = ['IP','H','ER','K'].filter(k=>p.S[k]!=null).map(k=>`${p.S[k]} ${k}`).join(' · '); }
   return `<div class="mh-row" onclick="mhPlayer('${side}',${i})"><span class="mh-num">${p.num||'·'}</span><div class="mh-main"><b>${p.name}</b><small>${[p.pos, chips].filter(Boolean).join(' · ')}</small></div><span class="mh-go">›</span></div>`;
 }
-function mhTeam(s){ mh.team = s; mhRender(); }
+function mhRefresh(){ if(mh.live) ldRender(); else mhRender(); }
+function mhTeam(s){ mh.team = s; mhRefresh(); }
 function mhLines(starters, formation){
   const nums = String(formation||'').split('-').map(n=>parseInt(n,10)).filter(n=>n>0);
   if(starters.length===11 && nums.length && nums.reduce((a,b)=>a+b,0)===10 && starters.every(x=>x.p.fp)){
@@ -2456,7 +2457,7 @@ function ldParse(j){
 async function ldFetch(){
   const m = ld.m; if(!m) return;
   const url = ld.kind==='f' ? `${ESPN_BASE}/${m.slug}/summary?event=${m.id}` : `${US_API}/site/v2/sports/${US[ld.sp].path}/summary?event=${m.id}`;
-  try{ ld.data = ldParse(await webGet(url)); ld.err = ''; }
+  try{ const j = await webGet(url); ld.data = ldParse(j); if(ld.kind==='f'){ try{ ld.mhd = mhParse('futbol', j, {}); }catch(e){ ld.mhd = null; } } ld.err = ''; }
   catch(e){ ld.err = e.message||String(e); }
   ld.loading = false;
   if(document.getElementById('detail').classList.contains('show') && ld.m===m) ldRender();
@@ -2467,7 +2468,8 @@ function ldOpen(kind, key){
   else m = usLive[ld.sp = sport].list.find(x=>String(x.id)===String(key));
   if(!m) return;
   ldStop();
-  ld = {kind, sp: kind==='f' ? 'futbol' : sport, id:m.id, tab:'general', m, data:null, loading:true, err:'', timer:null};
+  ld = {kind, sp: kind==='f' ? 'futbol' : sport, id:m.id, tab:'general', m, data:null, mhd:null, loading:true, err:'', timer:null};
+  mh = {ctx:null, tab:'lineup', data:null, loading:false, err:'', player:null, evId:null, live:true, team:'h'};
   ldRender();
   document.getElementById('home').classList.add('hide');
   document.getElementById('detail').classList.add('show');
@@ -2527,7 +2529,7 @@ function ldRender(){
     </div>
     <div class="ld-pill"><span class="ld-dot"></span>Partido en vivo · ${lg}</div>
   </div>
-  <div class="ld-tabs"><button class="${ld.tab==='general'?'on':''}" onclick="ldTab('general')">General</button><button class="${ld.tab==='model'?'on':''}" onclick="ldTab('model')">Pronóstico</button>${f?'':`<button class="${ld.tab==='players'?'on':''}" onclick="ldTab('players')">Jugadores</button>`}</div>`;
+  <div class="ld-tabs"><button class="${ld.tab==='general'?'on':''}" onclick="ldTab('general')">General</button><button class="${ld.tab==='model'?'on':''}" onclick="ldTab('model')">Pronóstico</button>${f?`<button class="${ld.tab==='lineup'?'on':''}" onclick="ldTab('lineup')">Alineación</button>`:''}${f?'':`<button class="${ld.tab==='players'?'on':''}" onclick="ldTab('players')">Jugadores</button>`}</div>`;
   if(ld.tab==='general'){
     if(ld.loading && !D) html += `<div class="empty-state">Cargando datos del partido…</div>`;
     else if(ld.err && !D) html += `<div class="empty-state">No pude cargar el detalle (${ld.err}).<br><br><button class="btn primary" onclick="ld.loading=true;ldRender();ldFetch()">Reintentar</button></div>`;
@@ -2557,12 +2559,19 @@ function ldRender(){
         if(names.length) html += `<div class="prob-card"><h3><span class="dot"></span>Estadísticas</h3>${names.map(k=>ldBar(D.labels[k], S.h[k], S.a[k])).join('')}</div>`;
       }
     }
+  } else if(ld.tab==='lineup' && f){
+    if(ld.loading && !ld.mhd) html += `<div class="empty-state">Cargando alineación…</div>`;
+    else if(ld.mhd && ld.mhd.mode){
+      mh.ctx = {sp:'futbol', h:hn, a:an}; mh.data = ld.mhd; mh.live = true;
+      html += mhLineupHTML().replace('Toca un jugador para ver sus estadísticas en este partido.','Toca un jugador para ver sus estadísticas en este partido. Se actualiza cada 30 segundos.');
+    } else html += `<div class="empty-state">ESPN todavía no publica la alineación de este partido.</div>`;
   } else if(ld.tab==='players' && !f){
     html += D ? plLiveTables(m, D) : `<div class="empty-state">Cargando jugadores…</div>`;
   } else {
     html += ldModelHTML(m, D);
   }
   html += `<div class="foot-note">Datos: ESPN. El pronóstico en vivo es una estimación estadística y no garantiza el resultado.</div>`;
+  if(f && ld.tab==='lineup' && mh.live) html += mhPlayerSheet();
   document.getElementById('detailContent').innerHTML = html;
 }
 function ldModelHTML(m, D){
@@ -2793,7 +2802,9 @@ function openMatch(leagueId, idx){
   const home = league.teams[homeName], away = league.teams[awayName];
   const p = project(home, away);
 
+  const liveIdx = (liveData.list||[]).findIndex(m=>m.lid===leagueId && sameTeam(m.h,homeName) && sameTeam(m.a,awayName));
   const html = `
+    ${liveIdx>=0?`<div class="prob-card" style="border-color:var(--over);cursor:pointer" onclick="ldOpen('f',${liveIdx})"><h3><span class="dot" style="background:var(--over)"></span>Partido en vivo ahora</h3><div class="pl-none" style="padding:0">${liveData.list[liveIdx].gh} - ${liveData.list[liveIdx].ga} · ${liveData.list[liveIdx].label||''}. Toca para ver estadísticas, eventos y alineación en vivo ›</div></div>`:''}
     <div class="matchup-hero">
       <div class="meta">${league.name.toUpperCase()}</div>
       <div class="row">
@@ -2936,7 +2947,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v22 · cancha realista, alineaciones en próximos partidos';
+const APP_VERSION = 'v23 · alineación y estadísticas dentro de En vivo';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
