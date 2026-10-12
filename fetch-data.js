@@ -229,6 +229,16 @@ function applySummary(j, id, stats){
   // limpiar estadísticas de partidos que ya no están
   const keep = new Set(); Object.values(out.fx).forEach(d=>d.fx.forEach(f=>keep.add(f.i)));
   Object.keys(out.stats).forEach(k=>{ if(!keep.has(k)) delete out.stats[k]; });
+  // 5) logos de equipos (ESPN)
+  out.logos = Object.assign({}, prev.logos||{});
+  for(const cfg of LEAGUES){
+    if(!cfg.espn) continue;
+    try{
+      const j = await getJson(`${ESPN_BASE}/${cfg.espn}/teams`);
+      const ts = (((j.sports||[])[0]||{}).leagues||[])[0];
+      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href)||t.logo; if(lg){ if(t.displayName) out.logos[t.displayName]=lg; if(t.shortDisplayName) out.logos[t.shortDisplayName]=lg; } });
+    }catch(e){ log.push({name:'Logos '+cfg.name, ok:false, msg:e.message}); }
+  }
   const okLeagues = Object.keys(out.fx).length;
   fs.writeFileSync(OUT, JSON.stringify(out));
   console.log(`datos.json escrito: ${okLeagues}/${LEAGUES.length} ligas, ${Object.keys(out.stats).length} estadísticas`);
