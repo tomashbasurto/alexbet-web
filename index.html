@@ -989,7 +989,7 @@ function setView(v){
   if(v==='picks' && activeDate==='all') activeDate = ymd(todayDate);
   if(v==='matches' && activeLeague==='all') activeLeague = LEAGUES[0].id;
   if(v==='live') return;
-  if(v==='value'){ renderMatches(); return; }
+  if(v==='value'){ renderDateChips(); renderMatches(); return; }
   renderChips(); renderDateChips(); renderMatches();
   if(typeof renderStatus==='function') renderStatus();
 }
@@ -1772,9 +1772,9 @@ function usOpen(sp, id, keep){
 }
 let usOpenCur = null;
 function updateChrome(){
-  const live = viewMode==='live' || viewMode==='value', fut = sport==='futbol';
+  const live = viewMode==='live', val = viewMode==='value', fut = sport==='futbol';
   const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
-  set('leagueChips', fut && !live); set('dateChips', !live); set('dataStatus', fut && !live); set('homeNote', fut);
+  set('leagueChips', fut && !live && !val); set('dateChips', !live); set('dataStatus', fut && !live && !val); set('homeNote', fut);
 }
 function setSport(sp){
   if(sp===sport) return;
@@ -1783,7 +1783,7 @@ function setSport(sp){
   if(sp!=='futbol') usLoad(sp);
   updateChrome(); updateLiveBadge();
   if(viewMode==='live'){ renderLive(); if(sp==='futbol') liveStart(); else usLiveStart(); }
-  else if(viewMode==='value'){ renderMatches(); }
+  else if(viewMode==='value'){ renderDateChips(); renderMatches(); }
   else { renderChips(); renderDateChips(); renderMatches(); if(sp==='futbol' && typeof renderStatus==='function') renderStatus(); }
 }
 
@@ -1819,9 +1819,9 @@ function vaRow(label, mp, openOdds, closeOdds, idx, est){
   const mk = fc[idx], mov = fo ? (mk - fo[idx])*100 : 0;
   return {label, model:mp, mk, mov, edge:(mp-mk)*100, odds:closeOdds[idx], est};
 }
-function vaDays(){ const f = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; return [0,1,2,3].map(k=>f(new Date(Date.now()+k*86400e3))); }
+function vaDays(){ const f = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; return [0,1,2,3,4,5,6,7].map(k=>f(new Date(Date.now()+k*86400e3))); }
 function vaMonths(){ return [...new Set(vaDays().map(d=>d.slice(0,6)))]; } // ESPN acepta YYYYMM; los rangos fallan con HTTP 400 en varias ligas
-function vaInWindow(iso){ const t = new Date(iso).getTime(); return t >= Date.now()-3600e3 && t <= Date.now()+4*86400e3; }
+function vaInWindow(iso){ const t = new Date(iso).getTime(); return t >= Date.now()-3600e3 && t <= Date.now()+8*86400e3; }
 async function vaFetch(sp){
   const rows = []; let fail = 0, total = 0, noOdds = 0, events = 0, err = '';
   try{
@@ -1919,19 +1919,21 @@ function vaRender(){
   document.getElementById('matchesLabel').textContent = 'Valor y cuotas';
   if(VA.sp!==sport || (!VA.t && !VA.loading)){ vaLoad(); }
   if(VA.sp!==sport || (VA.loading && !VA.t)){ document.getElementById('matchCount').textContent=''; list.innerHTML = `<div class="empty-state">Buscando cuotas reales en ESPN…</div>`; return; }
-  document.getElementById('matchCount').textContent = VA.rows.length + (VA.rows.length===1?' partido':' partidos');
+  const ROWS = VA.rows.filter(r=> activeDate==='all' || isoDateOnlyEcuador(r.d,0)===activeDate);
+  document.getElementById('matchCount').textContent = ROWS.length + (ROWS.length===1?' partido':' partidos');
   const ago = Math.max(0, Math.round((Date.now()-VA.t)/60000));
-  let html = `<div class="data-status" style="display:block"><b>● Cuotas reales</b> · ESPN · próximos 4 días · ${VA.src} · hace ${ago<1?'un momento':ago+' min'} <a href="#" onclick="vaLoad(true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
+  let html = `<div class="data-status" style="display:block"><b>● Cuotas reales</b> · ESPN · próximos 7 días · ${VA.src} · hace ${ago<1?'un momento':ago+' min'} <a href="#" onclick="vaLoad(true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
   if(VA.err && !VA.rows.length){ list.innerHTML = html + `<div class="empty-state">No pude cargar las cuotas (${VA.err}).<br><br><button class="btn primary" onclick="vaLoad(true)">Reintentar</button></div>`; return; }
   if(!VA.rows.length){ list.innerHTML = html + `<div class="empty-state">ESPN no publica cuotas para los próximos partidos de este deporte ahora mismo (en pretemporada o fuera de fecha es normal). Prueba con otro deporte.</div>`; return; }
-  const cand = VA.rows.map(r=>({r, b:vaBest(r)})).filter(x=>x.b && x.b.edge>=6 && x.b.edge<15 && !x.b.est && x.r.known).sort((a,b)=>b.b.edge-a.b.edge).slice(0,5);
+  if(!ROWS.length){ list.innerHTML = html + `<div class="empty-state">No hay cuotas para esta fecha. ESPN solo publica cuotas de los próximos 7 días; prueba con otro día o con "Todos".</div>`; return; }
+  const cand = ROWS.map(r=>({r, b:vaBest(r)})).filter(x=>x.b && x.b.edge>=6 && x.b.edge<15 && !x.b.est && x.r.known).sort((a,b)=>b.b.edge-a.b.edge).slice(0,5);
   html += `<div class="prob-card"><h3><span class="dot"></span>Posible valor ahora</h3>` + (cand.length ? cand.map(x=>{ const f = fmtParts(x.r.d,0);
       return `<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${x.b.label}</b><small>${x.r.h} vs ${x.r.a} · ${f.time}</small></div><div class="pick-pct"><b>+${x.b.edge.toFixed(1)} pp</b><small style="display:block;font-size:10px;color:var(--ink-dim);">modelo ${Math.round(x.b.model*100)}% · mercado ${Math.round(x.b.mk*100)}%</small></div></div>`; }).join('')
     : `<div class="pl-none" style="padding:6px 0;">Ninguna opción supera 6 puntos de diferencia con datos suficientes. Eso es normal: el mercado suele acertar más que un modelo simple.</div>`) + `</div>`;
-  const mov = VA.rows.flatMap(r=>r.mk.map(x=>({r,x}))).filter(z=>Math.abs(z.x.mov)>=3).sort((a,b)=>Math.abs(b.x.mov)-Math.abs(a.x.mov)).slice(0,4);
+  const mov = ROWS.flatMap(r=>r.mk.map(x=>({r,x}))).filter(z=>Math.abs(z.x.mov)>=3).sort((a,b)=>Math.abs(b.x.mov)-Math.abs(a.x.mov)).slice(0,4);
   if(mov.length) html += `<div class="prob-card"><h3><span class="dot"></span>Movimiento de cuotas</h3>` + mov.map(z=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${z.x.label}</b><small>${z.r.h} vs ${z.r.a}</small></div><div class="pick-pct"><b>${z.x.mov>0?'▲':'▼'} ${Math.abs(z.x.mov).toFixed(1)} pp</b><small style="display:block;font-size:10px;color:var(--ink-dim);">${z.x.mov>0?'el mercado la ve más probable':'el mercado la ve menos probable'}</small></div></div>`).join('') + `<div class="lv-stats">Cambio de probabilidad implícita entre la cuota de apertura y la actual.</div></div>`;
-  html += VA.rows.map(r=>vaCard(r)).join('');
-  html += `<div class="foot-note"><b>Cómo leerlo:</b> "mercado" es la probabilidad que implican las cuotas de ${VA.rows[0].prov} (vía ESPN) después de quitar el margen de la casa. "Modelo" es la probabilidad de AlexBet. "Dif." = modelo − mercado en puntos porcentuales; "Posible valor" = el modelo ve al menos 6 pp más que el mercado. El movimiento compara la cuota de apertura con la actual (ESPN no publica el historial intermedio). El modelo no conoce lesiones ni alineaciones, así que una diferencia no es una apuesta segura ni garantiza ganancias. Juega con responsabilidad.</div>`;
+  html += ROWS.map(r=>vaCard(r)).join('');
+  html += `<div class="foot-note"><b>Cómo leerlo:</b> "mercado" es la probabilidad que implican las cuotas de ${ROWS[0].prov} (vía ESPN) después de quitar el margen de la casa. "Modelo" es la probabilidad de AlexBet. "Dif." = modelo − mercado en puntos porcentuales; "Posible valor" = el modelo ve al menos 6 pp más que el mercado. El movimiento compara la cuota de apertura con la actual (ESPN no publica el historial intermedio). El modelo no conoce lesiones ni alineaciones, así que una diferencia no es una apuesta segura ni garantiza ganancias. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
 
@@ -2008,7 +2010,7 @@ async function alOdds(cfg){
   for(const sp of ['futbol','nba','mlb']){
     let c = AL.va[sp];
     if(!c || Date.now()-c.t > 4*60e3){ try{ const r = await vaFetch(sp); c = AL.va[sp] = {t:Date.now(), rows:r.rows}; }catch(e){ continue; } }
-    c.rows.forEach(r=>{
+    c.rows.filter(r=>new Date(r.d+'Z').getTime() <= Date.now()+4*86400e3).forEach(r=>{
       const f = fmtParts(r.d,0), vs = `${r.h} vs ${r.a} · ${f.date} ${f.time} Ecuador`;
       const mv = r.mk.filter(x=>Math.abs(x.mov)>=3).sort((a,b)=>Math.abs(b.mov)-Math.abs(a.mov))[0];
       r.mk.forEach(x=>{
@@ -2602,7 +2604,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v18.1 · alertas + 2ª división (arreglo de cuotas)';
+const APP_VERSION = 'v18.2 · Valor con selector de fecha';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
