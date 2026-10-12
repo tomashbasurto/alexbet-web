@@ -141,7 +141,7 @@ function applyCsv(txt, fx, stats){
   if(lines.length<2) return 0;
   const head = lines[0].replace(/^﻿/,'').split(',');
   const ix = n => head.indexOf(n);
-  const iD=ix('Date'), iH=ix('HomeTeam'), iA=ix('AwayTeam'), iHG=ix('FTHG'), iAG=ix('FTAG'), iHY=ix('HY'), iAY=ix('AY'), iHC=ix('HC'), iAC=ix('AC');
+  const iD=ix('Date'), iH=ix('HomeTeam'), iA=ix('AwayTeam'), iHG=ix('FTHG'), iAG=ix('FTAG'), iHY=ix('HY'), iAY=ix('AY'), iHC=ix('HC'), iAC=ix('AC'), iHS=ix('HS'), iAS=ix('AS'), iHT=ix('HST'), iAT=ix('AST'), iHF=ix('HF'), iAF=ix('AF'), iHR=ix('HR'), iAR=ix('AR');
   if(iD<0||iH<0||iHG<0||iHY<0||iHC<0) return 0;
   const fin = fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null);
   let n = 0;
@@ -158,7 +158,9 @@ function applyCsv(txt, fx, stats){
     const v = i => { const x = parseInt(c[i],10); return isNaN(x)?null:x; };
     const hy=v(iHY), ay=v(iAY), hc=v(iHC), ac=v(iAC);
     if(hy==null||ay==null||hc==null||ac==null) continue;
-    stats[cand[0].i] = {y:[hy,ay], c:[hc,ac]};
+    const e = {y:[hy,ay], c:[hc,ac]};
+    [['s',iHS,iAS],['t',iHT,iAT],['f',iHF,iAF],['r',iHR,iAR]].forEach(([k,a,b])=>{ if(a<0||b<0) return; const p = v(a), q = v(b); if(p!=null&&q!=null) e[k] = [p,q]; });
+    stats[cand[0].i] = e;
     n++;
   }
   return n;
@@ -170,7 +172,10 @@ function applySummary(j, id, stats){
   const h = teams.find(t=>t.homeAway==='home')||teams[0], a = teams.find(t=>t.homeAway==='away')||teams[1];
   const y=[get(h,'yellowCards'),get(a,'yellowCards')], c=[get(h,'wonCorners'),get(a,'wonCorners')];
   if(y[0]==null&&y[1]==null&&c[0]==null&&c[1]==null){ stats[id] = {n:1}; return false; }
-  stats[id] = {y, c}; return true;
+  const e = {y, c};
+  [['s','totalShots'],['t','shotsOnTarget'],['f','foulsCommitted'],['r','redCards'],['p','possessionPct']].forEach(([k,nm])=>{ const p = get(h,nm), q = get(a,nm); if(p!=null&&q!=null) e[k] = [p,q]; });
+  if(!e.s) e.nx = 1; // sin tiros publicados: no volver a pedirlo
+  stats[id] = e; return true;
 }
 
 (async () => {

@@ -38,6 +38,16 @@ async function main(){
       const j = await get(`${API}/soccer/${slug}/scoreboard`);
       for(const ev of (j.events||[])){
         const c = ev.competitions && ev.competitions[0]; if(!c) continue;
+        const st0 = (c.status&&c.status.type)||{};
+        if(st0.state==='pre'){ // alineación confirmada (partidos que empiezan en menos de 90 min)
+          const t0 = Date.parse(ev.date), dt = t0-Date.now(); if(!(dt<90*60e3 && dt>-10*60e3)) continue;
+          const H0 = c.competitors.find(x=>x.homeAway==='home'), A0 = c.competitors.find(x=>x.homeAway==='away'); if(!H0||!A0) continue;
+          const s2 = await get(`${API}/soccer/${slug}/summary?event=${ev.id}`), R = s2.rosters;
+          if(!Array.isArray(R) || R.length<2 || R.filter(r=>(r.roster||[]).filter(p=>p.starter).length>=9).length<2) continue;
+          const fm = R.map(r=>r.formation).filter(Boolean).join(' vs '), hora = new Date(t0).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',timeZone:'America/Guayaquil'});
+          found.push({id:`lu|${ev.id}`, title:'Alineación confirmada', msg:`${H0.team.displayName||H0.team.name} vs ${A0.team.displayName||A0.team.name} · ${hora} (Ecuador)${fm?'\nFormaciones: '+fm:''}\nAbre AlexBet para ver la alineación.`, tags:'clipboard', prio:3});
+          continue;
+        }
         const st = (c.status&&c.status.type)||{}; if(st.state!=='in' || /HALF/i.test(st.name||'') && !/FIRST|SECOND/i.test(st.name||'')) continue;
         const H = c.competitors.find(x=>x.homeAway==='home'), A = c.competitors.find(x=>x.homeAway==='away'); if(!H||!A) continue;
         const min = minuteOf(c); if(min==null) continue;
