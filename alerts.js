@@ -91,12 +91,18 @@ async function main(){
     }catch(e){ errs.push(f+': '+e.message); }
   }
   // 2) cuotas en movimiento (próximos partidos)
-  const now = new Date(), range = `${ymd(now)}-${ymd(new Date(now.getTime()+3*86400e3))}`;
-  const feeds = SLUGS.map(s=>`soccer/${s}`).concat(['basketball/nba','baseball/mlb']);
-  await Promise.all(feeds.map(async f=>{
+  // ESPN rechaza rangos de fechas (HTTP 400) en varias ligas: fútbol por mes, NBA/MLB por día
+  const now = new Date(), days = [0,1,2,3].map(k=>ymd(new Date(now.getTime()+k*86400e3))), months = [...new Set(days.map(d=>d.slice(0,6)))];
+  const feeds = SLUGS.map(s=>({f:`soccer/${s}`, dates:months})).concat([{f:'basketball/nba', dates:days},{f:'baseball/mlb', dates:days}]);
+  await Promise.all(feeds.map(async ({f, dates})=>{
     try{
-      const j = await get(`${API}/${f}/scoreboard?dates=${range}`);
-      for(const ev of (j.events||[])){
+      let evs = [], ok = 0, last = '';
+      for(const d of dates){ try{ const j = await get(`${API}/${f}/scoreboard?dates=${d}`); ok++; evs = evs.concat(j.events||[]); }catch(e){ last = e.message; } }
+      if(!ok) throw new Error(last||'sin respuesta');
+      const ids = {};
+      for(const ev of evs){
+        if(ids[ev.id]) continue; ids[ev.id] = 1;
+        const tt = new Date(ev.date).getTime(); if(tt < Date.now()-3600e3 || tt > Date.now()+4*86400e3) continue;
         const c = ev.competitions && ev.competitions[0]; if(!c) continue;
         if(((c.status&&c.status.type)||{}).state!=='pre') continue;
         const H = c.competitors.find(x=>x.homeAway==='home'), A = c.competitors.find(x=>x.homeAway==='away'); if(!H||!A) continue;

@@ -1819,10 +1819,9 @@ function vaRow(label, mp, openOdds, closeOdds, idx, est){
   const mk = fc[idx], mov = fo ? (mk - fo[idx])*100 : 0;
   return {label, model:mp, mk, mov, edge:(mp-mk)*100, odds:closeOdds[idx], est};
 }
-function vaDates(){
-  const a = new Date(), b = new Date(Date.now()+3*86400e3), f = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-  return f(a)+'-'+f(b);
-}
+function vaDays(){ const f = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; return [0,1,2,3].map(k=>f(new Date(Date.now()+k*86400e3))); }
+function vaMonths(){ return [...new Set(vaDays().map(d=>d.slice(0,6)))]; } // ESPN acepta YYYYMM; los rangos fallan con HTTP 400 en varias ligas
+function vaInWindow(iso){ const t = new Date(iso).getTime(); return t >= Date.now()-3600e3 && t <= Date.now()+4*86400e3; }
 async function vaFetch(sp){
   const rows = []; let fail = 0, total = 0, noOdds = 0, events = 0, err = '';
   try{
@@ -1830,10 +1829,12 @@ async function vaFetch(sp){
       await Promise.all(STATIC_LEAGUES.map(async sl=>{
         const cfg = SRC[sl.id]; if(!cfg||!cfg.espn) return; total++;
         try{
-          const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${vaDates()}`);
-          for(const ev of (j.events||[])){
+          let evs = []; let okN = 0;
+          for(const mo of vaMonths()){ try{ const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${mo}`); okN++; evs = evs.concat(j.events||[]); }catch(e){ err = e.message||String(e); } }
+          if(!okN) throw new Error(err||'sin respuesta');
+          for(const ev of evs){
             const c = ev.competitions && ev.competitions[0]; if(!c) continue;
-            const st = (c.status&&c.status.type)||{}; if(st.state!=='pre') continue; events++;
+            const st = (c.status&&c.status.type)||{}; if(st.state!=='pre' || !vaInWindow(ev.date)) continue; events++;
             const od = vaParse(c.odds && c.odds[0]); if(!od){ noOdds++; continue; }
             const H = c.competitors.find(x=>x.homeAway==='home'), A = c.competitors.find(x=>x.homeAway==='away'); if(!H||!A) continue;
             const hn = H.team.displayName||H.team.name, an = A.team.displayName||A.team.name;
@@ -1859,8 +1860,11 @@ async function vaFetch(sp){
     } else {
       total = 1;
       await usLoad(sp, false);
-      const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/scoreboard?dates=${vaDates()}`);
-      for(const ev of (j.events||[])){
+      let evs = [], okN = 0;
+      for(const d of vaDays()){ try{ const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/scoreboard?dates=${d}`); okN++; evs = evs.concat(j.events||[]); }catch(e){ err = e.message||String(e); } }
+      if(!okN) throw new Error(err||'sin respuesta');
+      const seenIds = {};
+      for(const ev of evs){ if(seenIds[ev.id]) continue; seenIds[ev.id] = 1;
         const c = ev.competitions && ev.competitions[0]; if(!c) continue;
         const st = (c.status&&c.status.type)||{}; if(st.state!=='pre') continue; events++;
         const od = vaParse(c.odds && c.odds[0]); if(!od){ noOdds++; continue; }
@@ -1879,6 +1883,7 @@ async function vaFetch(sp){
     if(total && fail===total) throw new Error(err||'sin conexión');
   }catch(e){ err = e.message||String(e); }
   rows.sort((x,y)=> new Date(x.d)-new Date(y.d));
+  if(rows.length || events) err = '';
   return {rows, err, src:`${events} partidos próximos revisados · ${rows.length} con cuotas`};
 }
 async function vaLoad(force){
@@ -2597,7 +2602,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v18 · alertas de goles/puntos/carreras + 2ª división';
+const APP_VERSION = 'v18.1 · alertas + 2ª división (arreglo de cuotas)';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
