@@ -292,6 +292,16 @@
   .pl-stats{ display:flex; gap:6px; font-size:10.5px; color:var(--ink-dim); text-align:center; } .pl-stats b{ display:block; font-size:13px; color:var(--ink); }
   .pl-proj{ font-size:10px; color:var(--ink-dim); text-align:right; min-width:52px; white-space:nowrap; } .pl-proj b{ font-size:14px; color:var(--over); } .pl-proj small{ display:block; }
   .pl-tbl td .pl-img{ display:none; } .pl-tbl td, .pl-tbl th{ padding:6px 3px; white-space:nowrap; font-size:12px; } .pl-nm{ display:inline-block; vertical-align:middle; white-space:nowrap; } .pl-nm small{ color:var(--ink-dim); margin-left:4px; font-size:10px; }
+  .va-r{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 4px; padding:7px 0; border-top:1px solid var(--line); }
+  .va-n{ flex:1 1 0; min-width:84px; font-size:13px; font-weight:600; line-height:1.25; } .va-n small{ display:block; font-weight:400; font-size:10px; color:var(--ink-dim); }
+  .va-c{ width:40px; flex:0 0 40px; text-align:center; } .va-c b{ display:block; font-size:13.5px; font-family:var(--font-head); } .va-c small{ font-size:9.5px; color:var(--ink-dim); }
+  .va-c b.pos{ color:var(--over); } .va-c b.neg{ color:#ff6b6b; }
+  .va-mv{ font-size:12px; font-weight:700; color:var(--ink-dim); display:block; } .va-mv.u{ color:var(--over); } .va-mv.d{ color:#ff6b6b; }
+  .va-f{ flex-basis:100%; } .va-b{ display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; background:var(--surface-2,var(--line)); }
+  .va-b.up{ background:var(--over); color:#04130a; } .va-b.est{ background:#f5b94233; color:#f5b942; } .va-b.dn{ background:#ff6b6b33; color:#ff6b6b; }
+  .al-row{ display:flex; gap:10px; align-items:flex-start; padding:7px 0; font-size:13.5px; font-weight:600; cursor:pointer; } .al-cb{ margin-top:2px; width:20px; height:20px; border-radius:6px; border:2px solid var(--line); flex:0 0 auto; position:relative; } .al-cb.on{ background:var(--accent); border-color:var(--accent); } .al-cb.on::after{ content:''; position:absolute; left:5px; top:1px; width:5px; height:10px; border:solid var(--on-accent,#000); border-width:0 2.5px 2.5px 0; transform:rotate(45deg); } .al-t{ flex:1; } .al-t small{ display:block; font-weight:400; font-size:11px; color:var(--ink-dim); margin-top:1px; }
+  .al-st{ font-size:11px; color:var(--ink-dim); line-height:1.4; margin-top:4px; } .al-h{ padding:6px 0; font-size:12px; border-top:1px solid var(--line); } .al-h b{ display:block; } .al-h span{ color:var(--ink-dim); display:block; } .al-h small{ color:var(--ink-dim); font-size:10px; }
+  #alToast{ position:fixed; left:12px; right:12px; top:calc(env(safe-area-inset-top,0px) + 10px); z-index:9999; background:var(--surface); border:1px solid var(--accent); border-radius:14px; padding:11px 14px; font-size:12.5px; line-height:1.35; box-shadow:0 8px 30px #000a; transform:translateY(-140%); transition:transform .3s; cursor:pointer; } #alToast.show{ transform:none; } #alToast b{ display:block; font-size:13.5px; margin-bottom:2px; color:var(--accent); } #alToast span{ color:var(--ink); }
   .lv-stats{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:11.5px; color:var(--ink-dim); margin:8px 0 2px; }
   .lv-stats b{ color:var(--ink); font-weight:700; }
   .lv-h{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-dim); margin:12px 0 2px; }
@@ -448,6 +458,7 @@
     <div class="tabs" id="tabs">
       <button class="tab active" id="tabMatches" onclick="setView('matches')">Partidos</button>
       <button class="tab" id="tabPicks" onclick="setView('picks')">Sugerencias</button>
+      <button class="tab" id="tabValue" onclick="setView('value')">Valor</button>
       <button class="tab" id="tabLive" onclick="setView('live')"><span class="live-dot"></span>En vivo<span id="liveCount"></span></button>
     </div>
     <div id="leagueChips"></div>
@@ -475,6 +486,8 @@
     <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
     <button class="btn primary" id="btnUpdate" onclick="updateAll()"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg> Actualizar ahora</button>
     <div class="set-box" id="setInfo"></div>
+    <label>Alertas</label>
+    <div class="set-box" id="alBox"></div>
     <label>Apariencia</label>
     <div class="themes" id="themeBox"></div>
     <label for="inKey">Clave de football-data.org</label>
@@ -737,6 +750,12 @@ const STATIC_LEAGUES = [
     ]
   },
   {
+    id:'champ', name:'Championship (Inglaterra 2)', color:'#a5b4fc', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'bundes2', name:'2. Bundesliga', color:'#fb7185', utcOffset:2, teams:{}, fixtures:[],
+  },
+  {
     id:'turkey', name:'Süper Lig', color:'#ffd166', utcOffset:3,
     teams:{
       'Galatasaray':{gf:2.1, ga:0.9, cards:2.6, corners:5.7},
@@ -964,11 +983,13 @@ function setView(v){
   document.getElementById('tabMatches').classList.toggle('active', v==='matches');
   document.getElementById('tabPicks').classList.toggle('active', v==='picks');
   document.getElementById('tabLive').classList.toggle('active', v==='live');
+  document.getElementById('tabValue').classList.toggle('active', v==='value');
   updateChrome(); updateLiveBadge();
   if(v==='live'){ renderLive(); if(sport==='futbol') liveStart(); else usLiveStart(); } else liveStop();
   if(v==='picks' && activeDate==='all') activeDate = ymd(todayDate);
   if(v==='matches' && activeLeague==='all') activeLeague = LEAGUES[0].id;
   if(v==='live') return;
+  if(v==='value'){ renderMatches(); return; }
   renderChips(); renderDateChips(); renderMatches();
   if(typeof renderStatus==='function') renderStatus();
 }
@@ -1436,8 +1457,8 @@ function usLivePicks(g, m){
   const best = {}; c.forEach(x=>{ if(!best[x.cat]||x.prob>best[x.cat].prob) best[x.cat]=x; });
   return Object.values(best).sort((a,b)=>b.prob-a.prob).map(x=>({...x, conf:m.est?'est':(x.prob>=80?'alta':(x.prob>=65?'media':'baja'))}));
 }
-async function usLiveFetch(){
-  const sp = sport; if(sp==='futbol' || usLiveBusy) return; usLiveBusy = true;
+async function usLiveFetch(spArg){
+  const sp = (typeof spArg==='string' ? spArg : sport); if(sp==='futbol' || usLiveBusy) return; usLiveBusy = true;
   const L = usLive[sp]; const into = {};
   try{
     await usLoad(sp, false);
@@ -1751,7 +1772,7 @@ function usOpen(sp, id, keep){
 }
 let usOpenCur = null;
 function updateChrome(){
-  const live = viewMode==='live', fut = sport==='futbol';
+  const live = viewMode==='live' || viewMode==='value', fut = sport==='futbol';
   const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
   set('leagueChips', fut && !live); set('dateChips', !live); set('dataStatus', fut && !live); set('homeNote', fut);
 }
@@ -1762,7 +1783,294 @@ function setSport(sp){
   if(sp!=='futbol') usLoad(sp);
   updateChrome(); updateLiveBadge();
   if(viewMode==='live'){ renderLive(); if(sp==='futbol') liveStart(); else usLiveStart(); }
+  else if(viewMode==='value'){ renderMatches(); }
   else { renderChips(); renderDateChips(); renderMatches(); if(sp==='futbol' && typeof renderStatus==='function') renderStatus(); }
+}
+
+// ---------- Valor: modelo vs cuotas reales (ESPN) ----------
+const VA = {t:0, rows:[], loading:false, err:'', src:'', sp:''};
+function vaAm2p(o){ o = String(o==null?'':o).trim().toUpperCase(); if(!o) return null; if(o==='EVEN'||o==='EV') return .5; const n = parseFloat(o); if(isNaN(n)||n===0) return null; return n<0 ? -n/(-n+100) : 100/(n+100); }
+function vaDec(o){ const p = vaAm2p(o); return p ? (1/p).toFixed(2) : '-'; }
+function vaLine(x){ const m = String(x==null?'':x).match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+function vaPair(node){ // {open:{odds,line}, close:{odds,line}} -> {o,c,ol,cl}
+  if(!node) return null; const o = node.open||{}, c = node.close||node.current||{};
+  const co = c.odds!=null ? c.odds : o.odds, oo = o.odds!=null ? o.odds : co;
+  if(co==null) return null; return {o:oo, c:co, ol:vaLine(o.line), cl:vaLine(c.line!=null?c.line:o.line)};
+}
+function vaParse(od){
+  if(!od) return null;
+  const out = {prov:(od.provider&&(od.provider.displayName||od.provider.name))||'casa de apuestas', ml:null, tot:null, sp:null};
+  const mlN = od.moneyline;
+  let h = mlN && vaPair(mlN.home), a = mlN && vaPair(mlN.away), d = mlN && vaPair(mlN.draw);
+  if(!h && od.homeTeamOdds && od.homeTeamOdds.moneyLine!=null) h = {o:od.homeTeamOdds.moneyLine, c:od.homeTeamOdds.moneyLine};
+  if(!a && od.awayTeamOdds && od.awayTeamOdds.moneyLine!=null) a = {o:od.awayTeamOdds.moneyLine, c:od.awayTeamOdds.moneyLine};
+  if(!d && od.drawOdds && od.drawOdds.moneyLine!=null) d = {o:od.drawOdds.moneyLine, c:od.drawOdds.moneyLine};
+  if(h && a) out.ml = {h, a, d: d||null};
+  const tN = od.total; let ov = tN && vaPair(tN.over), un = tN && vaPair(tN.under);
+  if(ov && un){ const L = ov.cl!=null ? ov.cl : (od.overUnder!=null ? parseFloat(od.overUnder) : null); if(L!=null) out.tot = {L, oL:ov.ol, over:ov, under:un}; }
+  const sN = od.pointSpread; const sh = sN && vaPair(sN.home), sa = sN && vaPair(sN.away);
+  if(sh && sa && sh.cl!=null) out.sp = {home:sh, away:sa};
+  return (out.ml||out.tot||out.sp) ? out : null;
+}
+// de-vig: devuelve probabilidades justas de un conjunto de cuotas americanas
+function vaFair(odds){ const p = odds.map(vaAm2p); if(p.some(x=>x==null)) return null; const s = p.reduce((x,y)=>x+y,0); return p.map(x=>x/s); }
+function vaRow(label, mp, openOdds, closeOdds, idx, est){
+  const fc = vaFair(closeOdds), fo = vaFair(openOdds); if(!fc) return null;
+  const mk = fc[idx], mov = fo ? (mk - fo[idx])*100 : 0;
+  return {label, model:mp, mk, mov, edge:(mp-mk)*100, odds:closeOdds[idx], est};
+}
+function vaDates(){
+  const a = new Date(), b = new Date(Date.now()+3*86400e3), f = d => `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  return f(a)+'-'+f(b);
+}
+async function vaFetch(sp){
+  const rows = []; let fail = 0, total = 0, noOdds = 0, events = 0, err = '';
+  try{
+    if(sp==='futbol'){
+      await Promise.all(STATIC_LEAGUES.map(async sl=>{
+        const cfg = SRC[sl.id]; if(!cfg||!cfg.espn) return; total++;
+        try{
+          const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${vaDates()}`);
+          for(const ev of (j.events||[])){
+            const c = ev.competitions && ev.competitions[0]; if(!c) continue;
+            const st = (c.status&&c.status.type)||{}; if(st.state!=='pre') continue; events++;
+            const od = vaParse(c.odds && c.odds[0]); if(!od){ noOdds++; continue; }
+            const H = c.competitors.find(x=>x.homeAway==='home'), A = c.competitors.find(x=>x.homeAway==='away'); if(!H||!A) continue;
+            const hn = H.team.displayName||H.team.name, an = A.team.displayName||A.team.name;
+            const lg = LEAGUES.find(l=>l.id===sl.id), X = liveTeam(lg,hn), Y = liveTeam(lg,an);
+            const known = X.t!==LIVE_AVG && Y.t!==LIVE_AVG, est = X.est||Y.est;
+            const p = known ? project(X.t, Y.t) : null, mk = [];
+            if(od.ml){
+              const o3 = od.ml.d ? [od.ml.h,od.ml.a,od.ml.d] : [od.ml.h,od.ml.a];
+              const oo = o3.map(x=>x.o), cc = o3.map(x=>x.c);
+              const mp = p ? (od.ml.d ? [p.winPct/100,p.lossPct/100,p.drawPct/100] : null) : null;
+              [[hn,0],[an,1]].concat(od.ml.d?[['Empate',2]]:[]).forEach(([nm,i])=>{ const r = vaRow(i===2?'Empate':'Gana '+nm, mp?mp[i]:null, oo, cc, i, est); if(r){ if(r.model==null){ r.edge = null; } mk.push(r); } });
+            }
+            if(od.tot && p && od.tot.L%1===.5){
+              const L = od.tot.L, po = poissonOverHalf(L, p.lambdaTotal);
+              const oo = [od.tot.over.o, od.tot.under.o], cc = [od.tot.over.c, od.tot.under.c];
+              const r1 = vaRow('Más de '+L+' goles', po, oo, cc, 0, est), r2 = vaRow('Menos de '+L+' goles', 1-po, oo, cc, 1, est);
+              if(r1) mk.push(r1); if(r2) mk.push(r2);
+            }
+            if(mk.length) rows.push({sp:'futbol', lid:sl.id, lname:sl.name, color:sl.color, d:String(ev.date).slice(0,16), h:hn, a:an, prov:od.prov, mk, est, known, totMove: od.tot&&od.tot.oL!=null&&od.tot.cl!=null ? od.tot.L-od.tot.oL : 0, totOpen: od.tot?od.tot.oL:null, totL: od.tot?od.tot.L:null});
+          }
+        }catch(e){ fail++; err = e.message||String(e); }
+      }));
+    } else {
+      total = 1;
+      await usLoad(sp, false);
+      const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/scoreboard?dates=${vaDates()}`);
+      for(const ev of (j.events||[])){
+        const c = ev.competitions && ev.competitions[0]; if(!c) continue;
+        const st = (c.status&&c.status.type)||{}; if(st.state!=='pre') continue; events++;
+        const od = vaParse(c.odds && c.odds[0]); if(!od){ noOdds++; continue; }
+        const g = usData[sp].games.find(x=>String(x.id)===String(ev.id)); if(!g) continue;
+        const m = usPre(g), mk = [];
+        if(od.ml){ const oo = [od.ml.h.o, od.ml.a.o], cc = [od.ml.h.c, od.ml.a.c];
+          [[g.h.name,0,m.pH],[g.a.name,1,m.pA]].forEach(([nm,i,mp])=>{ const r = vaRow('Gana '+nm, mp, oo, cc, i, m.est); if(r) mk.push(r); }); }
+        if(od.tot){ const L = od.tot.L, po = m.over(L), oo = [od.tot.over.o, od.tot.under.o], cc = [od.tot.over.c, od.tot.under.c];
+          const r1 = vaRow('Más de '+L+(sp==='nba'?' puntos':' carreras'), po, oo, cc, 0, m.est), r2 = vaRow('Menos de '+L+(sp==='nba'?' puntos':' carreras'), 1-po, oo, cc, 1, m.est); if(r1) mk.push(r1); if(r2) mk.push(r2); }
+        if(od.sp && sp==='nba'){ const k = od.sp.home.cl, pc2 = m.cover(-k), oo = [od.sp.home.o, od.sp.away.o], cc = [od.sp.home.c, od.sp.away.c];
+          const fmt = x => (x>0?'+':'')+x;
+          const r1 = vaRow(g.h.name+' '+fmt(k), pc2, oo, cc, 0, m.est), r2 = vaRow(g.a.name+' '+fmt(-k), 1-pc2, oo, cc, 1, m.est); if(r1) mk.push(r1); if(r2) mk.push(r2); }
+        if(mk.length) rows.push({sp, lid:sp, lname:US[sp].name, color:US[sp].color, d:g.d, h:g.h.name, a:g.a.name, prov:od.prov, mk, est:m.est, known:true, totMove: od.tot&&od.tot.oL!=null ? od.tot.L-od.tot.oL : 0, totOpen: od.tot?od.tot.oL:null, totL: od.tot?od.tot.L:null});
+      }
+    }
+    if(total && fail===total) throw new Error(err||'sin conexión');
+  }catch(e){ err = e.message||String(e); }
+  rows.sort((x,y)=> new Date(x.d)-new Date(y.d));
+  return {rows, err, src:`${events} partidos próximos revisados · ${rows.length} con cuotas`};
+}
+async function vaLoad(force){
+  if(VA.loading) return; if(!force && VA.sp===sport && VA.t && Date.now()-VA.t<5*60e3) return;
+  VA.loading = true; VA.err = ''; VA.sp = sport; if(viewMode==='value') vaRender();
+  const sp = sport, r = await vaFetch(sp);
+  VA.rows = r.rows; VA.err = r.err; VA.src = r.src; VA.t = Date.now(); VA.loading = false;
+  if(viewMode==='value' && sport===sp) vaRender();
+}
+function vaBest(r){ const e = r.mk.filter(x=>x.edge!=null).sort((a,b)=>b.edge-a.edge)[0]; return e||null; }
+function vaFlag(x){
+  if(x.edge==null) return '';
+  if(x.edge>=6) return x.est ? `<span class="va-b est">Posible valor (est.)</span>` : `<span class="va-b up">Posible valor</span>`;
+  if(x.edge<=-6) return `<span class="va-b dn">Mercado la ve mejor</span>`;
+  return '';
+}
+function vaMov(x){ if(Math.abs(x.mov)<0.8) return `<span class="va-mv">=</span>`; return `<span class="va-mv ${x.mov>0?'u':'d'}">${x.mov>0?'▲':'▼'} ${Math.abs(x.mov).toFixed(1)}</span>`; }
+function vaCard(r, showBest){
+  const f = fmtParts(r.d,0), best = vaBest(r);
+  const rows = r.mk.map(x=>`<div class="va-r"><div class="va-n">${x.label}<small>cuota ${vaDec(x.odds)} · ${x.odds}</small></div>
+    <div class="va-c"><b>${x.model!=null?Math.round(x.model*100)+'%':'-'}</b><small>modelo</small></div>
+    <div class="va-c"><b>${Math.round(x.mk*100)}%</b><small>mercado</small></div>
+    <div class="va-c">${x.edge!=null?`<b class="${x.edge>=3?'pos':(x.edge<=-3?'neg':'')}">${x.edge>0?'+':''}${x.edge.toFixed(1)}</b>`:'<b>-</b>'}<small>dif. pp</small></div>
+    <div class="va-c">${vaMov(x)}<small>mov.</small></div>${vaFlag(x)?`<div class="va-f">${vaFlag(x)}</div>`:''}</div>`).join('');
+  const big = best && best.edge>=15 ? `<div class="lv-stats" style="color:#f5b942;">⚠ Diferencia muy grande: casi siempre significa que el modelo no ve lesiones, alineaciones o contexto que el mercado sí conoce.</div>` : '';
+  const tm = r.totMove && Math.abs(r.totMove)>=0.5 ? `<div class="lv-stats">Línea de total: abrió en <b>${r.totOpen}</b> → ahora <b>${r.totL}</b> (${r.totMove>0?'sube':'baja'})</div>` : '';
+  return `<div class="match-card"><div class="match-meta"><span><i class="lg-dot" style="background:${r.color}"></i>${r.lname}</span><span>${f.date} · ${f.time} Ecuador</span></div>
+    <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${r.h} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${r.a}</div>${rows}${tm}${big}
+    ${!r.known?`<div class="lv-stats">Sin estadísticas de estos equipos: solo se muestran las cuotas del mercado, sin comparación.</div>`:''}</div>`;
+}
+function vaRender(){
+  const list = document.getElementById('matchList');
+  document.getElementById('matchesLabel').textContent = 'Valor y cuotas';
+  if(VA.sp!==sport || (!VA.t && !VA.loading)){ vaLoad(); }
+  if(VA.sp!==sport || (VA.loading && !VA.t)){ document.getElementById('matchCount').textContent=''; list.innerHTML = `<div class="empty-state">Buscando cuotas reales en ESPN…</div>`; return; }
+  document.getElementById('matchCount').textContent = VA.rows.length + (VA.rows.length===1?' partido':' partidos');
+  const ago = Math.max(0, Math.round((Date.now()-VA.t)/60000));
+  let html = `<div class="data-status" style="display:block"><b>● Cuotas reales</b> · ESPN · próximos 4 días · ${VA.src} · hace ${ago<1?'un momento':ago+' min'} <a href="#" onclick="vaLoad(true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
+  if(VA.err && !VA.rows.length){ list.innerHTML = html + `<div class="empty-state">No pude cargar las cuotas (${VA.err}).<br><br><button class="btn primary" onclick="vaLoad(true)">Reintentar</button></div>`; return; }
+  if(!VA.rows.length){ list.innerHTML = html + `<div class="empty-state">ESPN no publica cuotas para los próximos partidos de este deporte ahora mismo (en pretemporada o fuera de fecha es normal). Prueba con otro deporte.</div>`; return; }
+  const cand = VA.rows.map(r=>({r, b:vaBest(r)})).filter(x=>x.b && x.b.edge>=6 && x.b.edge<15 && !x.b.est && x.r.known).sort((a,b)=>b.b.edge-a.b.edge).slice(0,5);
+  html += `<div class="prob-card"><h3><span class="dot"></span>Posible valor ahora</h3>` + (cand.length ? cand.map(x=>{ const f = fmtParts(x.r.d,0);
+      return `<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${x.b.label}</b><small>${x.r.h} vs ${x.r.a} · ${f.time}</small></div><div class="pick-pct"><b>+${x.b.edge.toFixed(1)} pp</b><small style="display:block;font-size:10px;color:var(--ink-dim);">modelo ${Math.round(x.b.model*100)}% · mercado ${Math.round(x.b.mk*100)}%</small></div></div>`; }).join('')
+    : `<div class="pl-none" style="padding:6px 0;">Ninguna opción supera 6 puntos de diferencia con datos suficientes. Eso es normal: el mercado suele acertar más que un modelo simple.</div>`) + `</div>`;
+  const mov = VA.rows.flatMap(r=>r.mk.map(x=>({r,x}))).filter(z=>Math.abs(z.x.mov)>=3).sort((a,b)=>Math.abs(b.x.mov)-Math.abs(a.x.mov)).slice(0,4);
+  if(mov.length) html += `<div class="prob-card"><h3><span class="dot"></span>Movimiento de cuotas</h3>` + mov.map(z=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${z.x.label}</b><small>${z.r.h} vs ${z.r.a}</small></div><div class="pick-pct"><b>${z.x.mov>0?'▲':'▼'} ${Math.abs(z.x.mov).toFixed(1)} pp</b><small style="display:block;font-size:10px;color:var(--ink-dim);">${z.x.mov>0?'el mercado la ve más probable':'el mercado la ve menos probable'}</small></div></div>`).join('') + `<div class="lv-stats">Cambio de probabilidad implícita entre la cuota de apertura y la actual.</div></div>`;
+  html += VA.rows.map(r=>vaCard(r)).join('');
+  html += `<div class="foot-note"><b>Cómo leerlo:</b> "mercado" es la probabilidad que implican las cuotas de ${VA.rows[0].prov} (vía ESPN) después de quitar el margen de la casa. "Modelo" es la probabilidad de AlexBet. "Dif." = modelo − mercado en puntos porcentuales; "Posible valor" = el modelo ve al menos 6 pp más que el mercado. El movimiento compara la cuota de apertura con la actual (ESPN no publica el historial intermedio). El modelo no conoce lesiones ni alineaciones, así que una diferencia no es una apuesta segura ni garantiza ganancias. Juega con responsabilidad.</div>`;
+  list.innerHTML = html;
+}
+
+// ---------- Alertas: partido movido, valor y cuotas en movimiento ----------
+const AL = {timer:null, busy:false, va:{}, last:0, msg:''};
+const AL_DEF = {on:false, valor:true, mov:true, corners:true, cards:true, pace:true};
+function alCfg(){ return Object.assign({}, AL_DEF, LS.get('ab_al', {})); }
+function alSave(c){ LS.set('ab_al', c); }
+function alLN(){ return (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null; }
+// Partido "movido": muchos córners o tarjetas para el minuto. n = cantidad actual, lam = promedio esperado de un partido completo
+function alMoved(kind, pos, n, lam, T){
+  T = T||90;
+  const C = {corners:{r:1.35,n:5,a:15,b:82}, cards:{r:1.5,n:3,a:15,b:82}, goals:{r:1.5,n:3,a:15,b:80}, runs:{r:1.4,n:6,a:3,b:7}}[kind];
+  if(!C || pos<C.a || pos>C.b || n==null || !lam) return null;
+  const exp = lam*pos/T; if(n < C.n || n < C.r*exp) return null;
+  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = rate*(T-pos);
+  let best = null;
+  for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?10:8); L+=1){ const p = poissonAtLeast(Math.ceil(L)-n, rem); if(p>=0.70) best = {L, p}; }
+  return best ? {L:best.L, p:best.p, exp, final:n+rem} : null;
+}
+// NBA: ritmo de puntos (normal). g = partido en vivo, base = modelo previo
+function alNba(g){
+  const m = usLiveModel(g); if(g.period>4 || /HALF/i.test(g.statusName)&&!/FIRST|SECOND/i.test(g.statusName)) return null;
+  const rem = m.rem, e = 48-rem, base = usPre(g), T = (g.h.score||0)+(g.a.score||0);
+  if(e<10 || rem<6) return null;
+  const norm = base.tot/48, ratio = (T/e)/norm; if(ratio<1.10) return null;
+  const w = e/(e+24), rate = w*(T/e)+(1-w)*norm, mean = T+rate*rem, sd = Math.max(3, NBA_SD_T*Math.sqrt(rem/48));
+  let best = null; for(let L=Math.floor(T)+0.5; L<=mean+40; L+=1){ const p = 1-normCdf((L-mean)/sd); if(p>=0.70) best = {L,p}; }
+  return best ? {L:best.L, p:best.p, T, e, exp:norm*e, est:base.est} : null;
+}
+function alMlb(g){
+  const d = String(g.detail), mm = d.match(/(top|bot\w*|mid\w*|end)\s*(?:of\s*the\s*)?(\d+)/i); if(!mm) return null;
+  const k = mm[1].toLowerCase(), n = parseInt(mm[2],10);
+  const elapsed = k==='top' ? 2*(n-1) : (k.startsWith('bot')||k.startsWith('mid')) ? 2*(n-1)+1 : 2*n;
+  const base = usPre(g), R = (g.h.score||0)+(g.a.score||0), r = alMoved('runs', elapsed/2, R, base.tot, 9);
+  return r ? {...r, R, inn:d, est:base.est} : null;
+}
+function alLive(cfg){
+  const out = [];
+  (liveData.list||[]).forEach(m=>{
+    const s = m.st; if(!s || !m.model) return;
+    const lg = LEAGUES.find(l=>l.id===m.lid) || STATIC_LEAGUES.find(l=>l.id===m.lid);
+    const X = liveTeam(lg, m.h), Y = liveTeam(lg, m.a), est = X.est || Y.est;
+    const vs = `${m.h} ${m.gh}-${m.ga} ${m.a} · ${m.min}'`;
+    if(cfg.corners && s.ch!=null && s.ca!=null){
+      const lam = ((X.t&&X.t.corners)||5) + ((Y.t&&Y.t.corners)||5), C = s.ch+s.ca, r = alMoved('corners', m.min, C, lam);
+      if(r) out.push({id:`corn|${m.lid}|${m.id}|${r.L}`, type:'corners', title:`Partido movido · córners (${m.lname})`,
+        body:`${vs}\n${C} córners (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} córners · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${est?' (est.)':''}`});
+    }
+    if(cfg.pace){
+      const G = (m.gh||0)+(m.ga||0), lamG = (((X.t&&X.t.gf)||1.35)+((Y.t&&Y.t.ga)||1.35))/2 + (((Y.t&&Y.t.gf)||1.35)+((X.t&&X.t.ga)||1.35))/2, r = alMoved('goals', m.min, G, lamG);
+      if(r) out.push({id:`goal|${m.lid}|${m.id}|${r.L}`, type:'goals', title:`Partido movido · goles (${m.lname})`,
+        body:`${vs}\n${G} goles (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} goles · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${est?' (est.)':''}`});
+    }
+    if(cfg.cards && s.yh!=null && s.ya!=null){
+      const lam = ((X.t&&X.t.cards)||2.2) + ((Y.t&&Y.t.cards)||2.2), K = s.yh+s.ya+(s.rh||0)+(s.ra||0), r = alMoved('cards', m.min, K, lam);
+      if(r) out.push({id:`card|${m.lid}|${m.id}|${r.L}`, type:'cards', title:`Partido movido · tarjetas (${m.lname})`,
+        body:`${vs}\n${K} tarjetas (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} tarjetas · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${est?' (est.)':''}`});
+    }
+  });
+  return out;
+}
+function alUs(cfg){
+  const out = [];
+  if(!cfg.pace) return out;
+  (usLive.nba.list||[]).forEach(g=>{ try{ const r = alNba(g); if(r) out.push({id:`nba|${g.id}|${r.L}`, type:'pace', title:'Partido movido · puntos (NBA)',
+    body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${usLiveModel(g).label}\n${r.T} puntos en ${r.e.toFixed(0)} min (ritmo normal: ${r.exp.toFixed(0)}). Opción: Más de ${r.L} puntos · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${r.est?' (est.)':''}`}); }catch(e){} });
+  (usLive.mlb.list||[]).forEach(g=>{ try{ const r = alMlb(g); if(r) out.push({id:`mlb|${g.id}|${r.L}`, type:'pace', title:'Partido movido · carreras (MLB)',
+    body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${g.detail}\n${r.R} carreras (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} carreras · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${r.est?' (est.)':''}`}); }catch(e){} });
+  return out;
+}
+async function alOdds(cfg){
+  const out = [];
+  for(const sp of ['futbol','nba','mlb']){
+    let c = AL.va[sp];
+    if(!c || Date.now()-c.t > 4*60e3){ try{ const r = await vaFetch(sp); c = AL.va[sp] = {t:Date.now(), rows:r.rows}; }catch(e){ continue; } }
+    c.rows.forEach(r=>{
+      const f = fmtParts(r.d,0), vs = `${r.h} vs ${r.a} · ${f.date} ${f.time} Ecuador`;
+      const mv = r.mk.filter(x=>Math.abs(x.mov)>=3).sort((a,b)=>Math.abs(b.mov)-Math.abs(a.mov))[0];
+      r.mk.forEach(x=>{
+        if(cfg.valor && x.edge!=null && x.edge>=6 && x.edge<15 && !x.est && r.known)
+          out.push({id:`val|${sp}|${r.h}|${r.a}|${x.label}`, type:'valor', title:`Posible valor · ${r.lname}`, body:`${x.label} (+${x.edge.toFixed(1)} pp)\nModelo ${Math.round(x.model*100)}% · mercado ${Math.round(x.mk*100)}% · cuota ${vaDec(x.odds)}\n${vs}`});
+        if(cfg.mov && x===mv)
+          out.push({id:`mov|${sp}|${r.h}|${r.a}|${x.label}|${Math.round(x.mov)}`, type:'mov', title:`Cuota en movimiento · ${r.lname}`, body:`${x.label} ${x.mov>0?'▲':'▼'} ${Math.abs(x.mov).toFixed(1)} pp (${x.mov>0?'el mercado la ve más probable':'el mercado la ve menos probable'})\n${vs}`});
+      });
+    });
+  }
+  return out;
+}
+async function alTick(manual){
+  const cfg = alCfg(); if(!cfg.on && !manual) return;
+  if(AL.busy) return; AL.busy = true;
+  try{
+    await liveFetch();
+    if(cfg.pace){ await usLiveFetch('nba'); await usLiveFetch('mlb'); }
+    let found = alLive(cfg).concat(alUs(cfg), await alOdds(cfg));
+    const seen = LS.get('ab_al_seen', {}), now = Date.now(); let n = 0;
+    Object.keys(seen).forEach(k=>{ if(now-seen[k] > 12*3600e3) delete seen[k]; });
+    for(const a of found){ if(seen[a.id]) continue; seen[a.id] = now; n++; await alNotify(a); }
+    LS.set('ab_al_seen', seen); AL.last = now; AL.msg = n ? `${n} alerta${n>1?'s':''} nueva${n>1?'s':''}` : 'Sin alertas nuevas';
+  }catch(e){ AL.msg = 'Error: '+(e.message||e); }
+  AL.busy = false; alBox();
+}
+async function alNotify(a){
+  const hist = LS.get('ab_al_hist', []); hist.unshift({t:Date.now(), title:a.title, body:a.body, type:a.type}); LS.set('ab_al_hist', hist.slice(0,30));
+  alToast(a);
+  try{
+    const LN = alLN();
+    if(LN){ await LN.schedule({notifications:[{id:Math.abs([...a.id].reduce((x,c)=>(x*31+c.charCodeAt(0))|0,7))%2147483000, title:a.title, body:a.body.replace(/\n/g,' · ')}]}); }
+    else if('Notification' in window && Notification.permission==='granted'){
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if(reg && reg.showNotification) await reg.showNotification(a.title, {body:a.body, icon:'icon-192.png', tag:a.id});
+      else new Notification(a.title, {body:a.body, tag:a.id});
+    }
+  }catch(e){}
+}
+function alToast(a){
+  let el = document.getElementById('alToast'); if(!el){ el = document.createElement('div'); el.id = 'alToast'; document.body.appendChild(el); }
+  el.innerHTML = `<b>${a.title}</b><span>${a.body.replace(/\n/g,'<br>')}</span>`; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'), 9000); el.onclick = ()=>el.classList.remove('show');
+}
+async function alPerm(){
+  try{ const LN = alLN(); if(LN){ const r = await LN.requestPermissions(); return r.display==='granted'; }
+    if('Notification' in window){ if(Notification.permission==='granted') return true; return (await Notification.requestPermission())==='granted'; } }catch(e){}
+  return false;
+}
+function alStart(){ alStop(); AL.timer = setInterval(()=>alTick(), 5*60e3); setTimeout(()=>alTick(), 20000); }
+function alStop(){ if(AL.timer){ clearInterval(AL.timer); AL.timer = null; } }
+async function alToggle(key, val){
+  const c = alCfg(); c[key] = val; alSave(c);
+  if(key==='on'){ if(val){ const ok = await alPerm(); AL.msg = ok ? 'Alertas activadas' : 'Alertas activadas dentro de la app (sin permiso para notificaciones del teléfono)'; alStart(); } else { alStop(); AL.msg = 'Alertas desactivadas'; } }
+  alBox();
+}
+function alTest(){ alNotify({id:'test|'+Date.now(), type:'test', title:'AlexBet · prueba', body:'Así se verá un aviso de "partido movido".\nMás de 10.5 córners · modelo 72% · solo vale si la cuota es mayor a 1.39'}); alPerm(); }
+function alBox(){
+  const el = document.getElementById('alBox'); if(!el) return;
+  const c = alCfg(), hist = LS.get('ab_al_hist', []);
+  const chk = (k,t,sub)=>`<div class="al-row" onclick="alToggle('${k}',${!c[k]})"><i class="al-cb ${c[k]?'on':''}"></i><div class="al-t">${t}<small>${sub}</small></div></div>`;
+  el.innerHTML = chk('on','Activar alertas','Revisa cada 5 min mientras la app esté abierta') +
+    `<div style="opacity:${c.on?1:.5}">` + chk('pace','Partido movido: goles, puntos, carreras','Fútbol (goles), NBA (puntos) y MLB (carreras) por encima del ritmo normal') + chk('corners','Muchos córners','Partido en vivo con más córners de lo normal') + chk('cards','Muchas tarjetas','Partido en vivo con más tarjetas de lo normal') + chk('valor','Posible valor','Modelo ve 6 pp o más que las cuotas') + chk('mov','Cuota en movimiento','La cuota cambió 3 pp o más') + `</div>
+    <div class="row" style="gap:8px;"><button class="btn" style="margin:6px 0;flex:1" onclick="alTick(true)">Revisar ahora</button><button class="btn ghost" style="margin:6px 0;flex:1" onclick="alTest()">Probar aviso</button></div>
+    <div class="al-st">${AL.msg||''}${AL.last?' · última revisión '+ago(AL.last):''}</div>
+    ${hist.length ? `<div style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px;">${hist.slice(0,6).map(h=>`<div class="al-h"><b>${h.title}</b><span>${h.body.replace(/\n/g,'<br>')}</span><small>${ago(h.t)}</small></div>`).join('')}</div>` : ''}
+    <div class="al-st">Con la app cerrada, los avisos llegan por ntfy (ver instrucciones de la Action). Las probabilidades son estimaciones: ninguna alerta garantiza ganancias.</div>`;
 }
 
 // ---------- Detalle de partido en vivo ----------
@@ -1937,7 +2245,7 @@ const LG_GROUPS = [
   ['Sudamérica', ['lib','sud','bra','arg','col']],
   ['Norteamérica', ['mex','mls']],
   ['Copas de Europa', ['ucl','uel','uecl']],
-  ['Ligas de Europa', ['laliga','epl','seriea','bundes','ligue1','portugal','turkey','netherlands']],
+  ['Ligas de Europa', ['laliga','epl','champ','seriea','bundes','bundes2','ligue1','portugal','turkey','netherlands']],
 ];
 function lgCount(l){
   if(activeDate==='all') return l.fixtures.length;
@@ -1996,6 +2304,7 @@ function selectDate(key){
 }
 
 function renderMatches(){
+  if(viewMode==='value'){ vaRender(); return; }
   if(sport!=='futbol'){ if(viewMode==='live') usRenderLive(); else if(viewMode==='picks') usRenderPicks(); else usRenderMatches(); return; }
   if(viewMode==='live'){ renderLive(); return; }
   if(viewMode==='picks'){ renderPicks(); return; }
@@ -2275,6 +2584,8 @@ const SRC = {
   epl:        {fd:'PL',  espn:'eng.1', csv:'E0',  primary:'fd'},
   seriea:     {fd:'SA',  espn:'ita.1', csv:'I1',  primary:'fd'},
   bundes:     {fd:'BL1', espn:'ger.1', csv:'D1',  primary:'fd'},
+  bundes2:    {             espn:'ger.2', csv:'D2',  primary:'espn'},
+  champ:      {fd:'ELC', espn:'eng.2', csv:'E1',  primary:'fd'},
   ligue1:     {fd:'FL1', espn:'fra.1', csv:'F1',  primary:'fd'},
   portugal:   {fd:'PPL', espn:'por.1', csv:'P1',  primary:'fd'},
   turkey:     {             espn:'tur.1', csv:'T1',  primary:'espn'},
@@ -2286,7 +2597,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v15 · estadísticas de jugadores NBA y MLB';
+const APP_VERSION = 'v18 · alertas de goles/puntos/carreras + 2ª división';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -2716,7 +3027,7 @@ function openSettings(){
   document.getElementById('inKey').value = LS.get('ab_fdkey','') || '';
   document.getElementById('inKey').placeholder = DEFAULT_KEY ? 'Usando la clave incluida (…'+DEFAULT_KEY.slice(-4)+')' : 'Pega aquí tu clave de football-data.org (opcional)';
   document.getElementById('inSeason').value = LS.get('ab_season','') || '';
-  renderSettings();
+  renderSettings(); alBox();
   document.getElementById('settings').classList.add('show');
 }
 function closeSettings(){ document.getElementById('settings').classList.remove('show'); }
@@ -2742,6 +3053,7 @@ renderMatches();
 renderStatus();
 if(Date.now() - LS.get('ab_last',0) > 6*3600e3) setTimeout(updateAll, 400);
 setTimeout(liveFetch, 1500);
+if(alCfg().on) alStart();
 setTimeout(()=>logosLoad(false), 2500);
 </script>
 </body>

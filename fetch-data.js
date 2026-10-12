@@ -20,6 +20,8 @@ const LEAGUES = [
   {id:'epl', name:'Premier League', fd:'PL', espn:'eng.1', csv:'E0', primary:'fd'},
   {id:'seriea', name:'Serie A', fd:'SA', espn:'ita.1', csv:'I1', primary:'fd'},
   {id:'bundes', name:'Bundesliga', fd:'BL1', espn:'ger.1', csv:'D1', primary:'fd'},
+  {id:'bundes2', name:'2. Bundesliga', espn:'ger.2', csv:'D2', primary:'espn'},
+  {id:'champ', name:'Championship (Inglaterra 2)', fd:'ELC', espn:'eng.2', csv:'E1', primary:'fd'},
   {id:'ligue1', name:'Ligue 1', fd:'FL1', espn:'fra.1', csv:'F1', primary:'fd'},
   {id:'portugal', name:'Primeira Liga', fd:'PPL', espn:'por.1', csv:'P1', primary:'fd'},
   {id:'turkey', name:'Süper Lig', espn:'tur.1', csv:'T1', primary:'espn'},
