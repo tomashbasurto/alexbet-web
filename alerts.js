@@ -7,6 +7,9 @@ const NTFY = (process.env.NTFY_URL || 'https://ntfy.sh').replace(/\/$/, '');
 const API = process.env.ESPN_API || 'https://site.api.espn.com/apis/site/v2/sports';
 const SEEN_FILE = process.env.SEEN_FILE || 'alerts-seen.json';
 const SLUGS = ['ecu.1','eng.2','ger.2','uefa.champions','uefa.europa','uefa.europa.conf','bra.1','esp.1','eng.1','ita.1','ger.1','fra.1','por.1','tur.1','ned.1','conmebol.libertadores','conmebol.sudamericana','arg.1','col.1','mex.1','usa.1'];
+const FAVS = (process.env.FAVORITOS || '').split(',').map(x=>x.trim()).filter(Boolean);
+const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+const isFav = n => { const x = norm(n); return !!x && FAVS.some(f=>{ const y = norm(f); return y && (x===y || x.includes(y) || y.includes(x)); }); };
 const LAM = {corners: 10.2, cards: 4.2, goals: 2.7, nba: 222, mlb: 8.8}; // promedios generales de un partido completo (sin datos por equipo)
 const get = async u => { const r = await fetch(u, {headers:{accept:'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); };
 function pAtLeast(k, lam){ if(k<=0) return 1; let term = Math.exp(-lam), cdf = term; for(let i=1;i<k;i++){ term *= lam/i; cdf += term; } return Math.max(0, 1-cdf); }
@@ -31,7 +34,9 @@ const stat = (t, n) => { const it = (t.statistics||[]).find(s=>s.name===n); if(!
 function minuteOf(c){ const dc = String((c.status&&c.status.displayClock)||''); const m = dc.match(/(\d+)/); return m ? parseInt(m[1],10) : null; }
 const ymd = d => `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
 async function main(){
-  const found = [], errs = [];
+  const found = [], errs = [], silent = new Set();
+  let seen = {}; try{ seen = JSON.parse(fs.readFileSync(SEEN_FILE,'utf8')); }catch(e){}
+  const t = Date.now(); Object.keys(seen).forEach(k=>{ if(t-seen[k] > 12*3600e3) delete seen[k]; });
   // 1) soccer en vivo
   await Promise.all(SLUGS.map(async slug=>{
     try{
@@ -39,6 +44,22 @@ async function main(){
       for(const ev of (j.events||[])){
         const c = ev.competitions && ev.competitions[0]; if(!c) continue;
         const st0 = (c.status&&c.status.type)||{};
+        if(FAVS.length){ // favoritos: empieza, gol, roja, final
+          const Hf = c.competitors.find(x=>x.homeAway==='home'), Af = c.competitors.find(x=>x.homeAway==='away');
+          const hn = Hf && (Hf.team.displayName||Hf.team.name), an = Af && (Af.team.displayName||Af.team.name);
+          if(Hf && Af && (isFav(hn)||isFav(an)) && (st0.state==='in' || st0.state==='post')){
+            const fb = 'fb|'+ev.id, first = !seen[fb]; silent.add(fb);
+            const hs = parseInt(Hf.score,10)||0, as = parseInt(Af.score,10)||0, vs = `${hn} ${hs}-${as} ${an}`, cand = [];
+            if(st0.state==='in'){
+              const min = minuteOf(c), early = min!=null && min<=6;
+              if(early) cand.push({id:'fko|'+ev.id, fresh:true, title:`Empezó: ${hn} vs ${an}`, msg:'Ya se está jugando. Abre AlexBet > En vivo.'});
+              if(hs+as>0) cand.push({id:`fgoal|${ev.id}|${hs}-${as}`, fresh:early, title:`¡Gol! ${vs}`, msg:min!=null?`Minuto ${min}'`:'Gol'});
+              try{ const s2 = await get(`${API}/soccer/${slug}/summary?event=${ev.id}`), T2 = (s2.boxscore&&s2.boxscore.teams)||[];
+                const red = T2.reduce((a,t2)=>a+(stat(t2,'redCards')||0),0); if(red>0) cand.push({id:`fred|${ev.id}|${red}`, fresh:early, title:`Tarjeta roja · ${vs}`, msg:min!=null?`Minuto ${min}'`:'Roja'}); }catch(e){}
+            } else if(Date.now()-Date.parse(ev.date) < 8*3600e3) cand.push({id:'ffin|'+ev.id, fresh:false, title:`Final: ${vs}`, msg:'Partido terminado'});
+            for(const it of cand){ if(seen[it.id]) continue; if(first && !it.fresh){ silent.add(it.id); continue; } found.push({id:it.id, title:it.title, msg:it.msg||' ', tags:'star', prio:4}); }
+          }
+        }
         if(st0.state==='pre'){ // alineación confirmada (partidos que empiezan en menos de 90 min)
           const t0 = Date.parse(ev.date), dt = t0-Date.now(); if(!(dt<90*60e3 && dt>-10*60e3)) continue;
           const H0 = c.competitors.find(x=>x.homeAway==='home'), A0 = c.competitors.find(x=>x.homeAway==='away'); if(!H0||!A0) continue;
@@ -88,8 +109,7 @@ async function main(){
       }
     }catch(e){ errs.push(f+': '+e.message); }
   }
-  let seen = {}; try{ seen = JSON.parse(fs.readFileSync(SEEN_FILE,'utf8')); }catch(e){}
-  const t = Date.now(); Object.keys(seen).forEach(k=>{ if(t-seen[k] > 12*3600e3) delete seen[k]; });
+  silent.forEach(id=>{ seen[id] = t; });
   let sent = 0;
   for(const a of found){
     if(seen[a.id]) continue;
