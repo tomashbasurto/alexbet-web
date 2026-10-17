@@ -1029,6 +1029,57 @@ function setView(v){
   if(typeof renderStatus==='function') renderStatus();
 }
 
+// ---- Calibración v25: recorta sobreconfianza y contrasta con cuotas ----
+const CAL_F = {goles:.75, btts:.7, res:.75, tarj:.55, corn:.65, ml:.78, line:.78, tot:.7};
+const CAL_C = {t:0, v:{}};
+function calLearn(cat){
+  if(Date.now()-CAL_C.t>60e3){ CAL_C.t = Date.now(); CAL_C.v = {};
+    try{ const by = {}; Object.values(LS.get('ab_preds',{})).forEach(p=>{ if(p.res===0||p.res===1) (by[p.cat] = by[p.cat]||[]).push(p); });
+      Object.keys(by).forEach(k=>{ const P = by[k]; if(P.length<20) return; const hit = P.filter(p=>p.res===1).length/P.length*100, ap = P.reduce((a,p)=>a+(p.raw!=null?p.raw:p.prob),0)/P.length; CAL_C.v[k] = Math.min(0, hit-ap); });
+    }catch(e){} }
+  return CAL_C.v[cat]||0;
+}
+function calP(cat, raw, est){
+  const f = (CAL_F[cat]||.85)*(est?.8:1); let p = 50+(raw-50)*f; const g = calLearn(cat); if(g<0) p = Math.min(p, raw+g);
+  return Math.max(1, Math.min(85, Math.round(p)));
+}
+const normN = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+function mkRow(sp,h,a){
+  if(!VA.rows || !VA.t || VA.sp!==sp) return null; const H = normN(h), A = normN(a), eq = (x,y)=> x===y || (x.length>3 && y.length>3 && (x.includes(y)||y.includes(x)));
+  return VA.rows.find(r=>eq(normN(r.h),H) && eq(normN(r.a),A)) || null;
+}
+function mkProb(row,label,h,a){
+  if(!row) return null; const g = n => { const m = row.mk.find(z=>z.label==='Gana '+n); return m?m.mk:null; }, d = (row.mk.find(z=>z.label==='Empate')||{}).mk;
+  let x = row.mk.find(m=>m.label===label); if(x) return x.mk*100;
+  if(label==='Gana '+h){ const v = g(row.h); return v==null?null:v*100; }
+  if(label==='Gana '+a){ const v = g(row.a); return v==null?null:v*100; }
+  if(label===h+' o empate'){ const v = g(row.h); return (v==null||d==null)?null:(v+d)*100; }
+  if(label==='Empate o '+a){ const v = g(row.a); return (v==null||d==null)?null:(v+d)*100; }
+  return null;
+}
+function calAll(c, sp, h, a, est){
+  const row = mkRow(sp,h,a), had = !!(VA.t && VA.sp===sp);
+  c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x)); const mp = mkProb(row,x.label,h,a);
+    if(mp!=null){ x.drop = q-mp>=12; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · Mercado '+x.mk+'%'; }
+    else if(had && row==null) x.why += ' · sin cuota del mercado';
+    x.prob = Math.min(85,q); });
+  return c.filter(x=>!x.drop);
+}
+function vaPrime(){
+  if(VA.loading || (VA.sp===sport && VA.t && Date.now()-VA.t<15*60e3)) return;
+  const sp = sport; vaLoad(false).then(()=>{ if(sport===sp && viewMode==='picks') renderMatches(); }).catch(()=>{});
+}
+// resultados de sugerencias ya jugadas (24 h)
+function pkMark(r){ return r===1 ? '✅' : r===0 ? '❌' : r==='v' ? '➖' : '⏳'; }
+function pkDoneHTML(flt){
+  const now = Date.now(), P = Object.values(LS.get('ab_preds',{})).filter(p=> flt(p) && p.ts<now && ((p.res===0||p.res===1||p.res==='v') ? now-(p.rt||p.ts+3*3600e3)<24*3600e3 : now-p.ts<36*3600e3));
+  if(!P.length) return '';
+  const g = {}; P.forEach(p=>{ const k = pkKey(p); (g[k] = g[k]||[]).push(p); });
+  const cards = Object.values(g).sort((x,y)=>y[0].ts-x[0].ts).map(a=>{ const p0 = a[0], ok = a.filter(p=>p.res===1).length, done = a.filter(p=>p.res===0||p.res===1).length;
+    return `<div class="match-card"><div class="match-meta"><span>${escA(p0.h)} vs ${escA(p0.a)}</span><span>${done?ok+' de '+done+' acertadas':'⏳ jugando o sin resultado'}</span></div>` +
+      a.map(p=>`<div class="pk-line"><div class="t">${escA(p.label)}<small>modelo ${p.prob}%</small></div><div class="v" style="font-size:20px;min-width:34px;text-align:right">${pkMark(p.res)}</div></div>`).join('') + `</div>`; }).join('');
+  return `<div class="lv-h" style="margin:14px 0 6px">Ya jugados · ✅ acertó ❌ falló (se quitan a las 24 h)</div>` + cards;
+}
 // ---- Sugerencias: mejores mercados por partido según el modelo ----
 function matchPicks(league, f){
   const home = league.teams[f[0]], away = league.teams[f[1]];
@@ -1059,10 +1110,11 @@ function matchPicks(league, f){
   const rWhy = `Córners esperados: ${p.lambdaCorners.toFixed(1)}`;
   add('corn','Más de 8.5 córners', p.over85corners, kEst, rWhy);
   add('corn','Menos de 10.5 córners', 100-p.over105corners, kEst, rWhy);
-  // el mejor de cada categoría; con datos estimados se penaliza
+  // v25: recorta sobreconfianza, contrasta con el mercado y descarta lo dudoso
+  const cc = calAll(c, 'futbol', hn, an, x=>x.est);
   const best = {};
-  c.forEach(x=>{ x.score = x.prob - (x.est ? 8 : 0); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
-  const picks = Object.values(best).filter(x=>x.prob>=60).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
+  cc.forEach(x=>{ x.score = x.prob - (x.est ? 8 : 0); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
+  const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:65)).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
     ...x, conf: x.est ? 'est' : (x.prob>=75 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))
   }));
   return {picks, best: picks.length ? picks[0].score : 0, p};
@@ -1075,6 +1127,7 @@ function confBadge(x){
 }
 function renderPicks(){
   const list = document.getElementById('matchList');
+  vaPrime(); if(VA.t && VA.sp===sport) pkLogAll(); if(Date.now()-PK.last>10*60e3 && !PK.busy && Object.values(LS.get('ab_preds',{})).some(p=>p.res==null && p.ts<Date.now()-3*3600e3)) pkSweep();
   const leagues = activeLeague==='all' ? LEAGUES : LEAGUES.filter(l=>l.id===activeLeague);
   const items = [];
   leagues.forEach(l=>l.fixtures.forEach((f,idx)=>{
@@ -1085,8 +1138,9 @@ function renderPicks(){
   items.sort((a,b)=>b.pk.best-a.pk.best);
   document.getElementById('matchesLabel').textContent = 'Sugerencias';
   document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
+  const doneS = pkDoneHTML(p=>p.sp==='futbol' && (activeLeague==='all'||p.lid===activeLeague));
   if(!items.length){
-    list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha${activeLeague==='all'?'':' en esta liga'}. Prueba otro día o pulsa ⟳ para actualizar.</div>`;
+    list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha${activeLeague==='all'?'':' en esta liga'}. Prueba otro día o pulsa ⟳ para actualizar.</div>` + doneS;
     return;
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
@@ -1109,14 +1163,15 @@ function renderPicks(){
         <div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div>
         <div class="v">${k.prob}%</div>${pkBtn(pkReg('futbol', x.l.id, x.f[0], x.f[1], when, pkTs(when, x.l.utcOffset), null, k))}
       </div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.pk.picks[0])}</div>`
-      : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado supera el 60% de probabilidad en este partido: no hay una opción clara.</div>`;
+      : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
     return `<div class="match-card" onclick="openMatch('${x.l.id}', ${x.idx})">
       <div class="match-meta"><span><i class="lg-dot" style="background:${x.l.color}"></i>${x.l.name}</span><span>${fmtParts(when, x.l.utcOffset).date} · ${fmtParts(when, x.l.utcOffset).time} Ecuador</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${hn} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${an}</div>
       ${body}
     </div>`;
   }).join('');
-  html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app (últimos partidos de cada equipo). No usan cuotas de casas de apuestas, así que no indican si una apuesta tiene valor, y ninguna probabilidad garantiza el resultado. "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
+  html += doneS;
+  html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app, ya recortados por sobreconfianza y contrastados con la cuota del mercado cuando ESPN la publica (se descartan los que el mercado contradice). Ninguna probabilidad garantiza el resultado. "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
 
@@ -1455,7 +1510,8 @@ function usPicks(g, m){
     const favRL = fav==='h' ? m.homeM15 : m.awayM15;
     add('line', `${dogN} +1.5`, 1-favRL, 'Línea de carreras (+1.5)');
   }
-  const best = {}; c.forEach(x=>{ x.score = x.prob-(m.est?8:0); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
+  const cc = calAll(c, g.sp, hn, an, ()=>!!m.est).filter(x=>x.prob>=62);
+  const best = {}; cc.forEach(x=>{ x.score = x.prob-(m.est?8:0); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
   return Object.values(best).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({...x, conf:m.est?'est':(x.prob>=75?'alta':(x.prob>=65?'media':'baja'))}));
 }
 // ---- en vivo
@@ -2031,13 +2087,15 @@ function usRenderMatches(){
 }
 function usRenderPicks(){
   const sp = sport, list = document.getElementById('matchList');
+  vaPrime(); if(VA.t && VA.sp===sport) pkLogAll(); if(Date.now()-PK.last>10*60e3 && !PK.busy && Object.values(LS.get('ab_preds',{})).some(p=>p.res==null && p.ts<Date.now()-3*3600e3)) pkSweep();
   document.getElementById('matchesLabel').textContent = 'Sugerencias';
   if(!usData[sp].games.length && !usData[sp].loading && !usData[sp].err) usLoad(sp);
   plLoad(sp);
   const items = usGamesForDay(sp).filter(g=>g.state==='pre' && !g.postponed).map(g=>{ const m = usPre(g); const picks = usPicks(g,m); return {g,m,picks,best:picks.length?picks[0].score:0}; });
   items.sort((a,b)=>b.best-a.best);
   document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
-  if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha'); return; }
+  const doneS = pkDoneHTML(p=>p.sp===sp);
+  if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
   let html = usStatusLine(sp);
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
@@ -2047,11 +2105,12 @@ function usRenderPicks(){
   html += items.map(x=>{
     const f = fmtParts(x.g.d,0);
     const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
-      : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado supera el 60% en este partido: no hay una opción clara.</div>`;
+      : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
     return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
-  html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo). No usan cuotas de casas de apuestas, no consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado. "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
+  html += doneS;
+  html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo), recortados por sobreconfianza y contrastados con la cuota del mercado cuando existe. No consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado. "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
 function usRenderLive(){
@@ -2562,7 +2621,7 @@ function pkLog(sp, lid, h, a, when, ts, gid, picks){
   const P = LS.get('ab_preds', {}); let ch = false;
   picks.forEach(k=>{ const key = pkKey({sp,lid,h,a,when})+'|'+k.label; if(P[key]) return;
     const mkt = pkMkt(k.label, h, a); if(!mkt) return;
-    P[key] = {sp,lid,h,a,when,ts,gid,label:k.label,cat:k.cat,prob:k.prob,conf:k.conf,mkt,res:null}; ch = true; });
+    P[key] = {sp,lid,h,a,when,ts,gid,label:k.label,cat:k.cat,prob:k.prob,raw:k.raw,conf:k.conf,mkt,res:null}; ch = true; });
   if(!ch) return;
   const ks = Object.keys(P); if(ks.length>1500){ ks.sort((x,y)=>P[x].ts-P[y].ts).slice(0, ks.length-1400).forEach(k=>delete P[k]); }
   LS.set('ab_preds', P);
@@ -2593,7 +2652,7 @@ async function pkSweep(){
     for(const k of Object.keys(need)){ if(n++>=16) break;
       try{ const r = await pkResult(need[k]); if(r && !r.pending){ res[k] = r; got++; } }catch(e){} }
     LS.set('ab_res', res);
-    Object.values(preds).forEach(p=>{ if(p.res==null){ const r = res[pkKey(p)]; if(r){ const v = pkEval(p.mkt, r); if(v!=null) p.res = v; } } });
+    Object.values(preds).forEach(p=>{ if(p.res==null){ const r = res[pkKey(p)]; if(r){ const v = pkEval(p.mkt, r); if(v!=null){ p.res = v; p.rt = Date.now(); } } } });
     bets.forEach(b=>{ if(b.status==='p') pkSettleBet(b, res); });
     // limpieza de resultados viejos
     const keep = {}; Object.keys(res).forEach(k=>{ keep[k] = res[k]; }); const ks = Object.keys(keep); if(ks.length>600) ks.slice(0, ks.length-500).forEach(k=>delete keep[k]);
@@ -2663,7 +2722,8 @@ function btSlipCalc(){
   box.innerHTML = `<div class="lv-stats"><span>Probabilidad conjunta: <b>${(pj*100).toFixed(1)}%</b></span><span>Cuota mínima justa: <b>${(1/pj).toFixed(2)}</b></span></div>` +
     (o ? `<div class="lv-stats"><span>Cuota total: <b>${o.toFixed(2)}</b></span><span>Valor esperado: <b>${((pj*o-1)*100>=0?'+':'')}${((pj*o-1)*100).toFixed(1)}%</b></span>${st?`<span>Si gana: <b>+$${(st*(o-1)).toFixed(2)}</b></span>`:''}</div>` : `<div class="al-st">Escribe la cuota total de tu casa para ver el valor esperado.</div>`) +
     (same ? `<div class="al-st" style="color:#facc15">Hay selecciones del mismo partido: están relacionadas y la probabilidad real conjunta no es el producto.</div>` : '') +
-    (s.length>=4 ? `<div class="al-st">Con ${s.length} selecciones la probabilidad conjunta cae rápido: cada una agrega riesgo.</div>` : '');
+    (pj<.35 || s.length>=4 ? `<div class="al-st" style="color:#ff6b6b"><b>Combinada de riesgo alto.</b> Probabilidad real de ganar: ${(pj*100).toFixed(0)}% (de cada 10 así, ganas ~${Math.max(0,Math.round(pj*10))}). Lo prudente: máximo 3 selecciones y que la conjunta pase del 40%.</div>` : '') +
+    (s.length>=6 ? `<div class="al-st" style="color:#ff6b6b">Con ${s.length} selecciones casi siempre se pierde alguna: una sola que falle tumba toda la combinada.</div>` : '');
 }
 function btSlipSave(){
   const s = LS.get('ab_slip',[]); if(s.length<2){ alToast({title:'Combinada', body:'Agrega al menos 2 selecciones.'}); return; }
@@ -3310,7 +3370,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v24 · alertas en pestaña, favoritos, mis jugadas, posiciones y lesionados';
+const APP_VERSION = 'v25 · sugerencias más estrictas, contraste con cuotas y resultados ✅❌';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
