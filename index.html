@@ -1148,12 +1148,37 @@ function mkSummary(sp,h,a){
   if(!parts.length) return '';
   return `<div style="${st}">Cuotas (${row.mk.some(m=>m.dec)?'mejor de varias casas':'ESPN'}): ${parts.join(' · ')}</div>`;
 }
+function pkScore(x, est){ return x.prob - (est?8:0) - (x.dc?6:0) - (x.prob>74?(x.prob-74)*1.2:0) + (x.edge!=null ? Math.max(-5,Math.min(10,x.edge))*0.8 : 0); }
+// ---- Cuotas dentro del partido ----
+function oddBoxHTML(sp,h,a,mf,loading){
+  const row = mkRow(sp,h,a), head = '<h3><span class="dot"></span>Cuotas del mercado</h3>';
+  if(!row) return head+`<div class="pl-none">${loading?'Buscando cuotas…':'Todavía no hay cuotas publicadas para este partido.'}</div>`;
+  const d = m=> m.dec>1 ? m.dec : (parseFloat(vaDec(m.odds))||0), ord = m=> m.label==='Gana '+row.h?0 : m.label==='Empate'?1 : m.label==='Gana '+row.a?2 : /^Más/.test(m.label)?3:4;
+  const L = row.mk.filter(m=>d(m)>1).sort((x,y)=>ord(x)-ord(y)||x.label.localeCompare(y.label));
+  if(!L.length) return head+'<div class="pl-none">Todavía no hay cuotas publicadas para este partido.</div>';
+  const od = L.some(m=>m.dec);
+  return head + L.map(m=>{ const mp = mf(m.label,row), ed = mp!=null ? (mp-m.mk)*100 : null;
+    return `<div class="va-r"><div class="va-n">${escA(m.label)}<small>${od&&m.book?escA(m.book):'ESPN'}${ed!=null&&ed>=6?' · posible valor':''}</small></div><div class="va-c"><b>${mp!=null?Math.round(mp*100)+'%':'-'}</b><small>modelo</small></div><div class="va-c"><b>${Math.round(m.mk*100)}%</b><small>mercado</small></div><div class="va-c"><b>${d(m).toFixed(2)}</b><small>cuota</small></div></div>`; }).join('') +
+    `<div class="al-st">${od?'Mejor cuota entre varias casas (incluye Pinnacle para el % del mercado).':'Cuotas de ESPN.'} La casa que uses puede pagar distinto: compara antes de jugar.</div>`;
+}
+function oddBoxInit(sp,lid,h,a,mf){
+  const box = ()=>document.getElementById('oddBox'); if(!box()) return;
+  const draw = loading=>{ const b = box(); if(b) b.innerHTML = oddBoxHTML(sp,h,a,mf,loading); };
+  const key = OD_KEYS[lid==='nba'||lid==='mlb'?lid:lid];
+  const jobs = [];
+  if(key && odKey()) jobs.push(odLoad(key, sp==='futbol'?'futbol':sp));
+  if(!(VA.t && VA.sp===sp) && !VA.loading) jobs.push(vaLoad(false));
+  draw(jobs.length>0);
+  if(jobs.length) Promise.all(jobs).then(()=>draw(false)).catch(()=>draw(false));
+}
 function calAll(c, sp, h, a, est){
   const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
   c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x)); const mp = mkProb(row,x.label,h,a);
-    if(mp!=null){ x.drop = q-mp>=12; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · Mercado '+x.mk+'%'; }
+    x.dc = / o empate$|^Empate o /.test(x.label); x.edge = null;
+    if(mp!=null){ x.drop = q-mp>=12 || q-mp<-3; x.edge = q-mp; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · Mercado '+x.mk+'%'; }
     else if(had && row==null) x.why += ' · sin cuota del mercado';
     x.prob = Math.min(85,q); const od = mkOdd(row,x.label,h,a); x.odd = od?od.d:null;
+    if((od && od.d<1.25) || (mp!=null && mp>=80) || (mp==null && x.prob>=81)) x.drop = true; // cuota demasiado baja: sin valor
     x.why += (!od && mp!=null ? ' · cuota justa del mercado ≈ '+(100/mp).toFixed(2) : '') + (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · mínima para valer la pena '+(100/x.prob).toFixed(2); });
   return c.filter(x=>!x.drop);
 }
@@ -1213,7 +1238,7 @@ function matchPicks(league, f){
   // v25: recorta sobreconfianza, contrasta con el mercado y descarta lo dudoso
   const cc = calAll(c, 'futbol', hn, an, x=>x.est);
   const best = {};
-  cc.forEach(x=>{ x.score = x.prob - (x.est ? 8 : 0); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
+  cc.forEach(x=>{ x.score = pkScore(x, x.est); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
   const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:65)).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
     ...x, conf: x.est ? 'est' : (x.prob>=75 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))
   }));
@@ -1611,7 +1636,7 @@ function usPicks(g, m){
     add('line', `${dogN} +1.5`, 1-favRL, 'Línea de carreras (+1.5)');
   }
   const cc = calAll(c, g.sp, hn, an, ()=>!!m.est).filter(x=>x.prob>=62);
-  const best = {}; cc.forEach(x=>{ x.score = x.prob-(m.est?8:0); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
+  const best = {}; cc.forEach(x=>{ x.score = pkScore(x, m.est); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
   return Object.values(best).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({...x, conf:m.est?'est':(x.prob>=75?'alta':(x.prob>=65?'media':'baja'))}));
 }
 // ---- en vivo
@@ -2275,6 +2300,7 @@ function usOpen(sp, id, keep){
         <div class="center-vs"><div class="ko-big">${g.state==='pre'?f.time:g.h.score+' - '+g.a.score}<small>${f.date} Ecuador${g.state==='post'?' · Final':''}</small></div></div>
         <div class="team-big">${badgeHTML(g.a.name,true,g.a.abbr)}<div class="name">${g.a.name}${favStar(g.a.name)}</div></div>
       </div></div>
+    <div class="prob-card" id="oddBox"></div>
     <div class="prob-card"><h3><span class="dot"></span>Quién gana</h3>
       <div class="bar1x2"><span style="width:${pH}%; background:var(--over);"></span><span style="width:${pA}%; background:var(--accent);"></span></div>
       <div class="bar1x2-labels"><div><div class="v">${pH}%</div><div class="l">${g.h.name}</div></div><div><div class="v">${pA}%</div><div class="l">${g.a.name}</div></div></div>
@@ -2932,6 +2958,7 @@ function usxHTML(j, g){
 }
 async function usxInit(sp, g){
   const path = US[sp].path; posInit('posBox', path, g.h.name, g.a.name, false);
+  { const m = usPre(g); oddBoxInit(sp, sp, g.h.name, g.a.name, (lb,row)=>{ if(lb==='Gana '+row.h) return m.pH; if(lb==='Gana '+row.a) return m.pA; const t = lb.match(/^(Más|Menos) de ([\d.]+)/); if(t){ const o = m.over(parseFloat(t[2])); return t[1]==='Más'?o:1-o; } return null; }); }
   const box = ()=>document.getElementById('usxBox'); const c = USX.cache[g.id];
   if(c){ if(box()) box().innerHTML = c; return; }
   try{ const j = await webGet(`${US_API}/site/v2/sports/${path}/summary?event=${g.id}`), h = usxHTML(j, g); USX.cache[g.id] = h; if(box()) box().innerHTML = h; }catch(e){}
@@ -3341,6 +3368,7 @@ function openMatch(leagueId, idx){
       </div>
     </div>
 
+    <div class="prob-card" id="oddBox"></div>
     <div class="prob-card">
       <h3><span class="dot"></span>Resultado 1X2</h3>
       <div class="bar1x2">
@@ -3418,6 +3446,7 @@ function openMatch(leagueId, idx){
   document.getElementById('detail').classList.add('show');
   window.scrollTo(0,0);
   ulInit(league, homeName, awayName, when);
+  oddBoxInit('futbol', leagueId, homeName, awayName, (lb,row)=>{ if(lb==='Gana '+row.h) return p.winPct/100; if(lb==='Gana '+row.a) return p.lossPct/100; if(lb==='Empate') return p.drawPct/100; const t = lb.match(/^(Más|Menos) de ([\d.]+)/); if(t){ const o = poissonOverHalf(parseFloat(t[2]), p.lambdaTotal); return t[1]==='Más'?o:1-o; } return null; });
   { const sl = (SRC[league.id]||{}).espn; if(sl) posInit('posBox', 'soccer/'+sl, homeName, awayName, true); }
 }
 
@@ -3470,7 +3499,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v26c · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
+const APP_VERSION = 'v26e · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
