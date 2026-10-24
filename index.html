@@ -524,6 +524,8 @@
     <div class="themes" id="themeBox"></div>
     <label for="inKey">Clave de football-data.org</label>
     <input id="inKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega tu clave aquí">
+    <label for="inOdds">Clave de The Odds API (cuotas de varias casas)</label>
+    <input id="inOdds" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí tu clave (opcional)">
     <label for="inSeason">Temporada (vacío = automática)</label>
     <input id="inSeason" type="number" inputmode="numeric" placeholder="Ej: 2026">
     <button class="btn" onclick="saveSettings()">Guardar y actualizar</button>
@@ -1029,6 +1031,57 @@ function setView(v){
   if(typeof renderStatus==='function') renderStatus();
 }
 
+// ---------- Cuotas de varias casas (The Odds API) ----------
+const ODDS_DEFAULT_KEY = '';
+const OD_KEYS = {epl:'soccer_epl', laliga:'soccer_spain_la_liga', seriea:'soccer_italy_serie_a', bundes:'soccer_germany_bundesliga', bundes2:'soccer_germany_bundesliga2', ligue1:'soccer_france_ligue_one', champ:'soccer_efl_champ', portugal:'soccer_portugal_primeira_liga', netherlands:'soccer_netherlands_eredivisie', turkey:'soccer_turkey_super_league', ucl:'soccer_uefa_champs_league', uel:'soccer_uefa_europa_league', lib:'soccer_conmebol_copa_libertadores', sud:'soccer_conmebol_copa_sudamericana', arg:'soccer_argentina_primera_division', mex:'soccer_mexico_ligamx', mls:'soccer_usa_mls', bra:'soccer_brazil_campeonato', nba:'basketball_nba', mlb:'baseball_mlb'};
+const OD = {c:null, busy:{}, fail:{}, err:''};
+function odKey(){ return String(LS.get('ab_odkey','')||ODDS_DEFAULT_KEY||'').trim(); }
+function odCache(){ if(!OD.c) OD.c = LS.get('ab_od',{}) || {}; return OD.c; }
+function odRows(){ const out = [], lim = Date.now()-4*3600e3; Object.values(odCache()).forEach(e=>(e.rows||[]).forEach(r=>{ if(!r.t || new Date(r.t).getTime()>lim) out.push(r); })); return out; }
+function odParse(evs, sp){
+  const unit = sp==='nba' ? 'puntos' : sp==='mlb' ? 'carreras' : 'goles', rows = [];
+  (evs||[]).forEach(ev=>{
+    const h = ev.home_team, a = ev.away_team; if(!h||!a) return;
+    const grp = {};
+    const add = (label, book, price, p, isPin)=>{ const g = grp[label] = grp[label]||{label, ps:[], pin:null, dec:0, book:''}; g.ps.push(p); if(isPin) g.pin = p; if(price>g.dec){ g.dec = price; g.book = book; } };
+    (ev.bookmakers||[]).forEach(b=>{
+      const pin = b.key==='pinnacle';
+      (b.markets||[]).forEach(m=>{
+        const outs = m.outcomes||[]; if(outs.length<2) return; const sets = {};
+        if(m.key==='h2h') sets.h2h = outs.map(o=>({label:o.name==='Draw'?'Empate':'Gana '+o.name, price:o.price}));
+        else if(m.key==='totals') outs.forEach(o=>{ const k = String(o.point); (sets[k] = sets[k]||[]).push({label:(o.name==='Over'?'Más':'Menos')+' de '+o.point+' '+unit, price:o.price}); });
+        Object.values(sets).forEach(arr=>{ if(arr.length<2 || arr.some(x=>!(x.price>1))) return; const t = arr.reduce((z,x)=>z+1/x.price,0); arr.forEach(x=>add(x.label, b.title, x.price, (1/x.price)/t, pin)); });
+      });
+    });
+    const mk = Object.values(grp).map(g=>({label:g.label, mk:g.pin!=null?g.pin:g.ps.reduce((z,x)=>z+x,0)/g.ps.length, dec:g.dec, book:g.book}));
+    if(mk.length) rows.push({h,a,t:ev.commence_time,mk});
+  });
+  return rows;
+}
+async function odLoad(skey, sp){
+  const key = odKey(); if(!key) return; const C = odCache(), e = C[skey];
+  if(e && Date.now()-e.t<12*3600e3) return;
+  if(OD.busy[skey] || (OD.fail[skey] && Date.now()-OD.fail[skey]<10*60e3)) return;
+  const left = LS.get('ab_od_left',null), uu = LS.get('ab_od_used',null); if(left!=null && left<30) return; if(left==null && uu && uu.m===new Date().toISOString().slice(0,7) && uu.n>=470) return;
+  OD.busy[skey] = 1;
+  try{
+    const r = await fetch(`https://api.the-odds-api.com/v4/sports/${skey}/odds?apiKey=${encodeURIComponent(key)}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`);
+    const rem = r.headers.get('x-requests-remaining'); if(rem!=null) LS.set('ab_od_left', parseFloat(rem));
+    else { const mo = new Date().toISOString().slice(0,7), u = LS.get('ab_od_used',{m:mo,n:0}); if(u.m!==mo){ u.m = mo; u.n = 0; } u.n += 2; LS.set('ab_od_used', u); }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    C[skey] = {t:Date.now(), rows: odParse(await r.json(), sp)}; LS.set('ab_od', C); OD.err = '';
+  }catch(er){ OD.fail[skey] = Date.now(); OD.err = er.message||String(er); }
+  OD.busy[skey] = 0;
+}
+function odPrime(){
+  if(!odKey()) return; const sp = sport; let ks = [];
+  if(sp==='futbol'){
+    if(activeLeague!=='all') ks = [OD_KEYS[activeLeague]];
+    else ks = LEAGUES.filter(l=>OD_KEYS[l.id] && l.fixtures.some(f=>{ const t = pkTs(f[2], l.utcOffset); return t>Date.now()-3600e3 && t<Date.now()+48*3600e3; })).slice(0,3).map(l=>OD_KEYS[l.id]);
+  } else ks = [OD_KEYS[sp]];
+  ks.filter(Boolean).forEach(k=>{ const e = odCache()[k]; if(e && Date.now()-e.t<12*3600e3) return; odLoad(k, sp).then(()=>{ if(viewMode==='picks' && sport===sp) renderMatches(); }); });
+}
+function odNote(){ if(!odKey()) return ''; const l = LS.get('ab_od_left',null), u = LS.get('ab_od_used',null); return ' Cuotas de varias casas (The Odds API, incluye Pinnacle)'+(l!=null?': te quedan '+l+' consultas este mes':(u&&u.m===new Date().toISOString().slice(0,7)?': usadas ≈'+u.n+' de 500 este mes':''))+(OD.err?' · error: '+OD.err:'')+'.'; }
 // ---- Calibración v25: recorta sobreconfianza y contrasta con cuotas ----
 const CAL_F = {goles:.75, btts:.7, res:.75, tarj:.55, corn:.65, ml:.78, line:.78, tot:.7};
 const CAL_C = {t:0, v:{}};
@@ -1045,8 +1098,10 @@ function calP(cat, raw, est){
 }
 const normN = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
 function mkRow(sp,h,a){
-  if(!VA.rows || !VA.t || VA.sp!==sp) return null; const H = normN(h), A = normN(a), eq = (x,y)=> x===y || (x.length>3 && y.length>3 && (x.includes(y)||y.includes(x)));
-  return VA.rows.find(r=>eq(normN(r.h),H) && eq(normN(r.a),A)) || null;
+  const H = normN(h), A = normN(a), eq = (x,y)=> x===y || (x.length>3 && y.length>3 && (x.includes(y)||y.includes(x))), fn = r=>eq(normN(r.h),H) && eq(normN(r.a),A);
+  const o = odRows().find(fn); if(o) return o;
+  if(!VA.rows || !VA.t || VA.sp!==sp) return null;
+  return VA.rows.find(fn) || null;
 }
 function mkProb(row,label,h,a){
   if(!row) return null; const g = n => { const m = row.mk.find(z=>z.label==='Gana '+n); return m?m.mk:null; }, d = (row.mk.find(z=>z.label==='Empate')||{}).mk;
@@ -1057,20 +1112,36 @@ function mkProb(row,label,h,a){
   if(label==='Empate o '+a){ const v = g(row.a); return (v==null||d==null)?null:(v+d)*100; }
   return null;
 }
+function mkOdd(row,label,h,a){
+  if(!row) return null; let x = row.mk.find(m=>m.label===label);
+  if(!x && label==='Gana '+h) x = row.mk.find(m=>m.label==='Gana '+row.h);
+  if(!x && label==='Gana '+a) x = row.mk.find(m=>m.label==='Gana '+row.a);
+  if(x && x.dec>1) return {d:x.dec, book:x.book};
+  const d = x ? parseFloat(vaDec(x.odds)) : NaN; return d>1 ? {d, book:'ESPN'} : null;
+}
 function calAll(c, sp, h, a, est){
-  const row = mkRow(sp,h,a), had = !!(VA.t && VA.sp===sp);
+  const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
   c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x)); const mp = mkProb(row,x.label,h,a);
     if(mp!=null){ x.drop = q-mp>=12; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · Mercado '+x.mk+'%'; }
     else if(had && row==null) x.why += ' · sin cuota del mercado';
-    x.prob = Math.min(85,q); });
+    x.prob = Math.min(85,q); const od = mkOdd(row,x.label,h,a); x.odd = od?od.d:null;
+    x.why += (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · mínima para valer la pena '+(100/x.prob).toFixed(2); });
   return c.filter(x=>!x.drop);
 }
 function vaPrime(){
+  odPrime();
   if(VA.loading || (VA.sp===sport && VA.t && Date.now()-VA.t<15*60e3)) return;
   const sp = sport; vaLoad(false).then(()=>{ if(sport===sp && viewMode==='picks') renderMatches(); }).catch(()=>{});
 }
 // resultados de sugerencias ya jugadas (24 h)
 function pkMark(r){ return r===1 ? '✅' : r===0 ? '❌' : r==='v' ? '➖' : '⏳'; }
+function pkDayHTML(flt){
+  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = dk(Date.now());
+  const P = Object.values(LS.get('ab_preds',{})).filter(p=>flt(p) && dk(p.ts)===today); if(!P.length) return '';
+  const R = P.filter(p=>p.res===0||p.res===1), h = R.filter(p=>p.res===1).length, pend = P.filter(p=>p.res==null).length;
+  const pc = R.length ? Math.round(h/R.length*100) : null;
+  return `<div class="prob-card"><h3><span class="dot"></span>Acierto de hoy</h3><div class="lv-stats"><span><b style="font-size:22px;color:${pc==null?'var(--ink-dim)':pc>=60?'var(--over)':'#ff6b6b'}">${pc==null?'-':pc+'%'}</b></span><span>${h} ✅ · ${R.length-h} ❌ · ${pend} ⏳</span></div>${pc==null?'<div class="al-st">Aún no hay resultados de las sugerencias de hoy.</div>':`<div class="bar-track"><div class="bar-fill ${pc>=60?'strong':''}" style="width:${pc}%"></div></div>`}</div>`;
+}
 function pkDoneHTML(flt){
   const now = Date.now(), P = Object.values(LS.get('ab_preds',{})).filter(p=> flt(p) && p.ts<now && ((p.res===0||p.res===1||p.res==='v') ? now-(p.rt||p.ts+3*3600e3)<24*3600e3 : now-p.ts<36*3600e3));
   if(!P.length) return '';
@@ -1145,7 +1216,7 @@ function renderPicks(){
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  let html = '';
+  let html = pkDayHTML(p=>p.sp==='futbol' && (activeLeague==='all'||p.lid===activeLeague));
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
       const k = x.pk.picks[0], ri = pkReg('futbol', x.l.id, x.f[0], x.f[1], x.f[2], pkTs(x.f[2], x.l.utcOffset), null, k);
@@ -1171,7 +1242,7 @@ function renderPicks(){
     </div>`;
   }).join('');
   html += doneS;
-  html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app, ya recortados por sobreconfianza y contrastados con la cuota del mercado cuando ESPN la publica (se descartan los que el mercado contradice). Ninguna probabilidad garantiza el resultado. "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
+  html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app, ya recortados por sobreconfianza y contrastados con la cuota del mercado cuando ESPN la publica (se descartan los que el mercado contradice). Ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
 
@@ -2097,7 +2168,7 @@ function usRenderPicks(){
   const doneS = pkDoneHTML(p=>p.sp===sp);
   if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
-  let html = usStatusLine(sp);
+  let html = usStatusLine(sp) + pkDayHTML(p=>p.sp===sp);
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
     const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
     return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')"><div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}</div>`;
@@ -2110,7 +2181,7 @@ function usRenderPicks(){
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
   html += doneS;
-  html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo), recortados por sobreconfianza y contrastados con la cuota del mercado cuando existe. No consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado. "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
+  html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo), recortados por sobreconfianza y contrastados con la cuota del mercado cuando existe. No consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
 function usRenderLive(){
@@ -3370,7 +3441,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v25 · sugerencias más estrictas, contraste con cuotas y resultados ✅❌';
+const APP_VERSION = 'v26 · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -3817,6 +3888,8 @@ function openSettings(){
   document.getElementById('inKey').value = LS.get('ab_fdkey','') || '';
   document.getElementById('inKey').placeholder = DEFAULT_KEY ? 'Usando la clave incluida (…'+DEFAULT_KEY.slice(-4)+')' : 'Pega aquí tu clave de football-data.org (opcional)';
   document.getElementById('inSeason').value = LS.get('ab_season','') || '';
+  document.getElementById('inOdds').value = LS.get('ab_odkey','') || '';
+  document.getElementById('inOdds').placeholder = ODDS_DEFAULT_KEY ? 'Usando la clave incluida (…'+ODDS_DEFAULT_KEY.slice(-4)+')' : 'Pega aquí tu clave de the-odds-api.com (opcional)';
   renderSettings(); alBox();
   document.getElementById('settings').classList.add('show');
 }
@@ -3824,6 +3897,7 @@ function closeSettings(){ document.getElementById('settings').classList.remove('
 function saveSettings(){
   LS.set('ab_fdkey', document.getElementById('inKey').value.trim());
   LS.set('ab_season', document.getElementById('inSeason').value.trim());
+  LS.set('ab_odkey', document.getElementById('inOdds').value.trim()); LS.del('ab_od'); OD.c = null; OD.fail = {};
   updateAll();
 }
 function clearData(){
