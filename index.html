@@ -1138,13 +1138,23 @@ function mkOdd(row,label,h,a){
   if(x && x.dec>1) return {d:x.dec, book:x.book};
   const d = x ? parseFloat(vaDec(x.odds)) : NaN; return d>1 ? {d, book:'ESPN'} : null;
 }
+function mkSummary(sp,h,a){
+  const row = mkRow(sp,h,a), st = 'font-size:12px;color:var(--ink-dim);margin:-2px 0 8px;line-height:1.5';
+  if(!row) return (VA.t||odRows().length) ? `<div style="${st}">Cuotas: aún no hay para este partido.</div>` : '';
+  const g = l=>row.mk.find(m=>m.label===l), d = m=> m ? (m.dec>1 ? m.dec : (parseFloat(vaDec(m.odds))||0)) : 0, ok = m=> d(m)>1 ? d(m).toFixed(2) : null;
+  const parts = [], H = g('Gana '+row.h), D = g('Empate'), A = g('Gana '+row.a);
+  if(ok(H) && ok(A)) parts.push('1 <b>'+ok(H)+'</b>'+(ok(D)?' · X <b>'+ok(D)+'</b>':'')+' · 2 <b>'+ok(A)+'</b>');
+  row.mk.filter(m=>/^Más de/.test(m.label)).slice(0,2).forEach(o=>{ const u = g(o.label.replace('Más','Menos')); if(ok(o) && ok(u)) parts.push(escA(o.label.replace('Más de ','Más '))+' <b>'+ok(o)+'</b> / Menos <b>'+ok(u)+'</b>'); });
+  if(!parts.length) return '';
+  return `<div style="${st}">Cuotas (${row.mk.some(m=>m.dec)?'mejor de varias casas':'ESPN'}): ${parts.join(' · ')}</div>`;
+}
 function calAll(c, sp, h, a, est){
   const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
   c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x)); const mp = mkProb(row,x.label,h,a);
     if(mp!=null){ x.drop = q-mp>=12; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · Mercado '+x.mk+'%'; }
     else if(had && row==null) x.why += ' · sin cuota del mercado';
     x.prob = Math.min(85,q); const od = mkOdd(row,x.label,h,a); x.odd = od?od.d:null;
-    x.why += (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · mínima para valer la pena '+(100/x.prob).toFixed(2); });
+    x.why += (!od && mp!=null ? ' · cuota justa del mercado ≈ '+(100/mp).toFixed(2) : '') + (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · mínima para valer la pena '+(100/x.prob).toFixed(2); });
   return c.filter(x=>!x.drop);
 }
 function vaPrime(){
@@ -1257,7 +1267,7 @@ function renderPicks(){
     return `<div class="match-card" onclick="openMatch('${x.l.id}', ${x.idx})">
       <div class="match-meta"><span><i class="lg-dot" style="background:${x.l.color}"></i>${x.l.name}</span><span>${fmtParts(when, x.l.utcOffset).date} · ${fmtParts(when, x.l.utcOffset).time} Ecuador</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${hn} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${an}</div>
-      ${body}
+      ${mkSummary('futbol',hn,an)}${body}
     </div>`;
   }).join('');
   html += doneS;
@@ -2197,7 +2207,7 @@ function usRenderPicks(){
     const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
       : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
     return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador</span></div>
-      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${mkSummary(sp,x.g.h.name,x.g.a.name)}${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
   html += doneS;
   html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo), recortados por sobreconfianza y contrastados con la cuota del mercado cuando existe. No consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
@@ -3460,7 +3470,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v26b · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
+const APP_VERSION = 'v26c · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
