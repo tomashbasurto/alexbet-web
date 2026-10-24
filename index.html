@@ -526,6 +526,8 @@
     <input id="inKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega tu clave aquí">
     <label for="inOdds">Clave de The Odds API (cuotas de varias casas)</label>
     <input id="inOdds" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí tu clave (opcional)">
+    <button class="btn" onclick="odTest()">Probar cuotas ahora</button>
+    <div class="set-box" id="odTest" style="font-size:12.5px"></div>
     <label for="inSeason">Temporada (vacío = automática)</label>
     <input id="inSeason" type="number" inputmode="numeric" placeholder="Ej: 2026">
     <button class="btn" onclick="saveSettings()">Guardar y actualizar</button>
@@ -1058,20 +1060,37 @@ function odParse(evs, sp){
   });
   return rows;
 }
-async function odLoad(skey, sp){
-  const key = odKey(); if(!key) return; const C = odCache(), e = C[skey];
-  if(e && Date.now()-e.t<12*3600e3) return;
-  if(OD.busy[skey] || (OD.fail[skey] && Date.now()-OD.fail[skey]<10*60e3)) return;
-  const left = LS.get('ab_od_left',null), uu = LS.get('ab_od_used',null); if(left!=null && left<30) return; if(left==null && uu && uu.m===new Date().toISOString().slice(0,7) && uu.n>=470) return;
-  OD.busy[skey] = 1;
+async function odLoad(skey, sp, force){
+  const key = odKey(); if(!key) return {err:'Falta la clave'}; const C = odCache(), e = C[skey];
+  if(!force){
+    if(e && Date.now()-e.t<12*3600e3) return {};
+    if(OD.busy[skey] || (OD.fail[skey] && Date.now()-OD.fail[skey]<10*60e3)) return {};
+    const left = LS.get('ab_od_left',null), uu = LS.get('ab_od_used',null); if(left!=null && left<30) return {}; if(left==null && uu && uu.m===new Date().toISOString().slice(0,7) && uu.n>=470) return {};
+  }
+  OD.busy[skey] = 1; let info = {};
   try{
     const r = await fetch(`https://api.the-odds-api.com/v4/sports/${skey}/odds?apiKey=${encodeURIComponent(key)}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`);
     const rem = r.headers.get('x-requests-remaining'); if(rem!=null) LS.set('ab_od_left', parseFloat(rem));
     else { const mo = new Date().toISOString().slice(0,7), u = LS.get('ab_od_used',{m:mo,n:0}); if(u.m!==mo){ u.m = mo; u.n = 0; } u.n += 2; LS.set('ab_od_used', u); }
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    C[skey] = {t:Date.now(), rows: odParse(await r.json(), sp)}; LS.set('ab_od', C); OD.err = '';
-  }catch(er){ OD.fail[skey] = Date.now(); OD.err = er.message||String(er); }
-  OD.busy[skey] = 0;
+    if(!r.ok){ let tx = ''; try{ tx = (await r.text()).slice(0,100); }catch(x){} throw new Error('HTTP '+r.status+(tx?' '+tx:'')); }
+    C[skey] = {t:Date.now(), rows: odParse(await r.json(), sp)}; LS.set('ab_od', C); OD.err = ''; info = {n:C[skey].rows.length};
+  }catch(er){ OD.fail[skey] = Date.now(); OD.err = er.message||String(er); info = {err:OD.err}; }
+  OD.busy[skey] = 0; return info;
+}
+async function odTest(){
+  const box = document.getElementById('odTest'); if(!box) return; if(!odKey()){ box.textContent = 'Falta la clave de The Odds API.'; return; }
+  let skey = sport==='futbol' ? OD_KEYS[activeLeague] : OD_KEYS[sport], lg = null;
+  if(!skey && sport==='futbol'){ lg = LEAGUES.find(x=>OD_KEYS[x.id] && x.fixtures.length); if(lg) skey = OD_KEYS[lg.id]; }
+  if(!skey){ box.textContent = 'Esta liga no tiene cuotas en The Odds API. Elige otra liga (Premier, La Liga, Serie A…) y prueba de nuevo.'; return; }
+  box.textContent = 'Consultando '+skey+'…';
+  const r = await odLoad(skey, sport, true);
+  if(r.err){ box.textContent = 'Falló: '+r.err+'. Si dice "Load failed" o "Failed to fetch", tu navegador bloquea la conexión.'; return; }
+  lg = lg || LEAGUES.find(x=>OD_KEYS[x.id]===skey);
+  const pairs = lg ? lg.fixtures.map(f=>[f[0],f[1]]) : ((usData[sport]&&usData[sport].games)||[]).filter(g=>g.state==='pre').map(g=>[g.h.name,g.a.name]);
+  const ok = pairs.filter(p=>mkRow(sport==='futbol'?'futbol':sport,p[0],p[1])).length;
+  const ex = (odCache()[skey].rows[0]||{}), l = LS.get('ab_od_left',null);
+  box.innerHTML = `Funciona ✅ · ${r.n} partidos con cuotas · ${ok} de ${pairs.length} partidos de la app tienen cuota${l!=null?' · te quedan '+l+' consultas':''}.${r.n&&!ok?`<br>Nombres no coinciden. Cuotas: ${escA(ex.h||'')} vs ${escA(ex.a||'')} · App: ${escA((pairs[0]||[]).join(' vs '))}`:''}${!r.n?'<br>La casa no tiene partidos próximos de esta liga ahora.':''}`;
+  renderMatches();
 }
 function odPrime(){
   if(!odKey()) return; const sp = sport; let ks = [];
@@ -1096,7 +1115,7 @@ function calP(cat, raw, est){
   const f = (CAL_F[cat]||.85)*(est?.8:1); let p = 50+(raw-50)*f; const g = calLearn(cat); if(g<0) p = Math.min(p, raw+g);
   return Math.max(1, Math.min(85, Math.round(p)));
 }
-const normN = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+const normN = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/&/g,' and ').replace(/\b(fc|afc|cf|sc|ac|cd|ca|club|de|the)\b/g,' ').replace(/^man (city|utd|united)/,m=>'manchester '+m.slice(4)).replace(/^spurs$/,'tottenham hotspur').replace(/^wolves$/,'wolverhampton wanderers').replace(/[^a-z0-9]/g,'');
 function mkRow(sp,h,a){
   const H = normN(h), A = normN(a), eq = (x,y)=> x===y || (x.length>3 && y.length>3 && (x.includes(y)||y.includes(x))), fn = r=>eq(normN(r.h),H) && eq(normN(r.a),A);
   const o = odRows().find(fn); if(o) return o;
@@ -3441,7 +3460,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v26 · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
+const APP_VERSION = 'v26b · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
