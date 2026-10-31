@@ -4,7 +4,7 @@
 // ===== Ajusta estos datos =====
 const PAGO = {
   whatsapp: '593990175893', // tu número con código de país, solo dígitos. Ej: '593991234567'
-  deuna: '',               // número o alias para Deuna
+  deuna: 'Código Deuna: 7701122749', // número o alias para Deuna
   payphone: '',            // link o número de PayPhone
   transferencia: ''        // banco, tipo y número de cuenta, nombre y cédula
 };
@@ -31,6 +31,7 @@ const CACHE_KEY = 'ab_cuenta';
 const AB = window.AB;
 let fb = null;          // módulos de Firebase cargados
 let modo = 'signup';    // pestaña del formulario
+const METODOS = () => [['Deuna', PAGO.deuna], ['PayPhone', PAGO.payphone], ['Transferencia', PAGO.transferencia]].filter(m => m[1]);
 let metodo = 'Deuna';
 let planSel = 'premium';
 
@@ -248,7 +249,9 @@ function cuentaBox() {
 window.abPayOpen = () => {
   const s = $('abPaySheet'), w = $('abPay');
   if (!s || !w) return;
-  const pago = {Deuna: PAGO.deuna, PayPhone: PAGO.payphone, Transferencia: PAGO.transferencia}[metodo];
+  const mets = METODOS();
+  if (mets.length && !mets.some(m => m[0] === metodo)) metodo = mets[0][0];
+  const pago = (mets.find(m => m[0] === metodo) || [])[1] || '';
   s.innerHTML = `
     <h2>Desbloquea Premium</h2>
     <div class="sub">Todos los pronósticos (goles, ambos anotan, tarjetas y córners), NBA y MLB, sugerencias, valor, alertas y mis jugadas.</div>
@@ -257,8 +260,8 @@ window.abPayOpen = () => {
         <span>${p.nombre}${p.id === 'vip' ? '<small>Premium + canal de Telegram con picks comentados</small>' : ''}</span><b>${p.precio}</b>
       </button>`).join('')}
     </div>
-    <label>1. Elige cómo pagar</label>
-    <div class="ab-met">${['Deuna', 'PayPhone', 'Transferencia'].map(m => `<button type="button" class="${m === metodo ? 'on' : ''}" aria-pressed="${m === metodo}" onclick="abMetodo('${m}')">${m}</button>`).join('')}</div>
+    <label>1. ${mets.length > 1 ? 'Elige cómo pagar' : 'Paga por ' + esc(metodo)}</label>
+    ${mets.length > 1 ? `<div class="ab-met">${mets.map(([m]) => `<button type="button" class="${m === metodo ? 'on' : ''}" aria-pressed="${m === metodo}" onclick="abMetodo('${m}')">${m}</button>`).join('')}</div>` : ''}
     <div class="set-box">${pago ? esc(pago).replace(/\n/g, '<br>') : 'Datos de pago: [PENDIENTE DE CONFIGURAR]'}</div>
     <label>2. Envía el comprobante</label>
     <button type="button" class="btn primary" onclick="abComprobante()">Enviar comprobante por WhatsApp</button>
