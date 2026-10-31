@@ -206,7 +206,7 @@ function tnFlag(s) { return s.flag ? `<img src="${escA(s.flag)}" alt="" width="1
 function tnRankTag(X) { return X.rank ? `<small style="color:var(--ink-dim);font-weight:500"> #${X.rank}</small>` : ''; }
 function tnList() {
   const ayer = ymd(new Date(todayDate.getTime() - 864e5));
-  return Object.values(TN.m).filter(m => (TN.tour === 'all' || m.tour === TN.tour) && !m.off && favOK(m.p[0].name, m.p[1].name) && (m.state !== 'post' || isoDateOnlyEcuador(m.d, 0) >= ayer));
+  return Object.values(TN.m).filter(m => (TN.tour === 'all' || m.tour === TN.tour) && !m.off && favOK(m.p[0].name, m.p[1].name) && (m.state !== 'post' || activeDate !== 'all' || isoDateOnlyEcuador(m.d, 0) >= ayer));
 }
 function tnHeader() {
   const ago = TN.t ? Math.round((Date.now() - TN.t) / 60000) : 0;
@@ -272,6 +272,7 @@ function tnRenderPicks() {
   document.getElementById('matchesLabel').textContent = 'Sugerencias';
   if (!TN.t && !TN.loading && !TN.err) tnLoad();
   const day = activeDate === 'all' ? ymd(todayDate) : activeDate;
+  if (day < ymd(todayDate)) return tnRenderPast(day);
   const ms = tnList().filter(m => m.state === 'pre' && isoDateOnlyEcuador(m.d, 0) === day);
   const rows = [];
   ms.forEach(m => { const M = tnModel(m); if (M.est) return; tnCands(m, M).slice(0, 1).forEach(k => rows.push({m, M, k})); });
@@ -284,6 +285,29 @@ function tnRenderPicks() {
     return `<div class="pick-row" onclick="tnOpen('${x.m.id}')"><div class="pick-main"><b>${escA(x.k.label)}</b><small>${escA(x.m.p[0].name)} vs ${escA(x.m.p[1].name)} · ${tnTime(x.m, f)} · ${TN_TOURS[x.m.tour].name} ${escA(x.m.ev)}${x.M.est ? ' · (est.)' : ''}</small></div><div class="pick-pct"><b>${x.k.prob}%</b></div></div>`;
   }).join('') : `<div class="pl-none">Ningún mercado pasa el filtro de confianza hoy.</div>`) + `</div>` +
   `<div class="foot-note">Sugerencias de tenis: mercados con 60% o más según el modelo (ranking y forma). Solo se sugieren partidos con ambos jugadores en el ranking. Los totales de juegos son estimaciones: dependen mucho del saque de cada jugador.</div>`;
+}
+// Aciertos de un día pasado: la mejor opción del modelo en cada partido terminado contra el resultado real.
+function tnHit(m, k) {
+  const sw = i => m.p[i].sets.filter(x => x.w === 1).length;
+  const games = m.p[0].sets.concat(m.p[1].sets).reduce((t, x) => t + (x.v || 0), 0);
+  const L = k.label;
+  let r = L.match(/^Gana (.+)$/); if (r) return m.p[0].name === r[1] ? m.p[0].winner : m.p[1].winner;
+  r = L.match(/^(.+) gana al menos un set$/); if (r) return sw(m.p[0].name === r[1] ? 0 : 1) >= 1;
+  r = L.match(/^(Más|Menos) de ([\d.]+) juegos$/); if (r) return r[1] === 'Más' ? games > +r[2] : games < +r[2];
+  return null;
+}
+function tnRenderPast(day) {
+  const list = document.getElementById('matchList');
+  const ms = tnList().filter(m => m.state === 'post' && isoDateOnlyEcuador(m.d, 0) === day && (m.p[0].winner || m.p[1].winner));
+  const rows = [];
+  ms.forEach(m => { const M = tnModel(m); if (M.est) return; const k = tnCands(m, M)[0]; if (!k) return; const hit = tnHit(m, k); if (hit !== null) rows.push({m, k, hit}); });
+  document.getElementById('matchCount').textContent = rows.length + (rows.length === 1 ? ' partido' : ' partidos');
+  const fecha = day.slice(8, 10) + '/' + day.slice(5, 7);
+  if (!rows.length) { list.innerHTML = tnHeader() + `<div class="empty-state">No hay partidos de tenis terminados el ${fecha} con jugadores del ranking.</div>`; return; }
+  const h = rows.filter(x => x.hit).length, pct = Math.round(h / rows.length * 100);
+  list.innerHTML = tnHeader() + `<div class="prob-card"><h3><span class="dot"></span>Acierto del ${fecha}</h3><div class="lv-stats"><span><b style="font-size:22px;color:${pct >= 60 ? 'var(--over)' : '#ff6b6b'}">${pct}%</b></span><span>${h} ✅ · ${rows.length - h} ❌</span></div></div>` +
+    rows.map(x => `<div class="match-card" onclick="tnOpen('${x.m.id}')"><div class="match-meta"><span>${escA(x.m.p[0].name)} vs ${escA(x.m.p[1].name)}</span><span>${tnScore(x.m).pairs}</span></div><div class="pk-line"><div class="t">${escA(x.k.label)}<small>modelo ${x.k.prob}% · ${TN_TOURS[x.m.tour].name} ${escA(x.m.ev)}</small></div><div class="v" style="font-size:20px;min-width:34px;text-align:right">${x.hit ? '✅' : '❌'}</div></div></div>`).join('') +
+    `<div class="foot-note">Tenis: se calcula con el modelo y el ranking actuales sobre los partidos ya terminados, por eso es una referencia aproximada.</div>`;
 }
 function tnRenderLive() {
   const list = document.getElementById('matchList');

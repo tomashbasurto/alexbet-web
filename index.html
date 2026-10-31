@@ -394,6 +394,7 @@
   .tn-sc > div{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:14px; font-weight:600; }
   .tn-sc em{ font-style:normal; font-family:var(--font-head); display:inline-block; min-width:18px; text-align:center; }
   .tn-sv{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--over); margin-right:6px; vertical-align:1px; }
+  .datechip.past{ opacity:.8; }
   .tn-chips{ display:flex; gap:6px; margin:4px 0 8px; }
   .tn-chips button{ min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
   .tn-chips button.on{ border-color:var(--accent); color:var(--accent); }
@@ -1083,7 +1084,7 @@ function ymd(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 const dateRange = [];
-for(let i=0;i<18;i++){
+for(let i=-3;i<18;i++){ // incluye 3 días atrás para revisar aciertos
   const d = new Date(todayDate); d.setDate(d.getDate()+i);
   dateRange.push(d);
 }
@@ -1269,22 +1270,23 @@ function vaPrime(){
 }
 // resultados de sugerencias ya jugadas (24 h)
 function pkMark(r){ return r===1 ? '✅' : r===0 ? '❌' : r==='v' ? '➖' : '⏳'; }
+function pkSelDay(){ const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), hoy = dk(Date.now()); return (activeDate && activeDate!=='all') ? activeDate : hoy; }
 function pkDayHTML(flt){
-  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = dk(Date.now());
+  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = pkSelDay(), esHoy = today===dk(Date.now());
   const P = Object.values(LS.get('ab_preds',{})).filter(p=>flt(p) && dk(p.ts)===today); if(!P.length) return '';
   const R = P.filter(p=>p.res===0||p.res===1), h = R.filter(p=>p.res===1).length, pend = P.filter(p=>p.res==null).length;
   const pc = R.length ? Math.round(h/R.length*100) : null;
-  return `<div class="prob-card"><h3><span class="dot"></span>Acierto de hoy</h3><div class="lv-stats"><span><b style="font-size:22px;color:${pc==null?'var(--ink-dim)':pc>=60?'var(--over)':'#ff6b6b'}">${pc==null?'-':pc+'%'}</b></span><span>${h} ✅ · ${R.length-h} ❌ · ${pend} ⏳</span></div>${pc==null?'<div class="al-st">Aún no hay resultados de las sugerencias de hoy.</div>':`<div class="bar-track"><div class="bar-fill ${pc>=60?'strong':''}" style="width:${pc}%"></div></div>`}</div>`;
+  return `<div class="prob-card"><h3><span class="dot"></span>Acierto ${esHoy?'de hoy':'del '+today.slice(8,10)+'/'+today.slice(5,7)}</h3><div class="lv-stats"><span><b style="font-size:22px;color:${pc==null?'var(--ink-dim)':pc>=60?'var(--over)':'#ff6b6b'}">${pc==null?'-':pc+'%'}</b></span><span>${h} ✅ · ${R.length-h} ❌ · ${pend} ⏳</span></div>${pc==null?'<div class="al-st">Aún no hay resultados de las sugerencias de hoy.</div>':`<div class="bar-track"><div class="bar-fill ${pc>=60?'strong':''}" style="width:${pc}%"></div></div>`}</div>`;
 }
 function pkDoneHTML(flt){
-  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = dk(Date.now());
+  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = pkSelDay(), esHoy = today===dk(Date.now());
   const now = Date.now(), P = Object.values(LS.get('ab_preds',{})).filter(p=> flt(p) && p.ts<now && dk(p.ts)===today);
   if(!P.length) return '';
   const g = {}; P.forEach(p=>{ const k = pkKey(p); (g[k] = g[k]||[]).push(p); });
   const cards = Object.values(g).sort((x,y)=>y[0].ts-x[0].ts).map(a=>{ const p0 = a[0], ok = a.filter(p=>p.res===1).length, done = a.filter(p=>p.res===0||p.res===1).length;
     return `<div class="match-card"><div class="match-meta"><span>${escA(p0.h)} vs ${escA(p0.a)}</span><span>${done?ok+' de '+done+' acertadas':'⏳ jugando o sin resultado'}</span></div>` +
       a.map(p=>`<div class="pk-line"><div class="t">${escA(p.label)}<small>modelo ${p.prob}%</small></div><div class="v" style="font-size:20px;min-width:34px;text-align:right">${pkMark(p.res)}</div></div>`).join('') + `</div>`; }).join('');
-  return `<div class="lv-h" style="margin:14px 0 6px">Ya jugados hoy · ✅ acertó ❌ falló</div>` + cards;
+  return `<div class="lv-h" style="margin:14px 0 6px">${esHoy?'Ya jugados hoy':'Jugados el '+today.slice(8,10)+'/'+today.slice(5,7)} · ✅ acertó ❌ falló</div>` + cards;
 }
 // ---- Sugerencias: mejores mercados por partido según el modelo ----
 function matchPicks(league, f){
@@ -1345,6 +1347,11 @@ function renderPicks(){
   document.getElementById('matchesLabel').textContent = 'Sugerencias';
   document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
   const doneS = pkDoneHTML(p=>p.sp==='futbol' && (activeLeague==='all'||p.lid===activeLeague));
+  if(activeDate!=='all' && activeDate < ymd(todayDate)){
+    const dayS = pkDayHTML(p=>p.sp==='futbol' && (activeLeague==='all'||p.lid===activeLeague));
+    list.innerHTML = (dayS + doneS) || `<div class="empty-state">No hay sugerencias guardadas para ese día. Los aciertos se guardan en este celular desde que la app mostró las sugerencias.</div>`;
+    return;
+  }
   if(!items.length){
     list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha${activeLeague==='all'?'':' en esta liga'}. Prueba otro día o pulsa ⟳ para actualizar.</div>` + doneS;
     return;
@@ -2321,6 +2328,11 @@ function usRenderPicks(){
   items.sort((a,b)=>b.best-a.best);
   document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
   const doneS = pkDoneHTML(p=>p.sp===sp);
+  if(activeDate!=='all' && activeDate < ymd(todayDate)){
+    const dayS = pkDayHTML(p=>p.sp===sp);
+    list.innerHTML = usStatusLine(sp) + ((dayS + doneS) || `<div class="empty-state">No hay sugerencias guardadas para ese día. Los aciertos se guardan en este celular desde que la app mostró las sugerencias.</div>`);
+    return;
+  }
   if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
   let html = usStatusLine(sp) + pkDayHTML(p=>p.sp===sp);
@@ -3284,9 +3296,9 @@ function renderDateChips(){
   let html = `<div class="datechip all ${activeDate==='all'?'active':''}" onclick="selectDate('all')">Todos</div>`;
   html += dateRange.map(d => {
     const key = ymd(d);
-    const isToday = key === ymd(todayDate);
-    return `<div class="datechip ${isToday?'today':''} ${activeDate===key?'active':''}" onclick="selectDate('${key}')">
-      <div class="dow">${isToday?'hoy':DOW[d.getDay()]}</div>
+    const isToday = key === ymd(todayDate), isPast = key < ymd(todayDate), isYest = key === ymd(new Date(todayDate.getTime()-864e5));
+    return `<div class="datechip ${isToday?'today':''} ${isPast?'past':''} ${activeDate===key?'active':''}" onclick="selectDate('${key}')">
+      <div class="dow">${isToday?'hoy':isYest?'ayer':DOW[d.getDay()]}</div>
       <div class="num">${d.getDate()}</div>
     </div>`;
   }).join('');
