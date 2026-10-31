@@ -238,6 +238,8 @@ function barra() {
   b.innerHTML = `<span>${esc(t)}</span>${cta ? `<button type="button" onclick="abPay()">${cta}</button>` : ''}`;
 }
 function cuentaBox() {
+  const t = $('abTech');
+  if (t) t.style.display = AB.user && AB.user.email === 'tomashbasurto@gmail.com' ? '' : 'none';
   const c = $('abAcct');
   if (!c) return;
   if (!AB.user) { c.innerHTML = ''; return; }

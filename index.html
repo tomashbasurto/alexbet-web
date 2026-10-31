@@ -554,25 +554,28 @@
 </div>
 <div id="settings" onclick="if(event.target===this)closeSettings()">
   <div class="sheet">
-    <h2>Ajustes y actualización</h2>
-    <div class="sub" id="verLine"></div>
+    <h2>Ajustes</h2>
     <div class="set-box" id="abAcct" style="margin-bottom:12px"></div>
-    <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
-    <button class="btn primary" id="btnUpdate" onclick="updateAll()"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg> Actualizar ahora</button>
-    <div class="set-box" id="setInfo"></div>
     <label>Apariencia</label>
     <div class="themes" id="themeBox"></div>
-    <label for="inKey">Clave de football-data.org</label>
-    <input id="inKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega tu clave aquí">
-    <label for="inOdds">Clave de The Odds API (cuotas de varias casas)</label>
-    <input id="inOdds" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí tu clave (opcional)">
-    <button class="btn" onclick="odTest()">Probar cuotas ahora</button>
-    <div class="set-box" id="odTest" style="font-size:12.5px"></div>
-    <label for="inSeason">Temporada (vacío = automática)</label>
-    <input id="inSeason" type="number" inputmode="numeric" placeholder="Ej: 2026">
-    <button class="btn" onclick="saveSettings()">Guardar y actualizar</button>
-    <button class="btn ghost" onclick="clearData()">Borrar datos guardados</button>
     <button class="btn ghost" onclick="closeSettings()">Cerrar</button>
+    <div id="abTech" style="display:none">
+    <label style="margin-top:22px">Solo administrador · actualización y claves</label>
+      <div class="sub" id="verLine"></div>
+      <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
+      <button class="btn primary" id="btnUpdate" onclick="updateAll()"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg> Actualizar ahora</button>
+      <div class="set-box" id="setInfo"></div>
+      <label for="inKey">Clave de football-data.org</label>
+      <input id="inKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega tu clave aquí">
+      <label for="inOdds">Clave de The Odds API (cuotas de varias casas)</label>
+      <input id="inOdds" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí tu clave (opcional)">
+      <button class="btn" onclick="odTest()">Probar cuotas ahora</button>
+      <div class="set-box" id="odTest" style="font-size:12.5px"></div>
+      <label for="inSeason">Temporada (vacío = automática)</label>
+      <input id="inSeason" type="number" inputmode="numeric" placeholder="Ej: 2026">
+      <button class="btn" onclick="saveSettings()">Guardar y actualizar</button>
+      <button class="btn ghost" onclick="clearData()">Borrar datos guardados</button>
+    </div>
   </div>
 </div>
 
