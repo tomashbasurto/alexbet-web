@@ -1,0 +1,22 @@
+{
+  "hosting": {
+    "site": "alexbetpro",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "firestore.rules",
+      "**/.*",
+      "**/node_modules/**",
+      "fetch-data.js",
+      "alerts.js",
+      "resumen.js",
+      "alerts-seen.json"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(html|js|webmanifest)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  }
+}

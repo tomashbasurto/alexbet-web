@@ -1,0 +1,28 @@
+name: Publicar en alexbetpro.web.app
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'premium.js'
+      - 'admin.html'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - '*.png'
+      - 'firebase.json'
+      - '.github/workflows/firebase.yml'
+  workflow_dispatch:
+concurrency:
+  group: firebase-hosting
+  cancel-in-progress: true
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: alexbet-e14aa
+          channelId: live
