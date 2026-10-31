@@ -44,6 +44,7 @@ function aplicar(d) {
   // d: {email, nombre, creado(ms), premiumHasta(ms|null), plan, pendiente}
   const ahora = Date.now();
   AB.user = d;
+  AB.uid = d && d.uid ? d.uid : null;
   AB.pruebaHasta = d && d.creado ? d.creado + PRUEBA_DIAS * DIA : 0;
   AB.premiumHasta = d && d.premiumHasta ? d.premiumHasta : 0;
   AB.enPrueba = !!d && ahora < AB.pruebaHasta && !(AB.premiumHasta > ahora);
@@ -91,6 +92,7 @@ async function leerCuenta(u, nombre) {
 function leerDoc(x, u) {
   x = x || {};
   return {
+    uid: (u && u.uid) || '',
     email: x.email || (u && u.email) || '',
     nombre: x.nombre || '',
     creado: ms(x.creado) || Date.now(),

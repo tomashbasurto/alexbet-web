@@ -591,6 +591,9 @@ const AB_LOCK_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" 
 function abLockBtn(txt){ return `<button type="button" class="ab-lock" onclick="event.stopPropagation();abPay()">${AB_LOCK_IC}${txt||'Premium · Desbloquear'}</button>`; }
 function abLockCard(title){ return `<div class="prob-card ab-lock-card"><h3><span class="dot"></span>${title}</h3>${abLockBtn()}</div>`; }
 const AB_PREM_VIEWS = ['picks','value','alerts','bets'];
+// Datos personales guardados por cuenta: cada usuario ve solo sus jugadas y favoritos.
+const AB_USER_KEYS = ['ab_bets','ab_slip','ab_bank','ab_fav','ab_favonly'];
+function abK(k){ return AB_USER_KEYS.includes(k) ? k+'__'+((window.AB && AB.uid) || 'anon') : k; }
 // Vuelve a dibujar la pantalla actual cuando cambia el plan (inicio de sesión, fin de prueba, activación).
 function abRefresh(){
   try{
@@ -598,6 +601,8 @@ function abRefresh(){
       if(sport!=='futbol'){ if(document.getElementById('detail').classList.contains('show')) goHome(); sport=''; setSport('futbol'); }
       if(AB_PREM_VIEWS.includes(viewMode)){ setView('matches'); }
     }
+    try{ favBar(); btCount(); }catch(e){}
+    if(viewMode==='bets'){ btView(); return; }
     if(document.getElementById('detail').classList.contains('show') && curFixture && sport==='futbol') openMatch(curFixture.lid, curFixture.idx);
     else if(viewMode!=='live' && viewMode!=='alerts' && viewMode!=='bets') renderMatches();
   }catch(e){}
@@ -3530,9 +3535,9 @@ function goHome(){
 
 // ---------- Datos reales (football-data.org) ----------
 const LS = {
-  get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
-  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } },
-  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+  get(k,d){ try{ const v=localStorage.getItem(abK(k)); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(abK(k),JSON.stringify(v)); return true; }catch(e){ return false; } },
+  del(k){ try{ localStorage.removeItem(abK(k)); }catch(e){} }
 };
 function setBusy(b){
   updating = b;
