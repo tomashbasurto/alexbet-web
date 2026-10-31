@@ -13,13 +13,13 @@ jobs:
           mkdir -p probe
           B=https://site.api.espn.com/apis/site/v2/sports/tennis
           D=$(date -u +%Y%m%d)
-          curl -sS "$B/atp/scoreboard" -o probe/atp.json || true
-          curl -sS "$B/wta/scoreboard" -o probe/wta.json || true
-          curl -sS "$B/atp/scoreboard?dates=$D" -o probe/atp_d.json || true
-          curl -sS "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/rankings" -o probe/rank1.json || true
-          curl -sS "https://sports.core.api.espn.com/v2/sports/tennis/leagues/atp/rankings" -o probe/rank2.json || true
-          curl -sS "https://site.web.api.espn.com/apis/site/v2/sports/tennis/atp/rankings" -o probe/rank3.json || true
-          curl -sS -I "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard" | grep -i 'access-control' > probe/cors.txt || true
+          T=$(date -u -d tomorrow +%Y%m%d); T2=$(date -u -d '+3 day' +%Y%m%d); Y=$(date -u -d '-20 day' +%Y%m%d)
+          rm -f probe/*
+          curl -sS "$B/wta/rankings" -o probe/wrank.json || true
+          curl -sS "$B/atp/scoreboard?dates=$T" -o probe/atp_t.json || true
+          curl -sS "$B/atp/scoreboard?dates=$T2" -o probe/atp_t2.json || true
+          curl -sS "$B/atp/scoreboard?dates=$Y" -o probe/atp_y.json || true
+          curl -sS "$B/wta/scoreboard?dates=$T" -o probe/wta_t.json || true
           ls -la probe
           git config user.name probe-bot; git config user.email probe@users.noreply.github.com
-          git add probe; git commit -m "probe" && git push
+          git add -A probe; git commit -m "probe" && git push
