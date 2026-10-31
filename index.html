@@ -390,6 +390,13 @@
   .set-box .row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
   .set-box .ok{ color:var(--over); } .set-box .bad{ color:var(--under); }
 
+  .tn-sc{ display:flex; flex-direction:column; gap:6px; margin:6px 0 4px; }
+  .tn-sc > div{ display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:14px; font-weight:600; }
+  .tn-sc em{ font-style:normal; font-family:var(--font-head); display:inline-block; min-width:18px; text-align:center; }
+  .tn-sv{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--over); margin-right:6px; vertical-align:1px; }
+  .tn-chips{ display:flex; gap:6px; margin:4px 0 8px; }
+  .tn-chips button{ min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
+  .tn-chips button.on{ border-color:var(--accent); color:var(--accent); }
   /* ---------- Cuentas y Premium ---------- */
   #abGate{ position:fixed; inset:0; z-index:80; display:none; overflow:auto; background:var(--bg); background-image:var(--bg-img); }
   #abGate.show{ display:block; }
@@ -523,6 +530,7 @@
       <button class="sp active" id="sp_futbol" onclick="setSport('futbol')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.2 2.3-1.2 3.8h-4l-1.2-3.8z"/><path d="M12 7.5V3.2M15.2 9.8l4.2-1.4M14 13.6l2.6 3.6M10 13.6l-2.6 3.6M8.8 9.8L4.6 8.4"/></svg> Fútbol</button>
       <button class="sp" id="sp_nba" onclick="setSport('nba')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/><path d="M5.6 5.6c3.2 3.4 3.2 9.4 0 12.8M18.4 5.6c-3.2 3.4-3.2 9.4 0 12.8"/></svg> NBA</button>
       <button class="sp" id="sp_mlb" onclick="setSport('mlb')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="9"/><path d="M6.2 5.4c2.6 2.6 2.6 10.6 0 13.2M17.8 5.4c-2.6 2.6-2.6 10.6 0 13.2"/><path d="M8.4 9.2l1.5.5M8.6 12.2l1.6.1M8.4 15l1.5-.5M15.6 9.2l-1.5.5M15.4 12.2l-1.6.1M15.6 15l-1.5-.5"/></svg> MLB</button>
+      <button class="sp" id="sp_tenis" onclick="setSport('tenis')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.2 3.2 3.2 9.6 0 12.8M18.4 5.6c-3.2 3.2-3.2 9.6 0 12.8"/></svg>Tenis</button>
     </div>
     <div class="tabs" id="tabs">
       <button class="tab active" id="tabMatches" onclick="setView('matches')">Partidos</button>
@@ -1097,7 +1105,7 @@ function setView(v){
   updateChrome(); updateLiveBadge();
   if(v==='alerts'){ liveStop(); alView(); return; }
   if(v==='bets'){ liveStop(); pkLogAll(); btView(); if(Date.now()-PK.last>10*60e3) pkSweep(); return; }
-  if(v==='live'){ renderLive(); if(sport==='futbol') liveStart(); else usLiveStart(); } else liveStop();
+  if(v==='live'){ renderLive(); if(sport==='futbol') liveStart(); else if(sport==='tenis') tnLiveStart(); else usLiveStart(); } else liveStop();
   if(v==='picks' && activeDate==='all') activeDate = ymd(todayDate);
   if(v==='live') return;
   if(v==='value'){ renderDateChips(); renderMatches(); return; }
@@ -1482,6 +1490,7 @@ async function liveFetch(){
 function liveStart(){ liveStop(); liveFetch(); liveTimer = setInterval(liveFetch, 60000); }
 function liveStop(){ if(liveTimer){ clearInterval(liveTimer); liveTimer = null; } if(usLiveTimer){ clearInterval(usLiveTimer); usLiveTimer = null; } }
 function renderLive(){
+  if(sport==='tenis'){ tnRender(); return; }
   if(sport!=='futbol'){ usRenderLive(); return; }
   const list = document.getElementById('matchList');
   document.getElementById('matchesLabel').textContent = 'En vivo';
@@ -1769,7 +1778,7 @@ async function usLiveFetch(spArg){
 }
 function usLiveStart(){ liveStop(); usLiveFetch(); usLiveTimer = setInterval(usLiveFetch, 60000); }
 function updateLiveBadge(){
-  const n = sport==='futbol' ? liveData.list.length : usLive[sport].list.length;
+  const n = sport==='futbol' ? liveData.list.length : sport==='tenis' ? tnLiveCount() : usLive[sport].list.length;
   document.getElementById('liveCount').textContent = n ? ' ('+n+')' : '';
   document.getElementById('tabLive').classList.toggle('has-live', n>0);
 }
@@ -2402,10 +2411,10 @@ function setSport(sp){
   if(sp===sport) return;
   if(sp!=='futbol' && !PREM()){ abPay(); return; }
   sport = sp; liveStop();
-  ['futbol','nba','mlb'].forEach(k=>document.getElementById('sp_'+k).classList.toggle('active', k===sp));
-  if(sp!=='futbol') usLoad(sp);
+  ['futbol','nba','mlb','tenis'].forEach(k=>document.getElementById('sp_'+k).classList.toggle('active', k===sp));
+  if(sp==='tenis'){ tnLoad(); if(activeDate==='all'){ activeDate = ymd(todayDate); renderDateChips(); } } else if(sp!=='futbol') usLoad(sp);
   updateChrome(); updateLiveBadge();
-  if(viewMode==='live'){ renderLive(); if(sp==='futbol') liveStart(); else usLiveStart(); }
+  if(viewMode==='live'){ renderLive(); if(sp==='futbol') liveStart(); else if(sp==='tenis') tnLiveStart(); else usLiveStart(); }
   else if(viewMode==='value'){ renderDateChips(); renderMatches(); }
   else { renderChips(); renderDateChips(); renderMatches(); if(sp==='futbol' && typeof renderStatus==='function') renderStatus(); }
 }
@@ -3278,6 +3287,7 @@ function selectDate(key){
 }
 
 function renderMatches(){
+  if(sport==='tenis' && ['matches','picks','live','value'].includes(viewMode)){ tnRender(); return; }
   if(viewMode==='value'){ vaRender(); return; }
   if(viewMode==='alerts'){ alView(); return; }
   if(viewMode==='bets'){ btView(); return; }
@@ -3575,7 +3585,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v27 · cuentas, prueba de 15 días y Premium';
+const APP_VERSION = 'v28 · tenis ATP y WTA';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4056,6 +4066,7 @@ favBar(); btCount(); alDot(); updateChrome();
 setTimeout(()=>{ pkLogAll(); pkSweep(); }, 9000);
 setTimeout(()=>logosLoad(false), 2500);
 </script>
+<script src="tenis.js"></script>
 <script type="module" src="premium.js"></script>
 </body>
 </html>

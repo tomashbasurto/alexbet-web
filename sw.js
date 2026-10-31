@@ -1,6 +1,6 @@
 // AlexBet · service worker: la app abre sin conexión y siempre intenta traer la versión más nueva primero.
-const CACHE = 'alexbet-shell-v27g';
-const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'premium.js'];
+const CACHE = 'alexbet-shell-v28';
+const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'premium.js', 'tenis.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
   self.skipWaiting();

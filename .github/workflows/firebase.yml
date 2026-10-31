@@ -5,6 +5,7 @@ on:
     paths:
       - 'index.html'
       - 'premium.js'
+      - 'tenis.js'
       - 'admin.html'
       - 'sw.js'
       - 'manifest.webmanifest'
