@@ -1661,8 +1661,12 @@ async function usLoad(sp, force){
   const into = {}; let okBoards = 0, lastErr = '';
   res.slice(1).forEach(r=>{ if(r.status==='fulfilled'){ okBoards++; usParseBoard(sp, r.value, into); } else lastErr = (r.reason&&r.reason.message)||String(r.reason); });
   if(res[0].status==='fulfilled') D.teams = usParseStandings(sp, res[0].value);
-  if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); }
-  else D.err = lastErr || 'sin respuesta de ESPN';
+  if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); D.retry = 0; }
+  else {
+    D.err = lastErr || 'sin respuesta de ESPN';
+    // Falla de red pasajera (p. ej. el celular recién despierta): reintenta solo hasta 2 veces.
+    if((D.retry||0) < 2){ D.retry = (D.retry||0)+1; setTimeout(()=>usLoad(sp,true), 3000*D.retry); }
+  }
   D.loading = false;
   if(sport===sp) renderMatches();
 }
@@ -2262,6 +2266,8 @@ function usGamesForDay(sp){
 function usEmpty(sp, what){
   const D = usData[sp];
   if(D.loading && !D.games.length) return `<div class="empty-state">Cargando ${US[sp].name}…</div>`;
+  if(D.t && !D.games.length) return `<div class="empty-state">${US[sp].name} no tiene partidos programados entre ayer y los próximos 7 días${sp==='mlb'?' (la temporada terminó o está en receso)':''}. Cuando haya partidos aparecerán aquí.</div>`;
+  if(D.loading && D.retry) return `<div class="empty-state">Reconectando con ESPN…</div>`;
   if(D.err && !D.games.length) return `<div class="empty-state">No pude conectar con ESPN para ${US[sp].name} (${D.err}).<br><br><button class="btn primary" onclick="usLoad('${sp}',true)">Reintentar</button></div>`;
   return `<div class="empty-state">No hay partidos de ${US[sp].name} ${what}. Prueba otro día.</div>`;
 }

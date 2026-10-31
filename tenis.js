@@ -62,7 +62,11 @@ async function tnLoad(force) {
     if (k === 's') { ok++; tnParse(t, r.value); } else tnParseRank(t, r.value);
   });
   if (jobs.some(x => x[1] === 'r')) TN.rt = Date.now();
-  if (ok) TN.t = Date.now(); else TN.err = last || 'sin respuesta de ESPN';
+  if (ok) { TN.t = Date.now(); TN.retry = 0; }
+  else {
+    TN.err = last || 'sin respuesta de ESPN';
+    if ((TN.retry || 0) < 2) { TN.retry = (TN.retry || 0) + 1; setTimeout(() => tnLoad(true), 3000 * TN.retry); }
+  }
   TN.loading = false;
   updateLiveBadge();
   if (sport === 'tenis') {
