@@ -178,7 +178,8 @@ function errTxt(e) {
   if (c.includes('popup-blocked')) return 'El navegador bloqueó la ventana de Google. Usa tu correo y contraseña.';
   if (c.includes('unauthorized-domain')) return 'Falta autorizar este dominio en Firebase.';
   if (c.includes('network')) return 'Sin conexión. Inténtalo de nuevo.';
-  return 'No se pudo completar. Inténtalo de nuevo.';
+  if (c.includes('operation-not-allowed') || c.includes('admin-restricted')) return 'El registro con correo todavía no está activado. Usa "Continuar con Google" por ahora.';
+  return 'No se pudo completar. Inténtalo de nuevo.' + (c ? ' (' + c.replace('auth/', '') + ')' : '');
 }
 
 window.abModo = m => { modo = m; puerta(); };
