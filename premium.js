@@ -121,7 +121,9 @@ async function iniciar() {
       quitarEscucha = fb.F.onSnapshot(ref, s => { if (s.exists()) aplicar(leerDoc(s.data(), u)); }, () => {});
     } catch (e) {
       if (previo && previo.email === (u.email || '').toLowerCase()) { cerrarPuerta(); return; }
-      puerta('No pudimos cargar tu cuenta. Revisa tu conexión e inténtalo de nuevo.');
+      const cod = (e && (e.code || e.message)) || 'desconocido';
+      puerta(`Entraste como ${u.email || 'usuario'}, pero no pudimos cargar tu cuenta (${cod}). Toca "Iniciar sesión" para reintentar.`);
+      AB._fallo = true;
     }
   });
 }
@@ -180,6 +182,7 @@ function errTxt(e) {
 window.abModo = m => { modo = m; puerta(); };
 window.abGoogle = async () => {
   if (!fb) return aviso('Cargando… intenta en unos segundos.');
+  aviso('Abriendo Google…');
   try {
     await fb.A.signInWithPopup(fb.auth, new fb.A.GoogleAuthProvider());
   } catch (e) { aviso(errTxt(e)); }
@@ -187,11 +190,13 @@ window.abGoogle = async () => {
 window.abCorreo = async () => {
   if (!fb) return aviso('Cargando… intenta en unos segundos.');
   const mail = ($('abMail').value || '').trim(), pass = $('abPass').value || '';
+  const nom = ($('abNom') && $('abNom').value.trim()) || '';
+  if (fb.auth.currentUser) { await fb.A.signOut(fb.auth); }
   const btn = $('abGo'); if (btn) btn.disabled = true;
   aviso('');
   try {
     if (modo === 'signup') {
-      AB._nombre = ($('abNom') && $('abNom').value.trim()) || '';
+      AB._nombre = nom;
       await fb.A.createUserWithEmailAndPassword(fb.auth, mail, pass);
     } else {
       await fb.A.signInWithEmailAndPassword(fb.auth, mail, pass);
