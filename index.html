@@ -390,6 +390,44 @@
   .set-box .row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
   .set-box .ok{ color:var(--over); } .set-box .bad{ color:var(--under); }
 
+  /* ---------- Cuentas y Premium ---------- */
+  #abGate{ position:fixed; inset:0; z-index:80; display:none; overflow:auto; background:var(--bg); background-image:var(--bg-img); }
+  #abGate.show{ display:block; }
+  body.ab-locked-scroll{ overflow:hidden; }
+  .ab-gate-in{ max-width:420px; margin:0 auto; padding:calc(36px + env(safe-area-inset-top,0px)) 20px calc(28px + env(safe-area-inset-bottom,0px)); }
+  .ab-logo{ font-family:var(--font-head); font-weight:700; font-size:40px; text-align:center; letter-spacing:.5px; }
+  .ab-logo span{ color:var(--accent); }
+  .ab-h{ font-family:var(--font-head); font-size:20px; font-weight:700; text-align:center; margin-top:6px; }
+  .ab-sub{ font-size:14px; color:var(--ink-dim); text-align:center; line-height:1.45; margin:6px 0 18px; }
+  .ab-tabs{ display:grid; grid-template-columns:1fr 1fr; padding:4px; border-radius:12px; background:var(--surface); border:1px solid var(--line); }
+  .ab-tabs button{ min-height:44px; border:0; border-radius:9px; background:transparent; color:var(--ink-dim); font:600 14px var(--font-body); cursor:pointer; }
+  .ab-tabs button.on{ background:var(--surface-2); color:var(--ink); }
+  .ab-google{ min-height:48px; background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .ab-or{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--ink-dim); margin:16px 0 4px; }
+  .ab-or span{ flex:1; height:1px; background:var(--line); }
+  #abGate label{ display:block; font-size:12px; color:var(--ink-dim); margin:12px 0 5px; }
+  #abGate input{ width:100%; box-sizing:border-box; min-height:46px; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:15px; font-family:var(--font-body); }
+  .ab-link{ display:block; margin:8px 0 0 auto; background:none; border:0; color:var(--accent); font:500 13px var(--font-body); cursor:pointer; padding:6px 0; }
+  .ab-msg{ min-height:18px; font-size:13px; color:var(--under); margin-top:10px; line-height:1.4; }
+  .ab-foot{ font-size:12px; color:var(--ink-dim); text-align:center; line-height:1.45; margin-top:18px; }
+  .ab-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0 2px; padding:8px 10px 8px 12px; border-radius:12px; background:var(--surface); border:1px solid var(--line); font-size:12.5px; color:var(--ink-dim); }
+  .ab-bar:empty{ display:none; }
+  .ab-bar.ok{ color:var(--over); }
+  .ab-bar.off{ border-color:var(--accent-dim); }
+  .ab-bar button{ flex:none; min-height:36px; padding:0 12px; border-radius:10px; border:0; background:var(--accent); color:var(--on-accent); font:700 12.5px var(--font-body); cursor:pointer; }
+  #abPay{ position:fixed; inset:0; z-index:60; display:none; background:rgba(0,0,0,.6); }
+  #abPay.show{ display:block; }
+  .ab-plans{ display:flex; flex-direction:column; gap:8px; }
+  .ab-plan{ display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; min-height:52px; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 14px var(--font-body); cursor:pointer; }
+  .ab-plan small{ display:block; font-weight:400; font-size:11.5px; color:var(--ink-dim); margin-top:2px; }
+  .ab-plan b{ font-family:var(--font-head); font-size:18px; }
+  .ab-plan.on{ border:2px solid var(--accent); }
+  .ab-met{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .ab-met button{ min-height:44px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13px var(--font-body); cursor:pointer; }
+  .ab-met button.on{ border-color:var(--accent); color:var(--accent); }
+  .ab-lock{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:44px; margin-top:10px; border-radius:10px; border:1px dashed var(--accent-dim); background:transparent; color:var(--accent); font:600 12.5px var(--font-body); cursor:pointer; }
+  .ab-lock-card h3 + .ab-lock{ margin-top:4px; }
+
   .foot-note{
     font-size:11px; color:var(--ink-dim); line-height:1.5; text-align:center;
     padding:12px 10px 4px; opacity:.75;
@@ -494,6 +532,7 @@
       <button class="tab" id="tabAlerts" onclick="setView('alerts')">Alertas<span id="alCount"></span></button>
       <button class="tab" id="tabBets" onclick="setView('bets')">Mis jugadas<span id="btCount"></span></button>
     </div>
+    <div class="ab-bar" id="abBar"></div>
     <div id="leagueChips"></div>
     <div class="dates" id="dateChips"></div>
     <div class="fav-bar" id="favBar"></div>
@@ -517,6 +556,7 @@
   <div class="sheet">
     <h2>Ajustes y actualización</h2>
     <div class="sub" id="verLine"></div>
+    <div class="set-box" id="abAcct" style="margin-bottom:12px"></div>
     <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
     <button class="btn primary" id="btnUpdate" onclick="updateAll()"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg> Actualizar ahora</button>
     <div class="set-box" id="setInfo"></div>
@@ -536,7 +576,30 @@
   </div>
 </div>
 
+<div id="abPay" onclick="if(event.target===this)abPayClose()"><div class="sheet" id="abPaySheet"></div></div>
+<div id="abGate"></div>
+
 <script>
+// ---------- Cuentas y Premium (premium.js llena window.AB) ----------
+window.AB = window.AB || {ready:false, premium:false, user:null};
+function PREM(){ return !!(window.AB && AB.premium); }
+function abPay(){ if(typeof window.abPayOpen==='function') abPayOpen(); }
+const AB_LOCK_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+function abLockBtn(txt){ return `<button type="button" class="ab-lock" onclick="event.stopPropagation();abPay()">${AB_LOCK_IC}${txt||'Premium · Desbloquear'}</button>`; }
+function abLockCard(title){ return `<div class="prob-card ab-lock-card"><h3><span class="dot"></span>${title}</h3>${abLockBtn()}</div>`; }
+const AB_PREM_VIEWS = ['picks','value','alerts','bets'];
+// Vuelve a dibujar la pantalla actual cuando cambia el plan (inicio de sesión, fin de prueba, activación).
+function abRefresh(){
+  try{
+    if(!PREM()){
+      if(sport!=='futbol'){ if(document.getElementById('detail').classList.contains('show')) goHome(); sport=''; setSport('futbol'); }
+      if(AB_PREM_VIEWS.includes(viewMode)){ setView('matches'); }
+    }
+    if(document.getElementById('detail').classList.contains('show') && curFixture && sport==='futbol') openMatch(curFixture.lid, curFixture.idx);
+    else if(viewMode!=='live' && viewMode!=='alerts' && viewMode!=='bets') renderMatches();
+  }catch(e){}
+}
+
 // ---------- Data model ----------
 // Each team carries season-average rates used to project a match.
 // gf/ga = goals for/against per game, cards = cards per game, corners = corners per game
@@ -1015,6 +1078,7 @@ let activeDate = 'all';
 
 let viewMode = 'matches';
 function setView(v){
+  if(AB_PREM_VIEWS.includes(v) && !PREM()){ abPay(); return; }
   viewMode = v;
   document.getElementById('tabMatches').classList.toggle('active', v==='matches');
   document.getElementById('tabPicks').classList.toggle('active', v==='picks');
@@ -2327,6 +2391,7 @@ function updateChrome(){
 }
 function setSport(sp){
   if(sp===sport) return;
+  if(sp!=='futbol' && !PREM()){ abPay(); return; }
   sport = sp; liveStop();
   ['futbol','nba','mlb'].forEach(k=>document.getElementById('sp_'+k).classList.toggle('active', k===sp));
   if(sp!=='futbol') usLoad(sp);
@@ -2644,6 +2709,7 @@ function isFav(n){ return !!n && favList().some(f=>sameTeam(f,n)); }
 function favOK(h,a){ return !LS.get('ab_favonly',false) || isFav(h) || isFav(a); }
 function favStar(n){ const on = isFav(n); return `<i class="fav-star${on?' on':''}" data-n="${escA(n)}" onclick="event.stopPropagation();favToggle(this.dataset.n)">${on?'★':'☆'}</i>`; }
 function favToggle(n){
+  if(!PREM()){ abPay(); return; }
   let l = favList(); const had = l.some(f=>sameTeam(f,n));
   l = had ? l.filter(f=>!sameTeam(f,n)) : l.concat([n]); LS.set('ab_fav', l);
   document.querySelectorAll('.fav-star').forEach(e=>{ const on = isFav(e.dataset.n); e.classList.toggle('on', on); e.textContent = on?'★':'☆'; });
@@ -3259,12 +3325,12 @@ function renderMatches(){
         <span>Emp. ${p.drawPct}%</span>
         <span>${awayName} ${p.lossPct}%</span>
       </div>
-      <div class="quick-probs">
+      ${PREM() ? `<div class="quick-probs">
         <div class="ring-item">${ringHTML(p.over25, p.over25>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+2.5 goles</div></div>
         <div class="ring-item">${ringHTML(p.btts, p.btts>=60?'var(--over)':'var(--accent)', 54)}<div class="l">Ambos anotan</div></div>
         <div class="ring-item">${ringHTML(p.over35cards, p.over35cards>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+3.5 tarj.</div></div>
         <div class="ring-item">${ringHTML(p.over85corners, p.over85corners>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+8.5 córn.</div></div>
-      </div>
+      </div>` : abLockBtn('Goles, ambos anotan, tarjetas y córners · Premium')}
     </div>`;
   }).join('');
 }
@@ -3383,6 +3449,7 @@ function openMatch(leagueId, idx){
       </div>
     </div>
 
+    ${PREM() ? `
     <div class="prob-card">
       <h3><span class="dot"></span>Probabilidad de goles</h3>
       <div class="stat-grid">
@@ -3419,7 +3486,7 @@ function openMatch(leagueId, idx){
       </div>
     </div>
 
-    ${playersHTML(league, homeName, awayName, home, away, p)}
+    ${playersHTML(league, homeName, awayName, home, away, p)}` : abLockCard('Goles, ambos anotan, tarjetas, córners y jugadores')}
 
     <div class="prob-card" id="ulBox"></div>
     <div class="prob-card" id="posBox" style="display:none"></div>
@@ -3499,7 +3566,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v26e · cuotas de varias casas, sugerencias más estrictas y resultados ✅❌';
+const APP_VERSION = 'v27 · cuentas, prueba de 15 días y Premium';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -3980,5 +4047,6 @@ favBar(); btCount(); alDot(); updateChrome();
 setTimeout(()=>{ pkLogAll(); pkSweep(); }, 9000);
 setTimeout(()=>logosLoad(false), 2500);
 </script>
+<script type="module" src="premium.js"></script>
 </body>
 </html>

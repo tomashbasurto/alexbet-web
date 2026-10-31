@@ -1,0 +1,40 @@
+rules_version = '2';
+// AlexBet · reglas de Firestore. Cópialas en Firebase > Firestore Database > Reglas > Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Tu cuenta de administrador (la que usas en admin.html).
+    function esAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'tomashbasurto@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    match /users/{uid} {
+      // Cada usuario ve solo su cuenta; tú ves todas.
+      allow read: if request.auth != null && (request.auth.uid == uid || esAdmin());
+
+      // Al registrarse: la fecha de inicio de la prueba la pone el servidor y nadie se regala Premium.
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'nombre', 'creado', 'premiumHasta', 'plan', 'pendiente'])
+        && request.resource.data.creado == request.time
+        && request.resource.data.premiumHasta == null
+        && request.resource.data.plan == 'gratis'
+        && request.resource.data.pendiente == '';
+
+      // El usuario solo puede avisar que pagó o cambiar su nombre. Premium y fechas solo los cambias tú.
+      allow update: if esAdmin()
+        || (request.auth != null && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'pendiente'])
+            && request.resource.data.pendiente is string
+            && request.resource.data.pendiente.size() < 80);
+
+      allow delete: if esAdmin();
+    }
+
+    // Todo lo demás, cerrado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

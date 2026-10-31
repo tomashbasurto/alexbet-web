@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Panel AlexBet</title>
+<meta name="theme-color" content="#06120b">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#06120b; --surface:#0e2016; --surface-2:#15301f; --line:#22442f; --ink:#eef6f0; --ink-dim:#8fae9a;
+    --accent:#f5c542; --on-accent:#1b1503; --over:#34d399; --under:#ff6b6b; --head:'Space Grotesk',sans-serif; --body:Inter,system-ui,sans-serif; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); }
+  main{ max-width:640px; margin:0 auto; padding:calc(16px + env(safe-area-inset-top,0px)) 16px 40px; }
+  h1{ font-family:var(--head); font-size:24px; margin:0; }
+  h1 span{ color:var(--accent); }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
+  .who{ font-size:12px; color:var(--ink-dim); text-align:right; }
+  .stats{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:14px; }
+  .st{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; }
+  .st b{ display:block; font-family:var(--head); font-size:22px; }
+  .st small{ font-size:11px; color:var(--ink-dim); }
+  label{ display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  input{ width:100%; min-height:46px; padding:0 12px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:500 15px var(--body); }
+  .filters{ display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 12px; }
+  .filters button{ min-height:36px; padding:0 12px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font:600 12.5px var(--body); cursor:pointer; }
+  .filters button.on{ border-color:var(--accent); color:var(--accent); }
+  .u{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:10px; }
+  .u.pend{ border:2px solid var(--accent); }
+  .uh{ display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+  .mail{ font-weight:600; font-size:14px; word-break:break-all; }
+  .det{ font-size:12px; color:var(--ink-dim); margin-top:3px; line-height:1.4; }
+  .chip{ flex:none; font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; }
+  .c-act{ color:var(--over); background:#12301e; } .c-pru{ color:#93c5fd; background:#16264a; }
+  .c-pen{ color:var(--on-accent); background:var(--accent); } .c-ven{ color:#fca5a5; background:#3a1a1a; }
+  .acts{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:10px; }
+  .acts button{ min-height:44px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 12.5px var(--body); cursor:pointer; }
+  .acts .g{ background:var(--over); border-color:var(--over); color:#06210f; }
+  .acts .r{ background:transparent; border-color:#5b2a2a; color:#fca5a5; }
+  .btn{ width:100%; min-height:48px; border-radius:12px; border:0; background:var(--accent); color:var(--on-accent); font:700 15px var(--body); cursor:pointer; margin-top:10px; }
+  .btn.ghost{ background:transparent; color:var(--ink-dim); border:1px solid var(--line); }
+  .msg{ font-size:13px; color:var(--ink-dim); line-height:1.5; margin:12px 0; }
+  .err{ color:var(--under); }
+  .empty{ text-align:center; color:var(--ink-dim); font-size:13px; padding:24px 0; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1>Panel <span>AlexBet</span></h1>
+    <div class="who" id="who"></div>
+  </div>
+  <div id="app"><div class="msg">Cargando…</div></div>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, collection, getDocs, doc, updateDoc, Timestamp, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const ADMIN = 'tomashbasurto@gmail.com';
+const PRUEBA_DIAS = 15, DIA = 864e5;
+const app = initializeApp({
+  apiKey: 'AIzaSyDDHOsOOBNQ68M2wLx5Ii2mzQ2dftgewew',
+  authDomain: 'alexbet-e14aa.firebaseapp.com',
+  projectId: 'alexbet-e14aa',
+  storageBucket: 'alexbet-e14aa.firebasestorage.app',
+  messagingSenderId: '788954789258',
+  appId: '1:788954789258:web:525b424b674d597da58473'
+});
+const auth = getAuth(app), db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fecha = ms => new Date(ms).toLocaleDateString('es-EC', {day:'numeric', month:'short', year:'numeric'});
+const ms = t => t && t.toMillis ? t.toMillis() : null;
+
+let USERS = [], filtro = 'todos', busca = '';
+
+function estado(u) {
+  const now = Date.now(), ph = ms(u.premiumHasta) || 0, cr = ms(u.creado) || now, pr = cr + PRUEBA_DIAS * DIA;
+  if (ph > now) return {k:'act', t:(u.plan === 'vip' ? 'VIP' : 'PREMIUM'), d:`hasta el ${fecha(ph)}`, vence: ph};
+  if (u.pendiente) return {k:'pen', t:'PENDIENTE', d:`Pagó: ${u.pendiente}`};
+  if (now < pr) return {k:'pru', t:'PRUEBA', d:`termina el ${fecha(pr)}`, vence: pr};
+  return {k:'ven', t:'GRATIS', d: ph ? `Premium venció el ${fecha(ph)}` : `Prueba terminó el ${fecha(pr)}`};
+}
+
+function login(msg) {
+  $('who').textContent = '';
+  $('app').innerHTML = `<div class="msg ${msg ? 'err' : ''}">${esc(msg || 'Entra con tu cuenta de administrador.')}</div>
+    <button class="btn" id="goG">Entrar con Google</button>`;
+  $('goG').onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => login('No se pudo entrar: ' + (e.code || e.message)));
+}
+
+async function cargar() {
+  $('app').innerHTML = '<div class="msg">Cargando usuarios…</div>';
+  try {
+    const s = await getDocs(query(collection(db, 'users'), orderBy('creado', 'desc')));
+    USERS = s.docs.map(d => Object.assign({id: d.id}, d.data()));
+    pintar();
+  } catch (e) {
+    $('app').innerHTML = `<div class="msg err">No se pudo leer la lista (${esc(e.code || e.message)}). Revisa que publicaste las reglas de Firestore.</div>`;
+  }
+}
+
+function pintar() {
+  const now = Date.now(), semana = now + 7 * DIA;
+  const E = USERS.map(u => ({u, e: estado(u)}));
+  const n = k => E.filter(x => x.e.k === k).length;
+  const vencen = E.filter(x => x.e.k === 'act' && x.e.vence < semana).length;
+  const q = busca.trim().toLowerCase();
+  const lista = E.filter(x => (filtro === 'todos' || x.e.k === filtro) && (!q || (x.u.email || '').includes(q) || (x.u.nombre || '').toLowerCase().includes(q)))
+    .sort((a, b) => (a.e.k === 'pen' ? -1 : 0) - (b.e.k === 'pen' ? -1 : 0));
+  const F = [['todos','Todos'],['pen','Pendientes'],['act','Premium'],['pru','En prueba'],['ven','Gratis']];
+  $('app').innerHTML = `
+    <div class="stats">
+      <div class="st"><b style="color:var(--accent)">${n('pen')}</b><small>Pendientes</small></div>
+      <div class="st"><b style="color:var(--over)">${n('act')}</b><small>Premium</small></div>
+      <div class="st"><b style="color:#93c5fd">${n('pru')}</b><small>En prueba</small></div>
+      <div class="st"><b style="color:var(--under)">${vencen}</b><small>Vencen en 7 días</small></div>
+    </div>
+    <label for="q">Buscar usuario</label>
+    <input id="q" type="search" placeholder="correo o nombre" value="${esc(busca)}" autocomplete="off" autocapitalize="off">
+    <div class="filters">${F.map(([k, t]) => `<button data-f="${k}" class="${filtro === k ? 'on' : ''}">${t}</button>`).join('')}</div>
+    <div id="list">${lista.length ? lista.map(({u, e}) => `
+      <div class="u ${e.k === 'pen' ? 'pend' : ''}">
+        <div class="uh">
+          <div><div class="mail">${esc(u.email || '(sin correo)')}</div>
+          <div class="det">${esc(u.nombre || '')}${u.nombre ? ' · ' : ''}${esc(e.d)}</div></div>
+          <span class="chip c-${e.k}">${e.t}</span>
+        </div>
+        <div class="acts">
+          <button class="g" data-a="mes" data-id="${u.id}">+1 mes</button>
+          <button class="g" data-a="anio" data-id="${u.id}">+1 año</button>
+          <button data-a="vip" data-id="${u.id}">VIP +1 mes</button>
+          <button class="r" data-a="quitar" data-id="${u.id}">Quitar</button>
+        </div>
+      </div>`).join('') : '<div class="empty">No hay usuarios con ese filtro.</div>'}
+    </div>
+    <button class="btn ghost" id="rel">Recargar</button>
+    <button class="btn ghost" id="out">Cerrar sesión</button>`;
+  const qi = $('q');
+  qi.oninput = () => { busca = qi.value; const pos = qi.selectionStart; pintar(); const n2 = $('q'); n2.focus(); n2.setSelectionRange(pos, pos); };
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filtro = b.dataset.f; pintar(); });
+  document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => accion(b.dataset.a, b.dataset.id, b));
+  $('rel').onclick = cargar;
+  $('out').onclick = () => signOut(auth);
+}
+
+async function accion(a, id, btn) {
+  const u = USERS.find(x => x.id === id); if (!u) return;
+  const now = Date.now(), base = Math.max(now, ms(u.premiumHasta) || 0);
+  let cambio;
+  if (a === 'quitar') {
+    if (!confirm(`¿Quitar Premium a ${u.email}?`)) return;
+    cambio = {premiumHasta: null, plan: 'gratis', pendiente: ''};
+  } else {
+    const dias = a === 'anio' ? 365 : 30;
+    cambio = {premiumHasta: Timestamp.fromMillis(base + dias * DIA), plan: a === 'vip' ? 'vip' : 'premium', pendiente: ''};
+  }
+  btn.disabled = true;
+  try {
+    await updateDoc(doc(db, 'users', id), cambio);
+    Object.assign(u, cambio);
+    pintar();
+  } catch (e) {
+    btn.disabled = false;
+    alert('No se pudo guardar: ' + (e.code || e.message));
+  }
+}
+
+onAuthStateChanged(auth, u => {
+  if (!u) return login();
+  if ((u.email || '').toLowerCase() !== ADMIN) { signOut(auth); return login('Esa cuenta no es la de administrador.'); }
+  $('who').textContent = u.email;
+  cargar();
+});
+</script>
+</body>
+</html>
