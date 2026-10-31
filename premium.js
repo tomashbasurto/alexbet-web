@@ -3,7 +3,7 @@
 
 // ===== Ajusta estos datos =====
 const PAGO = {
-  whatsapp: '',            // tu número con código de país, solo dígitos. Ej: '593991234567'
+  whatsapp: '593990175893', // tu número con código de país, solo dígitos. Ej: '593991234567'
   deuna: '',               // número o alias para Deuna
   payphone: '',            // link o número de PayPhone
   transferencia: ''        // banco, tipo y número de cuenta, nombre y cédula
