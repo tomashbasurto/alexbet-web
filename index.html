@@ -559,8 +559,8 @@
     <label>Apariencia</label>
     <div class="themes" id="themeBox"></div>
     <button class="btn ghost" onclick="closeSettings()">Cerrar</button>
+    <button type="button" class="btn ghost" id="abTechBtn" style="display:none;font-size:12px" onclick="var t=document.getElementById('abTech');t.style.display=t.style.display==='none'?'':'none'">Opciones de administrador</button>
     <div id="abTech" style="display:none">
-    <label style="margin-top:22px">Solo administrador · actualización y claves</label>
       <div class="sub" id="verLine"></div>
       <div class="sub">Fuentes gratuitas: football-data.org (partidos y goleadores), ESPN (copas, Turquía y Brasil) y football-data.co.uk (tarjetas y córners reales). Si una fuente falla, la app lo indica y marca los datos como estimados. Se actualizan solos al abrir la app (cada 6 h) y cuando tú pulses el botón.</div>
       <button class="btn primary" id="btnUpdate" onclick="updateAll()"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg> Actualizar ahora</button>

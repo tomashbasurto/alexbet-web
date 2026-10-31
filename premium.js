@@ -239,7 +239,9 @@ function barra() {
 }
 function cuentaBox() {
   const t = $('abTech');
-  if (t) t.style.display = AB.user && AB.user.email === 'tomashbasurto@gmail.com' ? '' : 'none';
+  const tb = $('abTechBtn');
+  if (tb) tb.style.display = AB.user && AB.user.email === 'tomashbasurto@gmail.com' ? '' : 'none';
+  if (t && tb && tb.style.display === 'none') t.style.display = 'none';
   const c = $('abAcct');
   if (!c) return;
   if (!AB.user) { c.innerHTML = ''; return; }
