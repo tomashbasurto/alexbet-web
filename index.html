@@ -324,7 +324,8 @@
   .mh-bd{ position:absolute; font-style:normal; font-size:10px; line-height:1; z-index:2; } .mh-bd.g{ right:-7px; top:-4px; } .mh-bd.y,.mh-bd.r{ left:-3px; top:-3px; width:8px; height:11px; border-radius:1.5px; background:#f5c542; } .mh-bd.r{ background:#e5484d; } .mh-bd.s{ right:-5px; bottom:-3px; color:#ff6b6b; font-weight:800; background:#fff; border-radius:50%; width:12px; height:12px; text-align:center; font-size:9px; }
   .tabs{ overflow-x:auto; scrollbar-width:none; } .tabs::-webkit-scrollbar{ display:none; } .tab{ flex:0 0 auto; padding:9px 13px; white-space:nowrap; font-size:13px; }
   .fav-star{ font-style:normal; margin-left:5px; color:var(--ink-dim); cursor:pointer; font-size:15px; } .fav-star.on{ color:#facc15; } .teams-row .team{ position:relative; } .teams-row .team .fav-star{ position:absolute; top:-7px; left:28px; margin:0; width:19px; height:19px; line-height:19px; text-align:center; font-size:13px; background:var(--bg); border:1px solid var(--line); border-radius:50%; z-index:2; } .teams-row .team.away .fav-star{ left:auto; right:28px; }
-  .fav-bar{ display:flex; align-items:center; gap:10px; margin:0 0 8px; } .fav-btn{ padding:7px 12px; border-radius:99px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font-size:12.5px; font-weight:700; cursor:pointer; } .fav-btn.on{ background:#facc15; color:#2a2200; border-color:transparent; } .fav-hint{ font-size:11px; color:var(--ink-dim); }
+  .fav-bar{ display:flex; align-items:center; gap:10px; margin:0 0 8px; } .fav-btn{ padding:7px 12px; border-radius:99px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font-size:12.5px; font-weight:700; cursor:pointer; } .fav-btn.on{ background:#facc15; color:#2a2200; border-color:transparent; } .fav-hint{ font-size:11px; color:var(--ink-dim); } .fav-bar{ flex-wrap:wrap; }
+  .fm-star{ background:none; border:0; padding:0 2px 0 8px; margin:-4px 0; font-size:19px; line-height:1; color:var(--ink-dim); cursor:pointer; vertical-align:middle; } .fm-star.on{ color:#facc15; } .match-card:has(.match-meta .fm-star.on){ border-color:#facc15; } .match-meta{ gap:8px; } .match-meta>span:last-child{ white-space:nowrap; flex-shrink:0; }
   .fav-chip{ display:inline-block; margin:0 6px 6px 0; padding:5px 10px; border-radius:99px; background:var(--surface-2); font-size:12.5px; } .fav-chip i{ font-style:normal; margin-left:8px; color:var(--ink-dim); cursor:pointer; }
   .pk-add{ flex:0 0 auto; width:30px; height:30px; border-radius:50%; border:1px solid var(--accent); background:transparent; color:var(--accent); font-size:16px; line-height:1; cursor:pointer; margin-left:4px; }
   .pk-form label{ display:block; font-size:11.5px; color:var(--ink-dim); margin:8px 0 3px; } .pk-form input, .pk-mini, .bt-box{ width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:15px; font-family:var(--font-body); } .pk-mini{ width:74px; padding:7px; font-size:13px; } .bt-box{ margin-top:8px; min-height:70px; font-size:11px; }
@@ -1340,7 +1341,7 @@ function renderPicks(){
   const items = [];
   leagues.forEach(l=>l.fixtures.forEach((f,idx)=>{
     if(activeDate!=='all' && isoDateOnlyEcuador(f[2], l.utcOffset)!==activeDate) return;
-    if(!favOK(f[0],f[1])) return;
+    if(!favOK(f[0],f[1],isoDateOnlyEcuador(f[2], l.utcOffset))) return;
     const pk = matchPicks(l,f); if(pk) items.push({l,f,idx,pk});
   }));
   items.sort((a,b)=>b.pk.best-a.pk.best);
@@ -1378,7 +1379,7 @@ function renderPicks(){
       </div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.pk.picks[0])}</div>`
       : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
     return `<div class="match-card" onclick="openMatch('${x.l.id}', ${x.idx})">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${x.l.color}"></i>${x.l.name}</span><span>${fmtParts(when, x.l.utcOffset).date} · ${fmtParts(when, x.l.utcOffset).time} Ecuador</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${x.l.color}"></i>${x.l.name}</span><span>${fmtParts(when, x.l.utcOffset).date} · ${fmtParts(when, x.l.utcOffset).time} Ecuador${fmStar(hn,an,isoDateOnlyEcuador(when, x.l.utcOffset))}</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${hn} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${an}</div>
       ${mkSummary('futbol',hn,an)}${body}
     </div>`;
@@ -1537,7 +1538,7 @@ function renderLive(){
       if(s.sh!=null||s.sa!=null) stats.push(`Tiros al arco <b>${s.sh??'-'} - ${s.sa??'-'}</b>`);
     }
     return `<div class="match-card" onclick="ldOpen('f', ${liveData.list.indexOf(m)})">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${m.color}"></i>${m.lname}</span><span class="lv-min"><i></i>${m.label}</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${m.color}"></i>${m.lname}</span><span class="lv-min"><i></i>${m.label}${fmStar(m.h,m.a)}</span></div>
       <div class="lv-score"><div class="tn r">${m.h} ${logoImg(m.h)}</div><div class="sc">${m.gh} - ${m.ga}</div><div class="tn">${logoImg(m.a)}${m.a}</div></div>
       ${stats.length?`<div class="lv-stats">${stats.join('<span style="opacity:.4">·</span>')}</div>`:''}
       ${body}
@@ -1602,7 +1603,7 @@ const US = {
   nba:{name:'NBA', path:'basketball/nba', color:'#f97316', avg:{pf:114, pa:114}, k:8,  unit:'puntos'},
   mlb:{name:'MLB', path:'baseball/mlb',   color:'#60a5fa', avg:{pf:4.5, pa:4.5},  k:20, unit:'carreras'},
 };
-const NBA_HFA = 2.5, NBA_SD_M = 12.5, NBA_SD_T = 18;
+const NBA_HFA = 2.5, NBA_SD_M = 12.5, NBA_SD_T = 18, NBA_TOT_REF = 228;
 const usData = {nba:{games:[],teams:{},t:0,err:'',loading:false}, mlb:{games:[],teams:{},t:0,err:'',loading:false}};
 const usLive = {nba:{t:0,list:[],err:''}, mlb:{t:0,list:[],err:''}};
 let usLiveTimer = null, usLiveBusy = false;
@@ -1732,8 +1733,16 @@ function usPicks(g, m){
     const am = Math.abs(m.mu);
     let best = null;
     [1.5,3.5,5.5,7.5,9.5,11.5,13.5].forEach(k=>{ const p = Math.max(0,Math.min(1,1-normCdf((k-am)/NBA_SD_M))); if(p>=.6) best = {k,p}; });
-    if(best) add('line', `${favN} -${best.k}`, best.p, `Margen esperado: ${am.toFixed(1)} puntos`);
-    else { for(const k of [1.5,3.5,5.5,7.5,9.5]){ const p = normCdf((k-am)/NBA_SD_M); if(p>=.65){ add('line', `${dogN} +${k}`, p, `Margen esperado: ${am.toFixed(1)} puntos`); break; } } }
+    // objetivo: que la probabilidad siga en 62% o más después del ajuste por sobreconfianza
+    const goal = 50 + 13/((CAL_F.line)*(m.est?.8:1)), gT = (50 + 13/((CAL_F.tot)*(m.est?.8:1)))/100;
+    if(best && best.p*100>=goal) add('line', `${favN} -${best.k}`, best.p, `Margen esperado: ${am.toFixed(1)} puntos`);
+    else { for(let k=1.5; k<=16.5; k+=1){ const p = normCdf((k-am)/NBA_SD_M); if(p*100>=goal){ add('line', `${dogN} +${k}`, p, `Margen esperado: ${am.toFixed(1)} puntos (${favN} favorito)`); break; } } }
+    // total de puntos: línea más cercana a la proyección que llegue al objetivo, hacia el lado que indica el modelo
+    const lean = m.tot >= NBA_TOT_REF ? 'Más' : 'Menos';
+    for(let d=0.5; d<=14.5; d+=1){
+      const L = lean==='Más' ? Math.floor(m.tot)-d : Math.ceil(m.tot)+d, p = lean==='Más' ? m.over(L) : 1-m.over(L);
+      if(p>=gT){ add('tot', `${lean} de ${L} puntos`, p, `Puntos esperados: ${m.tot.toFixed(0)}`); break; }
+    }
   } else {
     let bo=null; [6.5,7.5,8.5,9.5,10.5].forEach(L=>{ const po=m.over(L), pu=1-po; [[po,'Más'],[pu,'Menos']].forEach(([p,t])=>{ if(p>=.6 && (!bo||p>bo.p)) bo={p,L,t}; }); });
     if(bo) add('tot', `${bo.t} de ${bo.L} carreras`, bo.p, `Carreras esperadas: ${m.tot.toFixed(1)}`);
@@ -2281,7 +2290,7 @@ function usStatusLine(sp){
   return `<div class="data-status" style="display:block"><b>● Datos reales</b> · ESPN · ${US[sp].name}${D.t?` · actualizado ${ago<1?'hace un momento':'hace '+ago+' min'}`:''}${viaM} <a href="#" onclick="usLoad('${sp}',true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
 }
 function usGamesForDay(sp){
-  return usData[sp].games.filter(g=> (activeDate==='all' || isoDateOnlyEcuador(g.d,0)===activeDate) && favOK(g.h.name,g.a.name));
+  return usData[sp].games.filter(g=> (activeDate==='all' || isoDateOnlyEcuador(g.d,0)===activeDate) && favOK(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0)));
 }
 function usEmpty(sp, what){
   const D = usData[sp];
@@ -2309,7 +2318,7 @@ function usRenderMatches(){
       ? `Proyección: ${m.eh.toFixed(0)} - ${m.ea.toFixed(0)} · Total ${m.tot.toFixed(0)}`
       : `Carreras esperadas: ${m.eh.toFixed(1)} - ${m.ea.toFixed(1)} · Total ${m.tot.toFixed(1)}`;
     return `<div class="match-card" onclick="usOpen('${sp}','${g.id}')">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${tag?' · '+tag:''}</span><span>${f.date} · hora Ecuador</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${tag?' · '+tag:''}</span><span>${f.date} · hora Ecuador${fmStar(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0))}</span></div>
       ${usTeamRow(g, mid)}
       <div class="mini1x2"><span style="width:${pH}%; background:var(--over);"></span><span style="width:${pA}%; background:var(--accent);"></span></div>
       <div class="mini1x2-labels"><span>${g.h.name} ${pH}%</span><span>${g.a.name} ${pA}%</span></div>
@@ -2344,7 +2353,7 @@ function usRenderPicks(){
     const f = fmtParts(x.g.d,0);
     const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
       : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
-    return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador</span></div>
+    return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador${fmStar(x.g.h.name,x.g.a.name,isoDateOnlyEcuador(x.g.d,0))}</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${mkSummary(sp,x.g.h.name,x.g.a.name)}${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
   html += doneS;
@@ -2361,11 +2370,11 @@ function usRenderLive(){
   const ago = Math.max(0, Math.round((Date.now()-L.t)/1000));
   let html = `<div class="data-status" style="display:block"><b>● En vivo</b> · ESPN · ${US[sp].name} · se actualiza cada minuto · hace ${ago<60?ago+' s':Math.round(ago/60)+' min'} <a href="#" onclick="usLiveFetch();return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
   if(!L.list.length){ list.innerHTML = html + `<div class="empty-state">No hay partidos de ${US[sp].name} en vivo ahora mismo. Cuando empiece alguno aparecerá aquí con su pronóstico.</div>`; return; }
-  html += L.list.filter(g=>favOK(g.h.name,g.a.name)).map(g=>{
+  html += L.list.filter(g=>favOK(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0))).map(g=>{
     const m = usLiveModel(g), picks = usLivePicks(g,m);
     const bar = (lab,v)=>`<div class="pk-line"><div class="t">${lab}</div><div class="bar-track"><div class="bar-fill ${v>=.5?'strong':''}" style="width:${pc(v)}%"></div></div><div class="v">${pc(v)}%</div></div>`;
     return `<div class="match-card" onclick="ldOpen('us','${g.id}')">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(g)?' · '+usSeasonTag(g):''}</span><span class="lv-min"><i></i>${m.label}</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(g)?' · '+usSeasonTag(g):''}</span><span class="lv-min"><i></i>${m.label}${fmStar(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0))}</span></div>
       <div class="lv-score"><div class="tn r">${g.h.name}${logoImg(g.h.name).replace("margin-right:6px","")}</div><div class="sc">${g.h.score||0} - ${g.a.score||0}</div><div class="tn">${logoImg(g.a.name)}${g.a.name}</div></div>
       <div class="lv-h">Quién gana (modelo)</div>${bar(g.h.name,m.pH)}${bar(g.a.name,m.pA)}
       <div class="lv-h">Mejores opciones ahora</div>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('') : `<div class="pl-none" style="padding:6px 0;">Ningún mercado supera el 60% con la información actual: no hay una opción clara.</div>`}
@@ -2755,7 +2764,26 @@ const escA = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot
 // ---------- Favoritos ----------
 function favList(){ return LS.get('ab_fav', []); }
 function isFav(n){ return !!n && favList().some(f=>sameTeam(f,n)); }
-function favOK(h,a){ return !LS.get('ab_favonly',false) || isFav(h) || isFav(a); }
+function favOK(h,a,day){ const ft = LS.get('ab_favonly',false), fm = LS.get('ab_favmonly',false); if(!ft && !fm) return true; return (ft && (isFav(h)||isFav(a))) || (fm && isFavM(h,a,day)); }
+// partidos favoritos (estrella arriba de cada tarjeta)
+function fmKey(h,a,day){ return normN(h)+'|'+normN(a)+'|'+(day||ymd(todayDate)); }
+function fmList(){
+  const L = LS.get('ab_favm', {}), lim = ymd(new Date(todayDate.getTime()-3*864e5)); let ch = false;
+  Object.keys(L).forEach(k=>{ if(!L[k] || L[k].day < lim){ delete L[k]; ch = true; } });
+  if(ch) LS.set('ab_favm', L); return L;
+}
+function isFavM(h,a,day){ return !!fmList()[fmKey(h,a,day)]; }
+function fmStar(h,a,day){ const on = isFavM(h,a,day); return `<button type="button" class="fm-star${on?' on':''}" data-k="${escA(fmKey(h,a,day))}" data-h="${escA(h)}" data-a="${escA(a)}" data-d="${escA(day||ymd(todayDate))}" aria-label="Guardar partido" onclick="event.stopPropagation();fmToggle(this)">${on?'★':'☆'}</button>`; }
+function fmToggle(el){
+  if(!PREM()){ abPay(); return; }
+  const L = fmList(), k = el.dataset.k;
+  if(L[k]) delete L[k]; else L[k] = {h:el.dataset.h, a:el.dataset.a, day:el.dataset.d, ts:Date.now()};
+  LS.set('ab_favm', L);
+  document.querySelectorAll('.fm-star').forEach(e=>{ if(e.dataset.k!==k) return; const on = !!L[k]; e.classList.toggle('on', on); e.textContent = on?'★':'☆'; });
+  favBar();
+  if(LS.get('ab_favmonly',false) && ['matches','picks','live'].includes(viewMode) && !document.getElementById('detail').classList.contains('show')) renderMatches();
+}
+function favMOnlyToggle(){ LS.set('ab_favmonly', !LS.get('ab_favmonly',false)); favBar(); renderMatches(); }
 function favStar(n){ const on = isFav(n); return `<i class="fav-star${on?' on':''}" data-n="${escA(n)}" onclick="event.stopPropagation();favToggle(this.dataset.n)">${on?'★':'☆'}</i>`; }
 function favToggle(n){
   if(!PREM()){ abPay(); return; }
@@ -2770,7 +2798,8 @@ function favOnlyToggle(){ LS.set('ab_favonly', !LS.get('ab_favonly',false)); fav
 function favBar(){
   const el = document.getElementById('favBar'); if(!el) return;
   const n = favList().length, on = LS.get('ab_favonly',false);
-  el.innerHTML = `<button class="fav-btn${on?' on':''}" onclick="favOnlyToggle()">${on?'★':'☆'} Solo mis equipos${n?' ('+n+')':''}</button>` + (n ? '' : `<span class="fav-hint">Toca ☆ junto a un equipo para seguirlo</span>`);
+  const nm = Object.keys(fmList()).length, om = LS.get('ab_favmonly',false);
+  el.innerHTML = `<button class="fav-btn${on?' on':''}" onclick="favOnlyToggle()">${on?'★':'☆'} Solo mis equipos${n?' ('+n+')':''}</button><button class="fav-btn${om?' on':''}" onclick="favMOnlyToggle()">${om?'★':'☆'} Mis partidos${nm?' ('+nm+')':''}</button>` + (n||nm ? '' : `<span class="fav-hint">☆ arriba de un partido lo guarda</span>`);
 }
 // avisos de favoritos (app abierta): empieza, gol, roja, final
 function alFav(cfg){
@@ -3331,7 +3360,7 @@ function renderMatches(){
   const list = document.getElementById('matchList');
 
   let fixtures = (all ? LEAGUES : [league]).flatMap(L => L.fixtures.map((f, idx) => ({ f, idx, L })))
-    .filter(({f, L}) => L.teams[f[0]] && L.teams[f[1]] && favOK(f[0],f[1]) && (activeDate==='all' || isoDateOnlyEcuador(f[2], L.utcOffset)===activeDate))
+    .filter(({f, L}) => L.teams[f[0]] && L.teams[f[1]] && favOK(f[0],f[1],isoDateOnlyEcuador(f[2], L.utcOffset)) && (activeDate==='all' || isoDateOnlyEcuador(f[2], L.utcOffset)===activeDate))
     .sort((a,b)=> (new Date(toEcuador(a.f[2], a.L.utcOffset)) - new Date(toEcuador(b.f[2], b.L.utcOffset))) || a.f[2].localeCompare(b.f[2]));
 
   document.getElementById('matchCount').textContent = fixtures.length + (fixtures.length===1?' partido':' partidos');
@@ -3353,7 +3382,7 @@ function renderMatches(){
     const p = project(home, away);
     return `
     <div class="match-card" onclick="openMatch('${league.id}', ${idx})">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora Ecuador</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora Ecuador${fmStar(homeName,awayName,isoDateOnlyEcuador(when, league.utcOffset))}</span></div>
       <div class="teams-row">
         <div class="team">
           ${badgeHTML(homeName,false)}
@@ -3616,7 +3645,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v28 · tenis ATP y WTA';
+const APP_VERSION = 'v29 · partidos favoritos y más sugerencias NBA';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

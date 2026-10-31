@@ -206,7 +206,7 @@ function tnFlag(s) { return s.flag ? `<img src="${escA(s.flag)}" alt="" width="1
 function tnRankTag(X) { return X.rank ? `<small style="color:var(--ink-dim);font-weight:500"> #${X.rank}</small>` : ''; }
 function tnList() {
   const ayer = ymd(new Date(todayDate.getTime() - 864e5));
-  return Object.values(TN.m).filter(m => (TN.tour === 'all' || m.tour === TN.tour) && !m.off && favOK(m.p[0].name, m.p[1].name) && (m.state !== 'post' || activeDate !== 'all' || isoDateOnlyEcuador(m.d, 0) >= ayer));
+  return Object.values(TN.m).filter(m => (TN.tour === 'all' || m.tour === TN.tour) && !m.off && favOK(m.p[0].name, m.p[1].name, isoDateOnlyEcuador(m.d, 0)) && (m.state !== 'post' || activeDate !== 'all' || isoDateOnlyEcuador(m.d, 0) >= ayer));
 }
 function tnHeader() {
   const ago = TN.t ? Math.round((Date.now() - TN.t) / 60000) : 0;
@@ -231,7 +231,7 @@ function tnRow(m, M, mid) {
   return `<div class="teams-row">${pl(m.p[0], M.A)}${mid}${pl(m.p[1], M.B, true)}</div>`;
 }
 function tnMeta(m, f) {
-  return `<div class="match-meta"><span><i class="lg-dot" style="background:${TN_TOURS[m.tour].color}"></i>${TN_TOURS[m.tour].name} · ${escA(m.ev)}${m.round ? ' · ' + escA(m.round) : ''}</span><span>${f.date} · hora Ecuador</span></div>`;
+  return `<div class="match-meta"><span><i class="lg-dot" style="background:${TN_TOURS[m.tour].color}"></i>${TN_TOURS[m.tour].name} · ${escA(m.ev)}${m.round ? ' · ' + escA(m.round) : ''}</span><span>${f.date} · hora Ecuador${fmStar(m.p[0].name, m.p[1].name, isoDateOnlyEcuador(m.d, 0))}</span></div>`;
 }
 function tnRenderMatches() {
   const list = document.getElementById('matchList');
@@ -320,7 +320,7 @@ function tnRenderLive() {
     const M = tnModel(m), L = tnLive(m, M), sc = tnScore(m);
     const bar = (lab, v) => `<div class="pk-line"><div class="t">${escA(lab)}</div><div class="bar-track"><div class="bar-fill ${v >= .5 ? 'strong' : ''}" style="width:${tnPc(v)}%"></div></div><div class="v">${tnPc(v)}%</div></div>`;
     return `<div class="match-card" onclick="tnOpen('${m.id}')">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${TN_TOURS[m.tour].color}"></i>${TN_TOURS[m.tour].name} · ${escA(m.ev)}</span><span class="lv-min"><i></i>${escA(m.detail || 'En vivo')}</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${TN_TOURS[m.tour].color}"></i>${TN_TOURS[m.tour].name} · ${escA(m.ev)}</span><span class="lv-min"><i></i>${escA(m.detail || 'En vivo')}${fmStar(m.p[0].name, m.p[1].name, isoDateOnlyEcuador(m.d, 0))}</span></div>
       <div class="tn-sc">${[0, 1].map(i => `<div><span>${m.p[i].serve ? '<i class="tn-sv" aria-label="saca"></i>' : ''}${tnFlag(m.p[i])}${escA(m.p[i].name)}</span><b>${(i ? sc.b : sc.a).split(' ').map(v => `<em>${v}</em>`).join('')}</b></div>`).join('')}</div>
       <div class="lv-h">Quién gana (modelo con el marcador actual)</div>${bar(m.p[0].name, L.pA)}${bar(m.p[1].name, L.pB)}
     </div>`;
