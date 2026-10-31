@@ -1600,6 +1600,9 @@ const usData = {nba:{games:[],teams:{},t:0,err:'',loading:false}, mlb:{games:[],
 const usLive = {nba:{t:0,list:[],err:''}, mlb:{t:0,list:[],err:''}};
 let usLiveTimer = null, usLiveBusy = false;
 const US_API = 'https://site.api.espn.com/apis';
+// Espejo en nuestro servidor (GitHub Actions cada 10 min) por si el celular no logra conectar con ESPN.
+const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
+async function mirrorGet(name){ return webGet(MIRROR+name+'?t='+Math.floor(Date.now()/120000)); }
 
 function normCdf(x){
   const t = 1/(1+0.2316419*Math.abs(x)), d = 0.3989423*Math.exp(-x*x/2);
@@ -1661,6 +1664,15 @@ async function usLoad(sp, force){
   const into = {}; let okBoards = 0, lastErr = '';
   res.slice(1).forEach(r=>{ if(r.status==='fulfilled'){ okBoards++; usParseBoard(sp, r.value, into); } else lastErr = (r.reason&&r.reason.message)||String(r.reason); });
   if(res[0].status==='fulfilled') D.teams = usParseStandings(sp, res[0].value);
+  D.src = 'espn';
+  if(!okBoards){
+    try{
+      const M = await mirrorGet('espn-'+sp+'.json');
+      (M.boards||[]).forEach(b=>usParseBoard(sp, b, into));
+      if(M.standings) D.teams = usParseStandings(sp, M.standings);
+      okBoards = (M.boards||[]).length; D.src = 'espejo'; D.mt = M.t;
+    }catch(e){}
+  }
   if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); D.retry = 0; }
   else {
     D.err = lastErr || 'sin respuesta de ESPN';
@@ -1772,8 +1784,8 @@ async function usLiveFetch(spArg){
   const L = usLive[sp]; const into = {};
   try{
     await usLoad(sp, false);
-    const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/scoreboard`);
-    usParseBoard(sp, j, into);
+    try{ const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/scoreboard`); usParseBoard(sp, j, into); }
+    catch(e){ const M = await mirrorGet('espn-'+sp+'.json'); (M.boards||[]).forEach(b=>usParseBoard(sp, b, into)); }
     L.list = Object.values(into).filter(g=>g.state==='in'); L.err = ''; L.t = Date.now();
   }catch(e){ L.err = e.message||String(e); L.t = Date.now(); L.list = []; }
   usLiveBusy = false;
@@ -2258,7 +2270,8 @@ function usTeamRow(g, mid){
 function usStatusLine(sp){
   const D = usData[sp];
   const ago = D.t ? Math.round((Date.now()-D.t)/60000) : 0;
-  return `<div class="data-status" style="display:block"><b>● Datos reales</b> · ESPN · ${US[sp].name}${D.t?` · actualizado ${ago<1?'hace un momento':'hace '+ago+' min'}`:''} <a href="#" onclick="usLoad('${sp}',true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
+  const viaM = D.src==='espejo' && D.mt ? ` · vía nuestro servidor (datos de hace ${Math.max(0,Math.round((Date.now()-D.mt)/60000))} min)` : '';
+  return `<div class="data-status" style="display:block"><b>● Datos reales</b> · ESPN · ${US[sp].name}${D.t?` · actualizado ${ago<1?'hace un momento':'hace '+ago+' min'}`:''}${viaM} <a href="#" onclick="usLoad('${sp}',true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
 }
 function usGamesForDay(sp){
   return usData[sp].games.filter(g=> (activeDate==='all' || isoDateOnlyEcuador(g.d,0)===activeDate) && favOK(g.h.name,g.a.name));

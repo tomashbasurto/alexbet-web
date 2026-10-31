@@ -1,0 +1,33 @@
+name: Espejo ESPN
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'espn-proxy.js'
+      - '.github/workflows/espn.yml'
+permissions:
+  contents: write
+concurrency:
+  group: espn
+  cancel-in-progress: false
+jobs:
+  espejo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Descargar NBA, MLB y tenis de ESPN
+        run: node espn-proxy.js
+      - name: Guardar
+        run: |
+          git config user.name "alexbet-bot"
+          git config user.email "alexbet-bot@users.noreply.github.com"
+          git add espn-*.json
+          git diff --staged --quiet && exit 0
+          git commit -m "Espejo ESPN"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

@@ -62,6 +62,14 @@ async function tnLoad(force) {
     if (k === 's') { ok++; tnParse(t, r.value); } else tnParseRank(t, r.value);
   });
   if (jobs.some(x => x[1] === 'r')) TN.rt = Date.now();
+  TN.src = 'espn';
+  if (!ok) {
+    try {
+      const M = await mirrorGet('espn-tenis.json');
+      Object.keys(TN_TOURS).forEach(t => { (M[t] || []).forEach(b => { tnParse(t, b); ok++; }); if (M.rank && M.rank[t]) tnParseRank(t, M.rank[t]); });
+      TN.src = 'espejo'; TN.mt = M.t;
+    } catch (e) {}
+  }
   if (ok) { TN.t = Date.now(); TN.retry = 0; }
   else {
     TN.err = last || 'sin respuesta de ESPN';
@@ -204,7 +212,7 @@ function tnHeader() {
   const ago = TN.t ? Math.round((Date.now() - TN.t) / 60000) : 0;
   const chip = (k, t) => `<button type="button" class="tn-chip ${TN.tour === k ? 'on' : ''}" onclick="TN.tour='${k}';renderMatches()">${t}</button>`;
   return `<div class="tn-chips">${chip('all', 'Todos')}${chip('atp', 'ATP')}${chip('wta', 'WTA')}</div>
-    <div class="data-status" style="display:block"><b>● Datos reales</b> · ESPN · Tenis${TN.t ? ` · actualizado ${ago < 1 ? 'hace un momento' : 'hace ' + ago + ' min'}` : ''} <a href="#" onclick="tnLoad(true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
+    <div class="data-status" style="display:block"><b>● Datos reales</b> · ESPN · Tenis${TN.t ? ` · actualizado ${ago < 1 ? 'hace un momento' : 'hace ' + ago + ' min'}` : ''} ${TN.src === 'espejo' && TN.mt ? ` · vía nuestro servidor (hace ${Math.max(0, Math.round((Date.now() - TN.mt) / 60000))} min)` : ''} <a href="#" onclick="tnLoad(true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
 }
 function tnEmpty(what) {
   if (TN.loading && !TN.t) return `<div class="empty-state">Cargando tenis…</div>`;
