@@ -10,16 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          mkdir -p probe
-          B=https://site.api.espn.com/apis/site/v2/sports/tennis
-          D=$(date -u +%Y%m%d)
-          T=$(date -u -d tomorrow +%Y%m%d); T2=$(date -u -d '+3 day' +%Y%m%d); Y=$(date -u -d '-20 day' +%Y%m%d)
-          rm -f probe/*
-          curl -sS "$B/wta/rankings" -o probe/wrank.json || true
-          curl -sS "$B/atp/scoreboard?dates=$T" -o probe/atp_t.json || true
-          curl -sS "$B/atp/scoreboard?dates=$T2" -o probe/atp_t2.json || true
-          curl -sS "$B/atp/scoreboard?dates=$Y" -o probe/atp_y.json || true
-          curl -sS "$B/wta/scoreboard?dates=$T" -o probe/wta_t.json || true
-          ls -la probe
+          mkdir -p probe; rm -f probe/*
+          O="Origin: https://alexbetpro.web.app"
+          for u in "site/v2/sports/baseball/mlb/scoreboard?dates=20261031" "site/v2/sports/baseball/mlb/scoreboard?dates=20261030" "v2/sports/baseball/mlb/standings" "site/v2/sports/basketball/nba/scoreboard?dates=20261031" "site/v2/sports/tennis/atp/scoreboard"; do
+            echo "== $u" >> probe/out.txt
+            curl -sS -m 20 -D - -o /tmp/b -H "$O" "https://site.api.espn.com/apis/$u" | grep -iE '^HTTP|access-control|content-type' >> probe/out.txt
+            head -c 300 /tmp/b >> probe/out.txt; echo >> probe/out.txt
+            python3 -c "import json;j=json.load(open('/tmp/b'));print('events',len(j.get('events',[])))" >> probe/out.txt 2>&1 || true
+          done
           git config user.name probe-bot; git config user.email probe@users.noreply.github.com
-          git add -A probe; git commit -m "probe" && git push
+          git add -A probe; git commit -m "probe mlb" && git push
