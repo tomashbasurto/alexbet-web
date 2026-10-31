@@ -1,5 +1,5 @@
 // AlexBet · service worker: la app abre sin conexión y siempre intenta traer la versión más nueva primero.
-const CACHE = 'alexbet-shell-v27d';
+const CACHE = 'alexbet-shell-v27e';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'premium.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).catch(() => {}));
@@ -14,7 +14,7 @@ self.addEventListener('fetch', e => {
   const u = new URL(r.url);
   if (u.origin !== self.location.origin) return; // ESPN, football-data, etc. van directo a la red
   e.respondWith(
-    fetch(r).then(res => {
+    fetch(new Request(r.url, {cache: 'no-cache', credentials: 'same-origin'})).then(res => {
       if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(r, copy)).catch(() => {}); }
       return res;
     }).catch(() => caches.match(r).then(m => m || caches.match('index.html')))
