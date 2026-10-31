@@ -1264,13 +1264,14 @@ function pkDayHTML(flt){
   return `<div class="prob-card"><h3><span class="dot"></span>Acierto de hoy</h3><div class="lv-stats"><span><b style="font-size:22px;color:${pc==null?'var(--ink-dim)':pc>=60?'var(--over)':'#ff6b6b'}">${pc==null?'-':pc+'%'}</b></span><span>${h} ✅ · ${R.length-h} ❌ · ${pend} ⏳</span></div>${pc==null?'<div class="al-st">Aún no hay resultados de las sugerencias de hoy.</div>':`<div class="bar-track"><div class="bar-fill ${pc>=60?'strong':''}" style="width:${pc}%"></div></div>`}</div>`;
 }
 function pkDoneHTML(flt){
-  const now = Date.now(), P = Object.values(LS.get('ab_preds',{})).filter(p=> flt(p) && p.ts<now && ((p.res===0||p.res===1||p.res==='v') ? now-(p.rt||p.ts+3*3600e3)<24*3600e3 : now-p.ts<36*3600e3));
+  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = dk(Date.now());
+  const now = Date.now(), P = Object.values(LS.get('ab_preds',{})).filter(p=> flt(p) && p.ts<now && dk(p.ts)===today);
   if(!P.length) return '';
   const g = {}; P.forEach(p=>{ const k = pkKey(p); (g[k] = g[k]||[]).push(p); });
   const cards = Object.values(g).sort((x,y)=>y[0].ts-x[0].ts).map(a=>{ const p0 = a[0], ok = a.filter(p=>p.res===1).length, done = a.filter(p=>p.res===0||p.res===1).length;
     return `<div class="match-card"><div class="match-meta"><span>${escA(p0.h)} vs ${escA(p0.a)}</span><span>${done?ok+' de '+done+' acertadas':'⏳ jugando o sin resultado'}</span></div>` +
       a.map(p=>`<div class="pk-line"><div class="t">${escA(p.label)}<small>modelo ${p.prob}%</small></div><div class="v" style="font-size:20px;min-width:34px;text-align:right">${pkMark(p.res)}</div></div>`).join('') + `</div>`; }).join('');
-  return `<div class="lv-h" style="margin:14px 0 6px">Ya jugados · ✅ acertó ❌ falló (se quitan a las 24 h)</div>` + cards;
+  return `<div class="lv-h" style="margin:14px 0 6px">Ya jugados hoy · ✅ acertó ❌ falló</div>` + cards;
 }
 // ---- Sugerencias: mejores mercados por partido según el modelo ----
 function matchPicks(league, f){
