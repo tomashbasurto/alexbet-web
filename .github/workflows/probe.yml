@@ -1,0 +1,25 @@
+name: Probe ESPN tenis
+on:
+  push:
+    branches: [tenis-probe]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p probe
+          B=https://site.api.espn.com/apis/site/v2/sports/tennis
+          D=$(date -u +%Y%m%d)
+          curl -sS "$B/atp/scoreboard" -o probe/atp.json || true
+          curl -sS "$B/wta/scoreboard" -o probe/wta.json || true
+          curl -sS "$B/atp/scoreboard?dates=$D" -o probe/atp_d.json || true
+          curl -sS "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/rankings" -o probe/rank1.json || true
+          curl -sS "https://sports.core.api.espn.com/v2/sports/tennis/leagues/atp/rankings" -o probe/rank2.json || true
+          curl -sS "https://site.web.api.espn.com/apis/site/v2/sports/tennis/atp/rankings" -o probe/rank3.json || true
+          curl -sS -I "https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard" | grep -i 'access-control' > probe/cors.txt || true
+          ls -la probe
+          git config user.name probe-bot; git config user.email probe@users.noreply.github.com
+          git add probe; git commit -m "probe" && git push
