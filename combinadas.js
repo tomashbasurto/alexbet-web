@@ -15,7 +15,7 @@ const CB_TIERS = [
 const cbDay = () => ymd(todayDate);
 // Las casas pagan menos que la cuota justa (se quedan un margen de ~7% por selección).
 // Sin cuota real, la cuota que se muestra es la estimada de la casa: cuota justa x 0.93.
-const CB_MARGIN = 0.93, CB_CV = 4;
+const CB_MARGIN = 0.93, CB_CV = 5;
 const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
 const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
 // historial: {día: {deporte: {t, combos, lock}}}
@@ -120,6 +120,8 @@ function cbToday(sp) {
   if ((sp === 'nba' || sp === 'mlb') && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
   if (sp === 'tenis' && !TN.t) return cur || {combos: [], lock: false};
   const M = (CB.memo = CB.memo || {})[sp]; if (M && Date.now() - M.t < 90e3) return M.D; // no recalcular en cada toque
+  // espera las cuotas reales de ESPN de este deporte para usarlas en las combinadas
+  if (sp !== 'tenis' && !(VA.t && VA.sp === sp) && sport === sp && !VA.err) { vaPrime(); if (VA.loading || !VA.t || VA.sp !== sp) return cur || {combos: [], lock: false}; }
   const combos = cbBuild(sp);
   if (!combos.length && !cur) return {combos: [], lock: false};
   if (!cur || combos.length >= cur.combos.length) D[sp] = {t: Date.now(), combos, lock: cbFull(combos), cv: CB_CV};

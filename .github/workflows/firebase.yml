@@ -6,6 +6,8 @@ on:
       - 'index.html'
       - 'premium.js'
       - 'tenis.js'
+      - 'combinadas.js'
+      - 'oficial.js'
       - 'admin.html'
       - 'sw.js'
       - 'manifest.webmanifest'

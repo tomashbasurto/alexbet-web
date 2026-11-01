@@ -31,36 +31,48 @@ const KEEP_DAYS = 120;
   });
   await page.goto('http://app/index.html');
   await page.waitForFunction(() => typeof LEAGUES !== 'undefined' && LEAGUES.some(l => l.live && l.fixtures), null, {timeout: 120000}).catch(() => console.log('fútbol no cargó a tiempo'));
+  await page.evaluate(() => {
+    window.publishPart = sp => {
+      const now = Date.now(), day = ymd(todayDate), picks = [];
+      const one = (sp, lid, h, a, when, ts, gid, k, where) => {
+        if (!k || ts < now + 5 * 60e3) return;
+        const mkt = sp === 'tenis' ? {t: 'tn'} : pkMkt(k.label, h, a); if (!mkt) return;
+        picks.push({id: [sp, lid, h, a, when, k.label].join('|'), sp, lid, h, a, when, ts, gid: gid || null, where, label: k.label, cat: k.cat || null, prob: k.prob, odd: k.odd || null, mkt, pub: now, res: null});
+      };
+      if (sp === 'futbol') LEAGUES.forEach(l => (l.fixtures || []).forEach(f => {
+        if (!l.teams[f[0]] || !l.teams[f[1]] || isoDateOnlyEcuador(f[2], l.utcOffset) !== day) return;
+        const pk = matchPicks(l, f); if (pk && pk.picks[0]) one('futbol', l.id, f[0], f[1], f[2], pkTs(f[2], l.utcOffset), null, pk.picks[0], l.name);
+      }));
+      if (sp === 'nba' || sp === 'mlb') (usData[sp].games || []).forEach(g => {
+        if (g.state !== 'pre' || g.postponed || isoDateOnlyEcuador(g.d, 0) !== day) return;
+        const pk = usPicks(g, usPre(g)); if (pk[0]) one(sp, sp, g.h.name, g.a.name, g.d, toEcuador(g.d, 0).getTime() + 5 * 3600e3, g.id, pk[0], US[sp].name);
+      });
+      if (sp === 'tenis') Object.values(TN.m).forEach(m => {
+        if (m.state !== 'pre' || m.off || !m.tv || isoDateOnlyEcuador(m.d, 0) !== day) return;
+        const M = tnModel(m); if (M.est) return; const k = tnCands(m, M)[0];
+        if (k) one('tenis', m.tour, m.p[0].name, m.p[1].name, m.d, Date.parse(m.d + ':00Z'), m.id, {...k, cat: /^Gana /.test(k.label) ? 'ml' : / set$/.test(k.label) ? 'line' : 'tot'}, TN_TOURS[m.tour].name + ' ' + m.ev);
+      });
+      let combos = []; try { combos = cbBuild(sp); } catch (e) {}
+      return {day, picks, combos, now};
+    };
+  });
   await page.evaluate(async () => {
     await Promise.allSettled([usLoad('nba', true), usLoad('mlb', true), tnLoad(true)]);
     try { const j = await mirrorGet('elo-tenis.json'); TN.elo = {lt: Date.now(), r: j.r || {}}; TN.cache = {}; } catch (e) {}
   });
 
   // ---------- 1) publicar ----------
-  const fresh = await page.evaluate(() => {
-    const now = Date.now(), day = ymd(todayDate), picks = [];
-    const one = (sp, lid, h, a, when, ts, gid, k, where) => {
-      if (!k || ts < now + 5 * 60e3) return;
-      const mkt = sp === 'tenis' ? {t: 'tn'} : pkMkt(k.label, h, a); if (!mkt) return;
-      picks.push({id: [sp, lid, h, a, when, k.label].join('|'), sp, lid, h, a, when, ts, gid: gid || null, where, label: k.label, cat: k.cat || null, prob: k.prob, odd: k.odd || null, mkt, pub: now, res: null});
-    };
-    LEAGUES.forEach(l => (l.fixtures || []).forEach(f => {
-      if (!l.teams[f[0]] || !l.teams[f[1]] || isoDateOnlyEcuador(f[2], l.utcOffset) !== day) return;
-      const pk = matchPicks(l, f); if (pk && pk.picks[0]) one('futbol', l.id, f[0], f[1], f[2], pkTs(f[2], l.utcOffset), null, pk.picks[0], l.name);
-    }));
-    ['nba', 'mlb'].forEach(sp => (usData[sp].games || []).forEach(g => {
-      if (g.state !== 'pre' || g.postponed || isoDateOnlyEcuador(g.d, 0) !== day) return;
-      const pk = usPicks(g, usPre(g)); if (pk[0]) one(sp, sp, g.h.name, g.a.name, g.d, toEcuador(g.d, 0).getTime() + 5 * 3600e3, g.id, pk[0], US[sp].name);
-    }));
-    Object.values(TN.m).forEach(m => {
-      if (m.state !== 'pre' || m.off || !m.tv || isoDateOnlyEcuador(m.d, 0) !== day) return;
-      const M = tnModel(m); if (M.est) return; const k = tnCands(m, M)[0];
-      if (k) one('tenis', m.tour, m.p[0].name, m.p[1].name, m.d, Date.parse(m.d + ':00Z'), m.id, {...k, cat: /^Gana /.test(k.label) ? 'ml' : / set$/.test(k.label) ? 'line' : 'tot'}, TN_TOURS[m.tour].name + ' ' + m.ev);
-    });
-    const combos = {};
-    ['futbol', 'nba', 'mlb', 'tenis'].forEach(sp => { try { combos[sp] = cbBuild(sp); } catch (e) { combos[sp] = []; } });
-    return {day, picks, combos, now};
-  });
+  // cuotas reales de ESPN por deporte (las usan las sugerencias y combinadas cuando existen)
+  const fresh = {picks: [], combos: {}};
+  for (const sp of ['futbol', 'nba', 'mlb', 'tenis']) {
+    const part = await page.evaluate(async sp => {
+      sport = sp; if (sp !== 'tenis') { try { await vaLoad(true); } catch (e) {} }
+      return publishPart(sp);
+    }, sp).catch(e => { console.log('fallo', sp, e.message); return {picks: [], combos: [], day: null, now: Date.now()}; });
+    fresh.picks.push(...part.picks); fresh.combos[sp] = part.combos; fresh.day = part.day || fresh.day; fresh.now = part.now;
+  }
+  console.log('con cuota real:', fresh.picks.filter(p => p.odd).length, 'de', fresh.picks.length);
+
   const have = new Set(H.picks.map(p => p.id));
   let added = 0;
   fresh.picks.forEach(p => { if (!have.has(p.id)) { H.picks.push(p); added++; } });
