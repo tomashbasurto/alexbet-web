@@ -304,7 +304,7 @@ setInterval(() => { if (AB.user) aplicar(AB.user); }, 3600e3);
 
 // ---------- Notificaciones en el celular (Premium) ----------
 // Clave pública de "Certificados push web" (Firebase > Configuración > Cloud Messaging).
-const VAPID = '';
+const VAPID = 'BAeyOSXYr-WN5v31XJ51upmEE-f2PyknbnDGOG6dsJNi3fdmeXbwu9SxAjOPxTrrxli9vYXYlI5KCa6m4Cthvr8';
 const PUSH_TIPOS = [['movido', 'Partido movido (goles, córners, tarjetas, puntos)'], ['alineacion', 'Alineación confirmada'], ['fav', 'Mis equipos favoritos: empieza, gol, roja, final'], ['combinadas', 'Combinadas del día publicadas']];
 window.abPushInfo = () => ({ok: !!VAPID && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window, perm: ('Notification' in window) ? Notification.permission : 'no', tipos: PUSH_TIPOS, on: !!(AB.user && AB.user.push && AB.user.push.token), sel: (AB.user && AB.user.push && AB.user.push.tipos) || PUSH_TIPOS.map(t => t[0]), ios: /iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone});
 window.abPushEnable = async tipos => {
