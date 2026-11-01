@@ -15,7 +15,7 @@ const CB_TIERS = [
 const cbDay = () => ymd(todayDate);
 // Las casas pagan menos que la cuota justa (se quedan un margen de ~7% por selección).
 // Sin cuota real, la cuota que se muestra es la estimada de la casa: cuota justa x 0.93.
-const CB_MARGIN = 0.93, CB_CV = 3;
+const CB_MARGIN = 0.93, CB_CV = 4;
 const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
 const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
 // historial: {día: {deporte: {t, combos, lock}}}
@@ -71,15 +71,16 @@ const cbPj = c => c.reduce((a, l) => a * l.prob / 100, 1);
 function cbBuildTier(T, all, usedGlobal, sp) {
   const shareOK = !!usedGlobal.share;
   const key = x => pkKey(x);
-  // Cada partido aporta hasta 2 selecciones de mercados poco relacionados entre sí (en fútbol: goles/resultado,
-  // córners y tarjetas). Dos del mismo grupo (p. ej. Más de 1.5 goles y Ambos anotan) no se juntan: dependen una de otra.
-  const fam = x => x.sp === 'futbol' ? (x.cat === 'corn' ? 'k' : x.cat === 'tarj' ? 'c' : 'g') : 'g';
+  // En fútbol cada partido aporta sus 2 selecciones más probables (de mercados distintos: goles, ambos anotan,
+  // resultado, córners o tarjetas), así una combinada puede llevar 2 del mismo partido. Nunca dos líneas del mismo mercado.
+  // En NBA, MLB y tenis, una por partido (ahí todos los mercados dependen del mismo marcador).
+  const fam = x => x.sp === 'futbol' ? x.cat : 'g', perMatch = {};
   const fk = x => key(x) + '#' + fam(x);
   const seen = new Set(), L = [];
   const ok = x => x.prob >= T.minP && x.prob <= T.maxP && x.odds <= T.maxO && (shareOK || !usedGlobal.has(key(x)));
   // en NBA/MLB (pocos partidos) prefiere otra selección del mismo partido para no repetir lo de otro nivel
   const fresh = x => !usedGlobal.has(key(x) + '|' + x.label);
-  [all.filter(x => ok(x) && fresh(x)), all.filter(x => ok(x) && !fresh(x))].forEach(A => A.forEach(x => { if (seen.has(fk(x))) return; seen.add(fk(x)); L.push(x); }));
+  [all.filter(x => ok(x) && fresh(x)), all.filter(x => ok(x) && !fresh(x))].forEach(A => A.forEach(x => { if (seen.has(fk(x)) || (perMatch[key(x)] || 0) >= 2) return; seen.add(fk(x)); perMatch[key(x)] = (perMatch[key(x)] || 0) + 1; L.push(x); }));
   L.sort((x, y) => y.prob - x.prob);
   const pool = L.slice(0, 32), combos = [], maxN = Math.max(...T.sizes);
   const fits = (cur, x) => { const same = cur.filter(l => key(l) === key(x)); return same.length < 2 && !same.some(l => fam(l) === fam(x)); };
@@ -89,7 +90,9 @@ function cbBuildTier(T, all, usedGlobal, sp) {
     for (let i = start; i < pool.length; i++) { if (!fits(cur, pool[i])) continue; const no = o * pool[i].odds; if (no > T.max * 1.0001 && cur.length + 1 >= Math.min(...T.sizes)) continue; cur.push(pool[i]); dfs(i + 1, cur, no); cur.pop(); }
   };
   dfs(0, [], 1);
-  combos.sort((x, y) => cbPj(y) - cbPj(x) || x.length - y.length);
+  // con probabilidad parecida (±1 punto), prefiere la que usa menos partidos (2 mercados del mismo partido)
+  const nm = c => new Set(c.map(key)).size;
+  combos.sort((x, y) => Math.round(cbPj(y) * 100) - Math.round(cbPj(x) * 100) || nm(x) - nm(y) || x.length - y.length);
   const used = new Set(), pick = [];
   for (const c of combos) {
     if (pick.length >= T.n) break;
@@ -169,7 +172,7 @@ function cbHTML(sp) {
   h += CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k);
     return `<div class="cb-t">${T.name} · cuota ${T.k === 'alt' ? 'mayor a 5' : T.min.toFixed(2) + ' a ' + T.max.toFixed(2)}</div>` + (G.length ? G.map((c, i) => cbCard(c, `${T.name.slice(0, -1)} ${i + 1}`)).join('') : `<div class="pl-none" style="padding:6px 0">Hoy no hay selecciones suficientes para este nivel.</div>`); }).join('');
   const est = C.some(c => c.legs.some(l => !l.real));
-  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} Una combinada puede llevar 2 selecciones del mismo partido solo si son de mercados distintos (goles o resultado, córners, tarjetas). ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las altas se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
+  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} En fútbol una combinada puede llevar las 2 selecciones más probables de un mismo partido (de mercados distintos); revisa que tu casa lo permita. ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las altas se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
   return h;
 }
 function cbCard(c, title) {
