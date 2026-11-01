@@ -2904,23 +2904,30 @@ async function pkResult(e){
   return pkFromSummary(await webGet(`${US_API}/site/v2/sports/${US[e.sp].path}/summary?event=${e.gid}`), e.sp);
 }
 const pkKey = e => [e.sp,e.lid,e.h,e.a,e.when].join('|');
-function pkLog(sp, lid, h, a, when, ts, gid, picks){
-  if(ts < Date.now()-30*60e3) return;
-  const P = LS.get('ab_preds', {}); let ch = false;
+function pkLog(sp, lid, h, a, when, ts, gid, picks, P0){
+  if(ts < Date.now()-30*60e3) return false;
+  const P = P0 || LS.get('ab_preds', {}); let ch = false;
   picks.forEach(k=>{ const key = pkKey({sp,lid,h,a,when})+'|'+k.label; if(P[key]) return;
     const mkt = pkMkt(k.label, h, a); if(!mkt) return;
     P[key] = {sp,lid,h,a,when,ts,gid,label:k.label,cat:k.cat,prob:k.prob,raw:k.raw,conf:k.conf,mkt,res:null}; ch = true; });
-  if(!ch) return;
+  if(!ch || P0) return ch;
   const ks = Object.keys(P); if(ks.length>1500){ ks.sort((x,y)=>P[x].ts-P[y].ts).slice(0, ks.length-1400).forEach(k=>delete P[k]); }
   LS.set('ab_preds', P);
 }
-function pkLogAll(){
+// Guarda las sugerencias para medir el acierto. Lee y escribe el almacenamiento UNA sola vez
+// (antes lo hacía por cada partido y con muchos partidos guardados la app se ponía lenta).
+// Como mucho cada 5 minutos, salvo que se pida con force.
+function pkLogAll(force){
+  if(!force && Date.now()-(PK.logT||0) < 5*60e3) return; PK.logT = Date.now();
   try{
-    const lim = Date.now()+4*86400e3;
-    LEAGUES.forEach(l=>l.fixtures.forEach(f=>{ if(!l.teams[f[0]]||!l.teams[f[1]]) return; const ts = pkTs(f[2], l.utcOffset); if(ts>lim) return;
-      const pk = matchPicks(l,f); if(pk && pk.picks.length) pkLog('futbol', l.id, f[0], f[1], f[2], ts, null, pk.picks); }));
+    const lim = Date.now()+4*86400e3, now = Date.now(), P = LS.get('ab_preds', {}); let ch = false;
+    LEAGUES.forEach(l=>l.fixtures.forEach(f=>{ if(!l.teams[f[0]]||!l.teams[f[1]]) return; const ts = pkTs(f[2], l.utcOffset); if(ts>lim || ts<now-30*60e3) return;
+      const pk = matchPicks(l,f); if(pk && pk.picks.length && pkLog('futbol', l.id, f[0], f[1], f[2], ts, null, pk.picks, P)) ch = true; }));
     ['nba','mlb'].forEach(sp=>(usData[sp].games||[]).forEach(g=>{ if(g.state!=='pre'||g.postponed) return; const ts = toEcuador(g.d,0).getTime()+5*3600e3; if(ts>lim) return;
-      const pk = usPicks(g, usPre(g)); if(pk.length) pkLog(sp, sp, g.h.name, g.a.name, g.d, ts, g.id, pk); }));
+      const pk = usPicks(g, usPre(g)); if(pk.length && pkLog(sp, sp, g.h.name, g.a.name, g.d, ts, g.id, pk, P)) ch = true; }));
+    if(!ch) return;
+    const ks = Object.keys(P); if(ks.length>1500){ ks.sort((x,y)=>P[x].ts-P[y].ts).slice(0, ks.length-1400).forEach(k=>delete P[k]); }
+    LS.set('ab_preds', P);
   }catch(e){}
 }
 function pkSettleBet(b, res){
@@ -3665,7 +3672,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v32 · combinadas por deporte';
+const APP_VERSION = 'v33 · más rápida';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4143,7 +4150,7 @@ if(Date.now() - LS.get('ab_last',0) > 6*3600e3) setTimeout(updateAll, 400);
 setTimeout(liveFetch, 1500);
 if(alCfg().on) alStart();
 favBar(); btCount(); alDot(); updateChrome();
-setTimeout(()=>{ pkLogAll(); pkSweep(); }, 9000);
+setTimeout(()=>{ pkLogAll(true); pkSweep(); }, 9000);
 setTimeout(()=>logosLoad(false), 2500);
 </script>
 <script src="tenis.js"></script>

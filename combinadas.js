@@ -94,11 +94,13 @@ function cbToday(sp) {
   if (cur && (cur.lock || cbFull(cur.combos))) return cur;
   if (cur && cur.combos.some(c => c.first <= Date.now())) { cur.lock = true; LS.set('ab_cb2', all); return cur; }
   if (sp !== 'futbol' && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
+  const M = (CB.memo = CB.memo || {})[sp]; if (M && Date.now() - M.t < 90e3) return M.D; // no recalcular en cada toque
   const combos = cbBuild(sp);
   if (!combos.length && !cur) return {combos: [], lock: false};
   if (!cur || combos.length >= cur.combos.length) D[sp] = {t: Date.now(), combos, lock: cbFull(combos)};
   const ks = Object.keys(all).sort(); if (ks.length > 60) ks.slice(0, ks.length - 60).forEach(k => delete all[k]);
   LS.set('ab_cb2', all);
+  CB.memo[sp] = {t: Date.now(), D: D[sp] || {combos: [], lock: false}};
   return D[sp];
 }
 
