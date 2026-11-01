@@ -45,10 +45,11 @@ async function init() {
         webpush: {headers: {TTL: '1800', Urgency: 'high'}, fcm_options: {link: 'https://alexbetpro.web.app/'}}}})});
     if (r.ok) { sent++; return true; }
     const t = await r.text();
-    if (r.status === 404 || /UNREGISTERED|INVALID_ARGUMENT.*token/i.test(t)) { // celular que ya no existe: se borra
+    console.log('push: FCM HTTP', r.status, (u.email || ''), t.replace(/\s+/g, ' ').slice(0, 300));
+    if (/UNREGISTERED/.test(t)) { // celular que ya no existe: se borra
       dead++; u.dead = true;
       await fetch(`https://firestore.googleapis.com/v1/${u.path}?updateMask.fieldPaths=push`, {method: 'PATCH', headers: H, body: JSON.stringify({fields: {push: {nullValue: null}}})}).catch(() => {});
-    } else console.log('push: FCM HTTP', r.status, t.slice(0, 160));
+    }
     return false;
   };
   const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
