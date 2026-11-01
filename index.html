@@ -1413,12 +1413,18 @@ function liveMinute(c){
   if(period===1) min = Math.min(min, 60);
   return {min, label:(dc||min+"'"), model:true};
 }
-function liveProject(home, away, gh, ga, minute, rh, ra){
+function livePress(sot, minute){ // presión ofensiva: tiros al arco por minuto contra lo normal (~4.3 por equipo en 90')
+  if(sot==null || minute<10) return 1;
+  const ratio = (sot/minute)/(4.3/90), w = minute/(minute+30);
+  return Math.max(0.6, Math.min(1.7, 1 + w*(Math.pow(Math.max(ratio,0.05),0.6)-1)));
+}
+function liveProject(home, away, gh, ga, minute, rh, ra, st){
   let lh = (home.gf + away.ga)/2, la = (away.gf + home.ga)/2;
   const rem = minute<90 ? 90-minute : 2;
   const frac = Math.max(rem,1)/90;
-  lh *= frac * Math.pow(0.75, rh) * Math.pow(1.25, ra);
-  la *= frac * Math.pow(0.75, ra) * Math.pow(1.25, rh);
+  const ph = st ? livePress(st.sh, minute) : 1, pa = st ? livePress(st.sa, minute) : 1;
+  lh *= frac * Math.pow(0.75, rh) * Math.pow(1.25, ra) * ph;
+  la *= frac * Math.pow(0.75, ra) * Math.pow(1.25, rh) * pa;
   let w=0,d=0,l=0, tot=[0,0,0,0,0,0], bt=0;
   const cur = gh+ga;
   for(let i=0;i<=8;i++) for(let j=0;j<=8;j++){
@@ -1431,29 +1437,48 @@ function liveProject(home, away, gh, ga, minute, rh, ra){
   }
   const n = w+d+l;
   const none = Math.exp(-(lh+la));
-  return {lh, la, cur, exp: cur+lh+la, w:w/n, d:d/n, l:l/n, tot:tot.map(x=>x/n), btts:bt/n,
+  return {lh, la, cur, exp: cur+lh+la, ph, pa, w:w/n, d:d/n, l:l/n, tot:tot.map(x=>x/n), btts:bt/n,
     nextH:(1-none)*(lh/((lh+la)||1)), nextA:(1-none)*(la/((lh+la)||1)), none};
 }
-function livePicks(m, p, est){
-  const c=[]; const add=(label,prob,why)=>{ const q=Math.round(prob*100); if(q>=3 && q<=96) c.push({label,prob:q,why}); };
-  const lines=[0.5,1.5,2.5,3.5,4.5,5.5];
-  lines.forEach((ln,k)=>{
-    if(m.gh+m.ga < ln){ add(`Más de ${ln} goles`, p.tot[k], `Ahora ${m.gh+m.ga} · esperado final ${p.exp.toFixed(1)}`);
-      add(`Menos de ${ln} goles`, 1-p.tot[k], `Ahora ${m.gh+m.ga} · esperado final ${p.exp.toFixed(1)}`); }
-  });
-  if(!(m.gh>0 && m.ga>0)){ add('Ambos anotan', p.btts, 'Falta que anote '+(m.gh===0&&m.ga===0?'alguno de los dos':(m.gh>0?m.a:m.h))); }
-  else add('Ambos NO anotan', 0, '');
-  if(m.gh===m.ga){ add(`Gana ${m.h}`, p.w, 'Empate ahora'); add(`Gana ${m.a}`, p.l, 'Empate ahora'); add(`${m.h} o empate`, p.w+p.d, 'Doble oportunidad'); add(`Empate o ${m.a}`, p.d+p.l, 'Doble oportunidad'); }
-  else if(m.gh>m.ga){ add(`Gana ${m.h}`, p.w, `Va ganando ${m.gh}-${m.ga}`); add(`${m.h} o empate`, p.w+p.d, 'Doble oportunidad'); add(`Empate o ${m.a}`, p.d+p.l, 'Doble oportunidad'); }
-  else { add(`Gana ${m.a}`, p.l, `Va ganando ${m.ga}-${m.gh}`); add(`${m.a} o empate`, p.l+p.d, 'Doble oportunidad'); add(`Empate o ${m.h}`, p.d+p.w, 'Doble oportunidad'); }
-  add(`Próximo gol: ${m.h}`, p.nextH, `Hay ${Math.round((1-p.none)*100)}% de que haya otro gol`);
-  add(`Próximo gol: ${m.a}`, p.nextA, `Hay ${Math.round((1-p.none)*100)}% de que haya otro gol`);
-  // una opción por tipo de mercado (la más probable), sin repetir
-  const key = x => /goles/.test(x.label)?'g':/Ambos/.test(x.label)?'b':/Próximo/.test(x.label)?'n':'r';
-  const best={}; c.forEach(x=>{ const k=key(x); if(!best[k]||x.prob>best[k].prob) best[k]=x; });
-  return Object.values(best).filter(x=>x.prob>=60).sort((a,b)=>b.prob-a.prob).slice(0,3)
-    .map(x=>({...x, conf: est ? 'est' : (x.prob>=80 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))}));
+// Sugerencias en vivo según las estadísticas del partido (tiros al arco, córners, tarjetas, marcador y minuto).
+// Busca líneas con probabilidad de 50% a 70% (cuota de la casa ~1.33 a ~1.86), no las casi seguras de cuota 1.10.
+const LV_LO = 50, LV_HI = 70, LV_AIM = 60;
+const lvOdd = q => Math.max(1.03, 100/q*0.93);
+const lvPick = (c, est, n) => { const sc = x => -Math.abs(x.prob-LV_AIM) + (x.bonus||0);
+  const best = {}; c.forEach(x=>{ if(!best[x.cat] || sc(x)>sc(best[x.cat])) best[x.cat] = x; });
+  return Object.values(best).sort((a,b)=>sc(b)-sc(a)).slice(0,n||3)
+    .map(x=>({...x, odd:lvOdd(x.prob), conf: est ? 'est' : (x.prob>=68 ? 'alta' : (x.prob>=60 ? 'media' : 'baja'))})); };
+function livePicks(m, p, est, H, A){
+  const c = [], st = m.st || {}, min = m.min||0, G = m.gh+m.ga;
+  const add = (cat,label,prob,why,bonus) => { const q = Math.round(prob*100); if(q>=LV_LO && q<=LV_HI) c.push({cat,label,prob:q,why,bonus:bonus||0}); };
+  const sotTxt = (st.sh!=null && st.sa!=null) ? ` · tiros al arco ${st.sh}-${st.sa}` : '';
+  const press = (p.ph>1.15||p.pa>1.15) ? ' · mucha llegada' : (p.ph<0.85&&p.pa<0.85) ? ' · poca llegada' : '';
+  // goles (la presión de tiros al arco ya está dentro del modelo)
+  [0.5,1.5,2.5,3.5,4.5,5.5].forEach((ln,k)=>{ if(G < ln){
+    const why = `Van ${G} al ${min}'${sotTxt}${press} · esperado ${p.exp.toFixed(1)}`;
+    add('g', `Más de ${ln} goles`, p.tot[k], why, sotTxt?2:0); add('g', `Menos de ${ln} goles`, 1-p.tot[k], why, sotTxt?2:0); } });
+  if(!(m.gh>0 && m.ga>0)) add('b', 'Ambos anotan', p.btts, `Falta que anote ${m.gh===0&&m.ga===0?'alguno de los dos':(m.gh>0?m.a:m.h)}${sotTxt}`, sotTxt?1:0);
+  // resultado
+  const lead = m.gh===m.ga ? 'Empate ahora' : `${m.gh>m.ga?m.h:m.a} gana ${Math.max(m.gh,m.ga)}-${Math.min(m.gh,m.ga)}`;
+  add('r', `Gana ${m.h}`, p.w, lead+sotTxt); add('r', `Gana ${m.a}`, p.l, lead+sotTxt);
+  add('r', `${m.h} o empate`, p.w+p.d, lead+sotTxt); add('r', `Empate o ${m.a}`, p.d+p.l, lead+sotTxt);
+  const prs = `Presión: ${m.h} ${p.ph.toFixed(1)}x · ${m.a} ${p.pa.toFixed(1)}x lo normal${sotTxt}`;
+  add('n', `Próximo gol: ${m.h}`, p.nextH, prs); add('n', `Próximo gol: ${m.a}`, p.nextA, prs);
+  // córners y tarjetas: ritmo real del partido mezclado con el promedio de los equipos
+  const pace = (n, lam, kind, unit) => {
+    if(n==null || min<12 || min>85) return;
+    const w = min/(min+90), rate = w*(n/min) + (1-w)*(lam/90), rem = rate*(90-min), exp = n+rem; // ritmo real con prudencia: los partidos tienden a volver a lo normal
+    const why = `Van ${n} ${unit} al ${min}' (lo normal: ${(lam*min/90).toFixed(1)}) · esperado ${exp.toFixed(1)}`;
+    for(let L=Math.floor(n)+0.5; L<=n+14; L+=1){ const po = poissonAtLeast(Math.ceil(L)-n, rem);
+      add(kind, `Más de ${L} ${unit}`, po, why, 3); add(kind, `Menos de ${L} ${unit}`, 1-po, why, 3); }
+  };
+  const ht = (H&&H.t) || LIVE_AVG, at = (A&&A.t) || LIVE_AVG;
+  if(st.ch!=null && st.ca!=null) pace(st.ch+st.ca, (ht.corners||4.8)+(at.corners||4.8), 'k', 'córners');
+  if(st.yh!=null && st.ya!=null) pace(st.yh+st.ya+(st.rh||0)+(st.ra||0), (ht.cards||2.0)+(at.cards||2.0), 'c', 'tarjetas');
+  // la mejor de cada mercado: la más cercana a ~62% (cuota ~1.50), prefiriendo las que usan estadísticas en vivo
+  return lvPick(c, est, 3);
 }
+const lvOddTxt = k => k.odd ? `<small style="display:block;color:var(--ink-dim);font-weight:500;margin-top:2px">cuota ≈ ${k.odd.toFixed(2)}</small>` : '';
 async function liveFetch(){
   if(liveBusy) return; liveBusy = true;
   const list = [], soon = [], done = []; let fail = 0, total = 0, lastErr = '';
@@ -1520,12 +1545,12 @@ function renderLive(){
     const est = H.est || A.est;
     let body = '';
     if(m.model){
-      const p = liveProject(H.t, A.t, m.gh, m.ga, m.min, rh, ra);
-      const picks = livePicks(m, p, est);
+      const p = liveProject(H.t, A.t, m.gh, m.ga, m.min, rh, ra, m.st);
+      const picks = livePicks(m, p, est, H, A);
       const bar = (lab,v,cls)=>`<div class="pk-line"><div class="t">${lab}</div><div class="bar-track"><div class="bar-fill ${v>=.5?'strong':''}" style="width:${Math.round(v*100)}%"></div></div><div class="v">${Math.round(v*100)}%</div></div>`;
       body += `<div class="lv-h">Resultado final (modelo)</div>` + bar(m.h, p.w) + bar('Empate', p.d) + bar(m.a, p.l);
-      body += `<div class="lv-h">Mejores opciones ahora</div>` + (picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('')
-        : `<div class="pl-none" style="padding:6px 0;">Ningún mercado supera el 60% con la información actual: no hay una opción clara.</div>`);
+      body += `<div class="lv-h">Mejores opciones ahora</div>` + (picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${lvOddTxt(k)}${confBadge(k)}</div></div>`).join('')
+        : `<div class="pl-none" style="padding:6px 0;">Con las estadísticas actuales no hay una opción con cuota razonable (entre ~1.33 y ~1.86). Mejor esperar.</div>`);
       body += `<div class="lv-stats"><span>Goles esperados al final: <b>${p.exp.toFixed(1)}</b></span>${(rh||ra)?`<span>Con tarjeta roja el modelo ajusta los goles (estimación aproximada)</span>`:''}</div>`;
     } else {
       body += `<div class="pl-none" style="padding:8px 0;">${m.label}: el modelo en vivo solo cubre los 90 minutos.</div>`;
@@ -1764,7 +1789,8 @@ function usLiveModel(g){
     else if(g.period>4){ rem = usClockMin(g.clock); label = 'Prórroga '+(g.period-4)+' · '+g.clock; }
     else { rem = (4-g.period)*12 + usClockMin(g.clock); label = 'Q'+g.period+' · '+g.clock; }
     const f = Math.max(rem,0)/48, muRem = base.mu*f, sd = Math.max(1.5, NBA_SD_M*Math.sqrt(f)), sdT = Math.max(2, NBA_SD_T*Math.sqrt(f));
-    const pH = normCdf((diff+muRem)/sd), projT = gh+ga+base.tot*f;
+    const el = 48-Math.max(rem,0), wp = el/(el+24), rate = el>2 ? wp*((gh+ga)/el)+(1-wp)*(base.tot/48) : base.tot/48; // ritmo real del partido
+    const pH = normCdf((diff+muRem)/sd), projT = gh+ga+rate*Math.max(rem,0);
     return {sp:'nba', est:base.est, label, pH, pA:1-pH, projH:gh+base.eh*f, projA:ga+base.ea*f, projT, sd, sdT, rem, over:L=>1-normCdf((L-projT)/sdT), mu:muRem+diff};
   }
   const d = String(g.detail), mm = d.match(/(top|bot\w*|mid\w*|end)\s*(?:of\s*the\s*)?(\d+)/i);
@@ -1783,18 +1809,24 @@ function usLiveModel(g){
   return {sp:'mlb', est:base.est, label, extra, pH, pA:1-pH, projT:gh+ga+lh+la, projH:gh+lh, projA:ga+la,
     over:L=>{ let s=0; totD.forEach((p,k)=>{ if(k>L) s+=p; }); return s/n; }, lh, la};
 }
+// NBA y MLB en vivo: ganador, total y hándicap según marcador y ritmo real del partido, en la zona de 50% a 70%.
 function usLivePicks(g, m){
-  const c = [], hn = g.h.name, an = g.a.name, cur = (g.h.score||0)+(g.a.score||0);
-  const add = (cat,label,prob,why) => { const q = Math.round(prob*100); if(q>=60 && q<=96) c.push({cat,label,prob:q,why}); };
-  const fav = m.pH>=m.pA ? hn : an, pF = Math.max(m.pH,m.pA);
-  add('ml', `Gana ${fav}`, pF, `Marcador ${g.h.score||0}-${g.a.score||0}`);
-  if(g.sp==='mlb'){
-    let bo = null;
-    for(let L=cur+0.5; L<=cur+12; L+=1){ const po=m.over(L), pu=1-po; [[po,'Más'],[pu,'Menos']].forEach(([p,t])=>{ if(p>=.6 && p<=.9 && (!bo||p>bo.p)) bo={p,L,t}; }); }
-    if(bo) add('tot', `${bo.t} de ${bo.L} carreras`, bo.p, `Proyección final: ${m.projT.toFixed(1)}`);
+  const c = [], hn = g.h.name, an = g.a.name, hs = g.h.score||0, as = g.a.score||0, cur = hs+as;
+  const add = (cat,label,prob,why,bonus) => { const q = Math.round(prob*100); if(q>=LV_LO && q<=LV_HI) c.push({cat,label,prob:q,why,bonus:bonus||0}); };
+  const mk = `Marcador ${hs}-${as}`;
+  add('ml', `Gana ${hn}`, m.pH, mk); add('ml', `Gana ${an}`, m.pA, mk);
+  if(g.sp==='nba'){
+    const why = `${cur} puntos · ritmo proyecta ${m.projT.toFixed(0)}`;
+    for(let L=Math.floor(m.projT)-15.5; L<=m.projT+15.5; L+=1){ if(L<=cur) continue; const po = m.over(L);
+      add('tot', `Más de ${L} puntos`, po, why, 2); add('tot', `Menos de ${L} puntos`, 1-po, why, 2); }
+    const fav = m.mu>=0 ? hn : an, dog = m.mu>=0 ? an : hn, am = Math.abs(m.mu);
+    for(let k=1.5; k<=20.5; k+=1){ const pf = normCdf((am-k)/m.sd);
+      add('line', `${fav} -${k}`, pf, `Margen final proyectado: ${am.toFixed(1)}`, 1); add('line', `${dog} +${k}`, 1-pf, `Margen final proyectado: ${am.toFixed(1)}`, 1); }
+  } else {
+    const why = `${cur} carreras · proyección ${m.projT.toFixed(1)}`;
+    for(let L=cur+0.5; L<=cur+12; L+=1){ const po = m.over(L); add('tot', `Más de ${L} carreras`, po, why, 2); add('tot', `Menos de ${L} carreras`, 1-po, why, 2); }
   }
-  const best = {}; c.forEach(x=>{ if(!best[x.cat]||x.prob>best[x.cat].prob) best[x.cat]=x; });
-  return Object.values(best).sort((a,b)=>b.prob-a.prob).map(x=>({...x, conf:m.est?'est':(x.prob>=80?'alta':(x.prob>=65?'media':'baja'))}));
+  return lvPick(c, m.est, 3);
 }
 async function usLiveFetch(spArg){
   const sp = (typeof spArg==='string' ? spArg : sport); if(sp==='futbol' || usLiveBusy) return; usLiveBusy = true;
@@ -2378,7 +2410,7 @@ function usRenderLive(){
       <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(g)?' · '+usSeasonTag(g):''}</span><span class="lv-min"><i></i>${m.label}${fmStar(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0))}</span></div>
       <div class="lv-score"><div class="tn r">${g.h.name}${logoImg(g.h.name).replace("margin-right:6px","")}</div><div class="sc">${g.h.score||0} - ${g.a.score||0}</div><div class="tn">${logoImg(g.a.name)}${g.a.name}</div></div>
       <div class="lv-h">Quién gana (modelo)</div>${bar(g.h.name,m.pH)}${bar(g.a.name,m.pA)}
-      <div class="lv-h">Mejores opciones ahora</div>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('') : `<div class="pl-none" style="padding:6px 0;">Ningún mercado supera el 60% con la información actual: no hay una opción clara.</div>`}
+      <div class="lv-h">Mejores opciones ahora</div>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${lvOddTxt(k)}${confBadge(k)}</div></div>`).join('') : `<div class="pl-none" style="padding:6px 0;">Con las estadísticas actuales no hay una opción con cuota razonable (entre ~1.33 y ~1.86). Mejor esperar.</div>`}
       <div class="lv-stats"><span>Proyección final: <b>${m.projH.toFixed(sp==='nba'?0:1)} - ${m.projA.toFixed(sp==='nba'?0:1)}</b> (total ${m.projT.toFixed(sp==='nba'?0:1)})</span>${m.extra?'<span>Entradas extra: cálculo aproximado</span>':''}</div>
       ${plStarsLine(sp,g)}
       ${m.est?`<div class="foot-note" style="margin:8px 0 0;">(est.) Pocos partidos jugados o pretemporada: el pronóstico usa promedios parciales.</div>`:''}
@@ -3299,15 +3331,15 @@ function ldModelHTML(m, D){
     const lg = LEAGUES.find(l=>l.id===m.lid) || STATIC_LEAGUES.find(l=>l.id===m.lid);
     const H = liveTeam(lg, m.h), A = liveTeam(lg, m.a), s = m.st;
     const gh = D&&D.score&&!isNaN(D.score[0]) ? D.score[0] : m.gh, ga = D&&D.score&&!isNaN(D.score[1]) ? D.score[1] : m.ga;
-    const p = liveProject(H.t, A.t, gh, ga, m.min, s?s.rh:0, s?s.ra:0), picks = livePicks({...m, gh, ga}, p, H.est||A.est);
+    const p = liveProject(H.t, A.t, gh, ga, m.min, s?s.rh:0, s?s.ra:0, s), picks = livePicks({...m, gh, ga}, p, H.est||A.est, H, A);
     return `<div class="prob-card"><h3><span class="dot"></span>Resultado final (modelo)</h3>${bar(m.h,p.w)}${bar('Empate',p.d)}${bar(m.a,p.l)}</div>
-      <div class="prob-card"><h3><span class="dot"></span>Mejores opciones ahora</h3>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('') : '<div class="pl-none" style="padding:6px 0;">Ningún mercado supera el 60% con la información actual: no hay una opción clara.</div>'}
+      <div class="prob-card"><h3><span class="dot"></span>Mejores opciones ahora</h3>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${lvOddTxt(k)}${confBadge(k)}</div></div>`).join('') : '<div class="pl-none" style="padding:6px 0;">Con las estadísticas actuales no hay una opción con cuota razonable (entre ~1.33 y ~1.86). Mejor esperar.</div>'}
       <div class="lv-stats"><span>Goles esperados al final: <b>${p.exp.toFixed(1)}</b></span></div></div>`;
   }
   const lm = usLiveModel({...m, h:{...m.h, score: D&&D.score?D.score[0]:m.h.score}, a:{...m.a, score: D&&D.score?D.score[1]:m.a.score}}), picks = usLivePicks(m, lm);
   return `<div class="prob-card"><h3><span class="dot"></span>Quién gana (modelo)</h3>${bar(m.h.name,lm.pH)}${bar(m.a.name,lm.pA)}
     <div class="lv-stats"><span>Proyección final: <b>${lm.projH.toFixed(ld.sp==='nba'?0:1)} - ${lm.projA.toFixed(ld.sp==='nba'?0:1)}</b></span></div></div>
-    <div class="prob-card"><h3><span class="dot"></span>Mejores opciones ahora</h3>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div></div>`).join('') : '<div class="pl-none" style="padding:6px 0;">No hay una opción clara.</div>'}</div>`;
+    <div class="prob-card"><h3><span class="dot"></span>Mejores opciones ahora</h3>${picks.length ? picks.map(k=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${k.label}</b><small>${k.why}</small></div><div class="pick-pct"><b>${k.prob}%</b>${lvOddTxt(k)}${confBadge(k)}</div></div>`).join('') : '<div class="pl-none" style="padding:6px 0;">No hay una opción clara.</div>'}</div>`;
 }
 
 const LG_GROUPS = [
@@ -3672,7 +3704,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v33.2 · cuotas reales en combinadas';
+const APP_VERSION = 'v33.3 · en vivo según estadísticas y combinadas con 2 mercados por partido';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
