@@ -1,16 +1,17 @@
 // AlexBet · Combinadas del día, en 3 niveles:
-//   Seguras: 3 a 5 combinadas de cuota 2.00 a 2.50
-//   Medias: 2 combinadas de cuota 3.50 a 5.00
-//   Altas: 2 combinadas de cuota mayor a 5 (hasta 10)
+//   Opción 1 (riesgo bajo): 3 a 5 combinadas de cuota 2.00 a 2.50
+//   Opción 2 (riesgo medio): 2 combinadas de cuota 3.50 a 5.00
+//   Opción 3 (riesgo alto): 2 combinadas de cuota mayor a 5 (hasta 10)
+// Las claves internas (seg/med/alt) no cambian para no romper el historial guardado.
 // Cada deporte (fútbol, NBA, MLB) tiene sus propias combinadas, armadas con las mejores sugerencias de hoy
 // de ese deporte (cada selección de un partido distinto). Se congelan para el día y se resuelven solas
 // con los resultados reales (igual que Mis jugadas).
 
 const CB = {tab: 'hoy'};
 const CB_TIERS = [
-  {k: 'seg', name: 'Seguras', min: 2.0, max: 2.5, n: 5, want: 3, sizes: [2, 3, 4], minP: 62, maxP: 99, maxO: 1.75},
-  {k: 'med', name: 'Medias', min: 3.5, max: 5.0, n: 2, want: 2, sizes: [3, 4, 5], minP: 58, maxP: 74, maxO: 2.0},
-  {k: 'alt', name: 'Altas', min: 5.0001, max: 10, n: 2, want: 2, sizes: [4, 5], minP: 55, maxP: 68, maxO: 2.3}
+  {k: 'seg', name: 'Opción 1', risk: 'bajo', min: 2.0, max: 2.5, n: 5, want: 3, sizes: [2, 3, 4], minP: 62, maxP: 99, maxO: 1.75},
+  {k: 'med', name: 'Opción 2', risk: 'medio', min: 3.5, max: 5.0, n: 2, want: 2, sizes: [3, 4, 5], minP: 58, maxP: 74, maxO: 2.0},
+  {k: 'alt', name: 'Opción 3', risk: 'alto', min: 5.0001, max: 10, n: 2, want: 2, sizes: [4, 5], minP: 55, maxP: 68, maxO: 2.3}
 ];
 const cbDay = () => ymd(todayDate);
 // Las casas pagan menos que la cuota justa (se quedan un margen de ~7% por selección).
@@ -162,7 +163,7 @@ const cbMark = s => s === 'w' ? '✅' : s === 'l' ? '❌' : s === 'v' ? '➖' : 
 function cbHTML(sp) {
   sp = sp || sport;
   if (sp === 'tenis') cbSettleTennis();
-  if (!PREM()) return `<div class="prob-card"><h3><span class="dot"></span>Combinadas AlexBet</h3><div class="pl-none">Combinadas del día (seguras de cuota 2 a 2.5, medias de 3.5 a 5 y altas de más de 5) con su historial de resultados. <a href="#" onclick="abPay();return false;" style="color:var(--accent)">Disponible en Premium</a>.</div></div>`;
+  if (!PREM()) return `<div class="prob-card"><h3><span class="dot"></span>Combinadas AlexBet</h3><div class="pl-none">Combinadas del día en 3 opciones (opción 1 de riesgo bajo, cuota 2 a 2.5; opción 2 de riesgo medio, 3.5 a 5; opción 3 de riesgo alto, más de 5) con su historial de resultados. <a href="#" onclick="abPay();return false;" style="color:var(--accent)">Disponible en Premium</a>.</div></div>`;
   const tab = (k, t) => `<button type="button" class="tn-chip ${CB.tab === k ? 'on' : ''}" onclick="CB.tab='${k}';renderMatches()">${t}</button>`;
   let h = `<div class="prob-card cb-box"><h3><span class="dot"></span>Combinadas AlexBet · ${CB_SP[sp]}</h3><div class="tn-chips" style="margin:2px 0 8px">${tab('hoy', 'Hoy')}${tab('res', 'Resultados')}</div>`;
   if (CB.tab === 'res') return h + cbResHTML(sp) + `</div>`;
@@ -172,9 +173,9 @@ function cbHTML(sp) {
     return h + `<div class="pl-none">${loading ? 'Cargando partidos para armar las combinadas…' : `Hoy no hay suficientes selecciones de ${CB_SP[sp]} para armar combinadas. Mejor no forzar.`}</div></div>`;
   }
   h += CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k);
-    return `<div class="cb-t">${T.name} · cuota ${T.k === 'alt' ? 'mayor a 5' : T.min.toFixed(2) + ' a ' + T.max.toFixed(2)}</div>` + (G.length ? G.map((c, i) => cbCard(c, `${T.name.slice(0, -1)} ${i + 1}`)).join('') : `<div class="pl-none" style="padding:6px 0">Hoy no hay selecciones suficientes para este nivel.</div>`); }).join('');
+    return `<div class="cb-t">${T.name} <span class="cb-rk ${T.k}">Riesgo ${T.risk}</span> · cuota ${T.k === 'alt' ? 'mayor a 5' : T.min.toFixed(2) + ' a ' + T.max.toFixed(2)}</div>` + (G.length ? G.map((c, i) => cbCard(c, `${T.name} · #${i + 1}`)).join('') : `<div class="pl-none" style="padding:6px 0">Hoy no hay selecciones suficientes para este nivel.</div>`); }).join('');
   const est = C.some(c => c.legs.some(l => !l.real));
-  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} En fútbol una combinada puede llevar las 2 selecciones más probables de un mismo partido (de mercados distintos); revisa que tu casa lo permita. ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las altas se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
+  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} En fútbol una combinada puede llevar las 2 selecciones más probables de un mismo partido (de mercados distintos); revisa que tu casa lo permita. ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las de la opción 3 se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
   return h;
 }
 function cbCard(c, title) {
@@ -194,7 +195,7 @@ function cbResHTML(sp) {
     return D2.length ? `<div class="lv-stats"><span>${T.name}: <b>${w2}/${D2.length}</b></span><span>${n2 >= 0 ? '+' : ''}${n2.toFixed(2)} u</span></div>` : ''; }).join('');
   h += C.slice(0, 60).map(x => { const ok = x.c.legs.filter(l => l.res === 1).length, bad = x.c.legs.find(l => l.res === 0);
     const [y, m, d] = x.d.split('-');
-    return `<div class="cb-r"><span>${cbMark(x.c.status)} ${(CB_TIERS.find(T => T.k === x.t) || CB_TIERS[0]).name.slice(0, -1)} ${x.i} · ${d}/${m}</span><span>${ok}/${x.c.legs.length} · ${bad ? 'falló ' + escA(bad.label) : 'cuota ' + x.c.odds.toFixed(2)}</span></div>`; }).join('');
+    return `<div class="cb-r"><span>${cbMark(x.c.status)} ${(CB_TIERS.find(T => T.k === x.t) || CB_TIERS[0]).name} · #${x.i} · ${d}/${m}</span><span>${ok}/${x.c.legs.length} · ${bad ? 'falló ' + escA(bad.label) : 'cuota ' + x.c.odds.toFixed(2)}</span></div>`; }).join('');
   h += `<div class="al-st" style="margin-top:6px">Ganancia = apostando 1 unidad en cada combinada.${pend ? ' Pendientes: ' + pend + '.' : ''} Toca "Actualizar resultados" en Mis jugadas si ya terminaron los partidos.</div>`;
   return h;
 }

@@ -131,7 +131,7 @@ const KEEP_DAYS = 120;
     try {
       const P = await require('./push-send').init();
       if (P) { const N = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
-        await P.notify('combinadas', 'Combinadas AlexBet de hoy', newCombos.map(x => `${N[x.sp]}: ${[x.seg && x.seg + ' seguras', x.med && x.med + ' medias', x.alt && x.alt + ' altas'].filter(Boolean).join(', ')}`).join(' · ') + '. Ábrelas en Sugerencias.', {tag: 'cb|' + fresh.day});
+        await P.notify('combinadas', 'Combinadas AlexBet de hoy', newCombos.map(x => `${N[x.sp]}: ${[x.seg && x.seg + ' de opción 1', x.med && x.med + ' de opción 2', x.alt && x.alt + ' de opción 3'].filter(Boolean).join(', ')}`).join(' · ') + '. Ábrelas en Sugerencias.', {tag: 'cb|' + fresh.day});
         console.log('push combinadas:', JSON.stringify(P.stats())); }
     } catch (e) { console.log('push:', e.message); }
   }

@@ -11,7 +11,7 @@ async function ofLoad(force) {
   if (document.getElementById('ofSheet') && document.getElementById('ofSheet').innerHTML) ofOpen();
 }
 const OF_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
-const OF_TIER = {seg: 'Combinadas seguras', med: 'Combinadas medias', alt: 'Combinadas altas'};
+const OF_TIER = {seg: 'Combinadas opción 1 (riesgo bajo)', med: 'Combinadas opción 2 (riesgo medio)', alt: 'Combinadas opción 3 (riesgo alto)'};
 function ofSets() {
   const H = OF.H || {picks: [], combos: []}, lim = OF.days ? Date.now() - OF.days * 864e5 : 0;
   const P = (H.picks || []).filter(p => p.ts >= lim && (p.res === 0 || p.res === 1));
