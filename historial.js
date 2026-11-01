@@ -19,8 +19,10 @@ const KEEP_DAYS = 120;
     const u = r.request().url();
     // ESPN y otras APIs: se piden desde el servidor y se entregan a la página (sin problemas de permisos del navegador)
     if (/espn\.com|the-odds-api\.com|football-data/.test(u)) {
-      try { const resp = await r.fetch({timeout: 30000}); return r.fulfill({response: resp, headers: {...resp.headers(), 'access-control-allow-origin': '*'}}); }
-      catch (e) { return r.abort(); }
+      try {
+        const resp = await fetch(u, {headers: {'User-Agent': 'Mozilla/5.0 AlexBet', 'Accept': 'application/json'}, signal: AbortSignal.timeout(30000)});
+        return r.fulfill({status: resp.status, body: Buffer.from(await resp.arrayBuffer()), headers: {'content-type': resp.headers.get('content-type') || 'application/json', 'access-control-allow-origin': '*'}});
+      } catch (e) { return r.abort(); }
     }
     for (const pre of ['https://alexbetpro.web.app/', 'tomashbasurto.github.io/alexbet-web/']) {
       if (u.includes(pre)) {
