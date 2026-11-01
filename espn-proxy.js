@@ -37,6 +37,20 @@ function soloIndividuales(board) {
   });
   return board;
 }
+// lesionados: {equipo: [{id, n, st}]}
+function injList(j) {
+  const out = {};
+  (j.injuries || j.teams || []).forEach(T => {
+    const tid = String(T.id || (T.team && T.team.id) || '');
+    (T.injuries || []).forEach(x => {
+      const a = x.athlete || {}, st = x.status || (x.type && (x.type.description || x.type.name)) || '';
+      const id = String(a.id || ((a.links || [])[0] && ((a.links[0].href || '').match(/id\/(\d+)/) || [])[1]) || '');
+      const team = String((a.team && a.team.id) || tid);
+      if (!team) return; (out[team] = out[team] || []).push({id, n: a.displayName || a.fullName || '', st: String(st)});
+    });
+  });
+  return out;
+}
 function guardar(file, data) {
   const txt = JSON.stringify(data);
   fs.writeFileSync(file, txt);
@@ -49,8 +63,9 @@ function guardar(file, data) {
     const boards = (await Promise.all(days(-1, 7).map(k => get(`${API}/site/v2/sports/${path}/scoreboard?dates=${k}`))))
       .filter(Boolean).map(b => prune({events: b.events || []}));
     const standings = await get(`${API}/v2/sports/${path}/standings`);
+    const inj = sp === 'nba' ? await get(`${API}/site/v2/sports/${path}/injuries`) : null; // lesionados (NBA)
     if (!boards.length) { console.log('sin datos', sp); continue; }
-    guardar(`espn-${sp}.json`, {t, boards, standings: standings ? prune(standings) : null});
+    guardar(`espn-${sp}.json`, {t, boards, standings: standings ? prune(standings) : null, inj: inj ? injList(inj) : null});
   }
   const tenis = {t, atp: [], wta: [], rank: {}};
   for (const tour of ['atp', 'wta']) {
