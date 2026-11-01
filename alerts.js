@@ -27,13 +27,21 @@ function optTxt(r, u){
     (r.rL!=null ? `\nMás arriesgada: Más de ${r.rL} ${u} · modelo ${Math.round(r.rp*100)}% · cuota mínima ${cuo(r.rp)}` : '') +
     `\nSi la casa paga menos que la cuota mínima, no vale la pena.`;
 }
+// Tarjetas que faltan según las faltas: ritmo de faltas del partido x tarjetas por falta (las del partido mezcladas con lo normal).
+// En promedio hay ~24 faltas y ~4 tarjetas por partido; en el segundo tiempo se sacan algo más.
+function cardsRem(min, K, F, lam){
+  if(F==null || min<5) return null;
+  const T = 90, wF = min/(min+30), fRate = wF*(F/min) + (1-wF)*(24/T), remF = fRate*Math.max(T-min,1);
+  const wC = F/(F+30), cpf = wC*(K/Math.max(F,1)) + (1-wC)*((lam||4.2)/24);
+  return remF*cpf*(min<45 ? 1.1 : 1.05);
+}
 function pAtLeast(k, lam){ if(k<=0) return 1; let term = Math.exp(-lam), cdf = term; for(let i=1;i<k;i++){ term *= lam/i; cdf += term; } return Math.max(0, 1-cdf); }
-function moved(kind, pos, n, lam, T){
+function moved(kind, pos, n, lam, T, remX){
   T = T||90;
   const C = {corners:{r:1.35,n:5,a:15,b:82}, cards:{r:1.5,n:3,a:15,b:82}, goals:{r:1.5,n:3,a:15,b:80}, runs:{r:1.4,n:6,a:3,b:7}}[kind];
   if(!C || pos<C.a || pos>C.b || n==null) return null;
   const exp = lam*pos/T; if(n < C.n || n < C.r*exp) return null;
-  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = rate*(T-pos), cands = [];
+  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = remX!=null ? remX : rate*(T-pos), cands = [];
   for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?15:25); L+=1){ const p = pAtLeast(Math.ceil(L)-n, rem); cands.push({L, p}); }
   const best = pickLines(cands);
   return best && {...best, exp};
@@ -99,7 +107,7 @@ async function main(){
         const G = (parseInt(H.score,10)||0)+(parseInt(A.score,10)||0), rg = moved('goals', min, G, LAM.goals);
         if(rg) found.push({id:`goal|${ev.id}|${rg.L}`, title:'Partido movido · goles', msg:`${vs}\n${G} goles (lo normal: ${rg.exp.toFixed(1)}). ${optTxt(rg,'goles')} (est.)`, tags:'soccer,fire', prio:4});
         const yh = stat(th,'yellowCards'), ya = stat(ta,'yellowCards');
-        if(yh!=null && ya!=null){ const K = yh+ya+(stat(th,'redCards')||0)+(stat(ta,'redCards')||0), r = moved('cards', min, K, LAM.cards);
+        if(yh!=null && ya!=null){ const K = yh+ya+(stat(th,'redCards')||0)+(stat(ta,'redCards')||0), fh = stat(th,'foulsCommitted'), fa = stat(ta,'foulsCommitted'), r = moved('cards', min, K, LAM.cards, 90, cardsRem(min, K, (fh!=null&&fa!=null)?fh+fa:null, LAM.cards));
           if(r) found.push({id:`card|${ev.id}|${r.L}`, title:'Partido movido · tarjetas', msg:`${vs}\n${K} tarjetas (lo normal: ${r.exp.toFixed(1)}). ${optTxt(r,'tarjetas')} (est.)`, tags:'soccer,warning', prio:4}); }
       }
     }catch(e){ errs.push(slug+': '+e.message); }

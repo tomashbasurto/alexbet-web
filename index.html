@@ -1413,6 +1413,14 @@ function liveMinute(c){
   if(period===1) min = Math.min(min, 60);
   return {min, label:(dc||min+"'"), model:true};
 }
+// Tarjetas que faltan según las faltas: ritmo de faltas del partido x tarjetas por falta (las del partido mezcladas con lo normal).
+// En promedio hay ~24 faltas y ~4 tarjetas por partido; en el segundo tiempo se sacan algo más.
+function cardsRem(min, K, F, lam){
+  if(F==null || min<5) return null;
+  const T = 90, wF = min/(min+30), fRate = wF*(F/min) + (1-wF)*(24/T), remF = fRate*Math.max(T-min,1);
+  const wC = F/(F+30), cpf = wC*(K/Math.max(F,1)) + (1-wC)*((lam||4.2)/24);
+  return remF*cpf*(min<45 ? 1.1 : 1.05);
+}
 function livePress(sot, minute){ // presión ofensiva: tiros al arco por minuto contra lo normal (~4.3 por equipo en 90')
   if(sot==null || minute<10) return 1;
   const ratio = (sot/minute)/(4.3/90), w = minute/(minute+30);
@@ -1465,16 +1473,17 @@ function livePicks(m, p, est, H, A){
   const prs = `Presión: ${m.h} ${p.ph.toFixed(1)}x · ${m.a} ${p.pa.toFixed(1)}x lo normal${sotTxt}`;
   add('n', `Próximo gol: ${m.h}`, p.nextH, prs); add('n', `Próximo gol: ${m.a}`, p.nextA, prs);
   // córners y tarjetas: ritmo real del partido mezclado con el promedio de los equipos
-  const pace = (n, lam, kind, unit) => {
+  const pace = (n, lam, kind, unit, remX, extra) => {
     if(n==null || min<12 || min>85) return;
-    const w = min/(min+90), rate = w*(n/min) + (1-w)*(lam/90), rem = rate*(90-min), exp = n+rem; // ritmo real con prudencia: los partidos tienden a volver a lo normal
-    const why = `Van ${n} ${unit} al ${min}' (lo normal: ${(lam*min/90).toFixed(1)}) · esperado ${exp.toFixed(1)}`;
+    const w = min/(min+90), rate = w*(n/min) + (1-w)*(lam/90), rem = remX!=null ? remX : rate*(90-min), exp = n+rem; // ritmo real con prudencia: los partidos tienden a volver a lo normal
+    const why = `Van ${n} ${unit}${extra||''} al ${min}' (lo normal: ${(lam*min/90).toFixed(1)}) · esperado ${exp.toFixed(1)}`;
     for(let L=Math.floor(n)+0.5; L<=n+14; L+=1){ const po = poissonAtLeast(Math.ceil(L)-n, rem);
       add(kind, `Más de ${L} ${unit}`, po, why, 3); add(kind, `Menos de ${L} ${unit}`, 1-po, why, 3); }
   };
   const ht = (H&&H.t) || LIVE_AVG, at = (A&&A.t) || LIVE_AVG;
   if(st.ch!=null && st.ca!=null) pace(st.ch+st.ca, (ht.corners||4.8)+(at.corners||4.8), 'k', 'córners');
-  if(st.yh!=null && st.ya!=null) pace(st.yh+st.ya+(st.rh||0)+(st.ra||0), (ht.cards||2.0)+(at.cards||2.0), 'c', 'tarjetas');
+  if(st.yh!=null && st.ya!=null){ const K = st.yh+st.ya+(st.rh||0)+(st.ra||0), lamC = (ht.cards||2.0)+(at.cards||2.0), F = (st.fh!=null && st.fa!=null) ? st.fh+st.fa : null;
+    pace(K, lamC, 'c', 'tarjetas', cardsRem(min, K, F, lamC), F!=null ? ` y ${F} faltas` : ''); }
   // la mejor de cada mercado: la más cercana a ~62% (cuota ~1.50), prefiriendo las que usan estadísticas en vivo
   return lvPick(c, est, 3);
 }
@@ -1512,7 +1521,7 @@ async function liveFetch(){
       const get=(t,n)=>{ const it=(t.statistics||[]).find(s=>s.name===n); if(!it) return null; const v=parseFloat(it.displayValue!=null?it.displayValue:it.value); return isNaN(v)?null:v; };
       const H=teams.find(t=>t.homeAway==='home')||teams[0], A=teams.find(t=>t.homeAway==='away')||teams[1];
       m.st = {yh:get(H,'yellowCards'), ya:get(A,'yellowCards'), rh:get(H,'redCards')||0, ra:get(A,'redCards')||0,
-              ch:get(H,'wonCorners'), ca:get(A,'wonCorners'), sh:get(H,'shotsOnTarget'), sa:get(A,'shotsOnTarget')};
+              ch:get(H,'wonCorners'), ca:get(A,'wonCorners'), sh:get(H,'shotsOnTarget'), sa:get(A,'shotsOnTarget'), fh:get(H,'foulsCommitted'), fa:get(A,'foulsCommitted')};
     }catch(e){}
   }));
   list.sort((a,b)=>b.min-a.min);
@@ -2664,12 +2673,12 @@ function optTxt(r, u){
     `\nSi la casa paga menos que la cuota mínima, no vale la pena.`;
 }
 // Partido "movido": muchos córners o tarjetas para el minuto. n = cantidad actual, lam = promedio esperado de un partido completo
-function alMoved(kind, pos, n, lam, T){
+function alMoved(kind, pos, n, lam, T, remX){
   T = T||90;
   const C = {corners:{r:1.35,n:5,a:15,b:82}, cards:{r:1.5,n:3,a:15,b:82}, goals:{r:1.5,n:3,a:15,b:80}, runs:{r:1.4,n:6,a:3,b:7}}[kind];
   if(!C || pos<C.a || pos>C.b || n==null || !lam) return null;
   const exp = lam*pos/T; if(n < C.n || n < C.r*exp) return null;
-  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = rate*(T-pos);
+  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = remX!=null ? remX : rate*(T-pos);
   const cands = [];
   for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?15:25); L+=1){ const p = poissonAtLeast(Math.ceil(L)-n, rem); cands.push({L, p}); }
   const best = pickLines(cands);
@@ -2711,7 +2720,7 @@ function alLive(cfg){
         body:`${vs}\n${G} goles (lo normal a esta altura: ${r.exp.toFixed(1)}). ${optTxt(r,'goles')}${est?' (est.)':''}`});
     }
     if(cfg.cards && s.yh!=null && s.ya!=null){
-      const lam = ((X.t&&X.t.cards)||2.2) + ((Y.t&&Y.t.cards)||2.2), K = s.yh+s.ya+(s.rh||0)+(s.ra||0), r = alMoved('cards', m.min, K, lam);
+      const lam = ((X.t&&X.t.cards)||2.2) + ((Y.t&&Y.t.cards)||2.2), K = s.yh+s.ya+(s.rh||0)+(s.ra||0), r = alMoved('cards', m.min, K, lam, 90, cardsRem(m.min, K, (s.fh!=null&&s.fa!=null)?s.fh+s.fa:null, lam));
       if(r) out.push({id:`card|${m.lid}|${m.id}|${r.L}`, type:'cards', title:`Partido movido · tarjetas (${m.lname})`,
         body:`${vs}\n${K} tarjetas (lo normal a esta altura: ${r.exp.toFixed(1)}). ${optTxt(r,'tarjetas')}${est?' (est.)':''}`});
     }
@@ -3704,7 +3713,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v33.4 · combinadas con las 2 más probables del partido';
+const APP_VERSION = 'v33.5 · tarjetas según faltas';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
