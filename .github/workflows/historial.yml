@@ -28,6 +28,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Publicar y revisar sugerencias
         run: node historial.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - name: Guardar
         run: |
           git config user.name "alexbet-bot"

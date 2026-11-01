@@ -82,7 +82,7 @@ const KEEP_DAYS = 120;
   }
   console.log('con cuota real:', fresh.picks.filter(p => p.odd).length, 'de', fresh.picks.length);
 
-  const have = new Set(H.picks.map(p => p.id));
+  const have = new Set(H.picks.map(p => p.id)), newCombos = [];
   let added = 0;
   fresh.picks.forEach(p => { if (!have.has(p.id)) { H.picks.push(p); added++; } });
   // combinadas: una vez por día y deporte; se pueden completar solo si ninguna selección empezó
@@ -91,8 +91,10 @@ const KEEP_DAYS = 120;
     const started = cur.some(c => c.legs.some(l => l.ts <= fresh.now));
     if (!C.length || started || cur.length >= C.length) continue;
     H.combos = H.combos.filter(c => !(c.day === fresh.day && c.sp === sp));
+    const first = !cur.length;
     C.forEach(c => H.combos.push({...c, day: fresh.day, sp, pub: fresh.now}));
     added += C.length;
+    if (first) newCombos.push({sp, n: C.length, seg: C.filter(c => c.tier === 'seg').length, med: C.filter(c => c.tier === 'med').length, alt: C.filter(c => c.tier === 'alt').length});
   }
 
   // ---------- 2) resolver ----------
@@ -123,6 +125,16 @@ const KEEP_DAYS = 120;
     if (c.status !== 'p') { c.rt = Date.now(); solved++; }
   }
   await browser.close();
+
+  // aviso a los celulares Premium: combinadas del día publicadas
+  if (newCombos.length) {
+    try {
+      const P = await require('./push-send').init();
+      if (P) { const N = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
+        await P.notify('combinadas', 'Combinadas AlexBet de hoy', newCombos.map(x => `${N[x.sp]}: ${[x.seg && x.seg + ' seguras', x.med && x.med + ' medias', x.alt && x.alt + ' altas'].filter(Boolean).join(', ')}`).join(' · ') + '. Ábrelas en Sugerencias.', {tag: 'cb|' + fresh.day});
+        console.log('push combinadas:', JSON.stringify(P.stats())); }
+    } catch (e) { console.log('push:', e.message); }
+  }
 
   // ---------- 3) limpiar y guardar ----------
   const lim = Date.now() - KEEP_DAYS * 864e5;

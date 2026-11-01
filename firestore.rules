@@ -22,10 +22,10 @@ service cloud.firestore {
         && request.resource.data.plan == 'gratis'
         && request.resource.data.pendiente == '';
 
-      // El usuario solo puede avisar que pagó o cambiar su nombre. Premium y fechas solo los cambias tú.
+      // El usuario solo puede avisar que pagó, cambiar su nombre o registrar su celular para notificaciones. Premium y fechas solo los cambias tú.
       allow update: if esAdmin()
         || (request.auth != null && request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'pendiente'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'pendiente', 'push'])
             && request.resource.data.pendiente is string
             && request.resource.data.pendiente.size() < 80);
 

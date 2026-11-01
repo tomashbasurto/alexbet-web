@@ -13,13 +13,22 @@
       "alerts-seen.json",
       "tenis-elo.js",
       "historial.js",
+      "push-send.js",
       "node_modules/**"
     ],
     "headers": [
       {
         "source": "**/*.@(html|js|webmanifest)",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
   }
 }

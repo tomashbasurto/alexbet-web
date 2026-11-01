@@ -59,6 +59,7 @@ const stat = (t, n) => { const it = (t.statistics||[]).find(s=>s.name===n); if(!
 function minuteOf(c){ const dc = String((c.status&&c.status.displayClock)||''); const m = dc.match(/(\d+)/); return m ? parseInt(m[1],10) : null; }
 const ymd = d => `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}`;
 async function main(){
+  const P = await require('./push-send').init().catch(e=>{ console.log('push:', e.message); return null; }); // celulares de los usuarios Premium
   const found = [], errs = [], silent = new Set();
   let seen = {}; try{ seen = JSON.parse(fs.readFileSync(SEEN_FILE,'utf8')); }catch(e){}
   const t = Date.now(); Object.keys(seen).forEach(k=>{ if(t-seen[k] > 12*3600e3) delete seen[k]; });
@@ -69,10 +70,10 @@ async function main(){
       for(const ev of (j.events||[])){
         const c = ev.competitions && ev.competitions[0]; if(!c) continue;
         const st0 = (c.status&&c.status.type)||{};
-        if(FAVS.length){ // favoritos: empieza, gol, roja, final
+        if(FAVS.length || (P && P.hasFavs)){ // favoritos (tuyos y de los usuarios Premium): empieza, gol, roja, final
           const Hf = c.competitors.find(x=>x.homeAway==='home'), Af = c.competitors.find(x=>x.homeAway==='away');
           const hn = Hf && (Hf.team.displayName||Hf.team.name), an = Af && (Af.team.displayName||Af.team.name);
-          if(Hf && Af && (isFav(hn)||isFav(an)) && (st0.state==='in' || st0.state==='post')){
+          if(Hf && Af && (isFav(hn)||isFav(an)||(P && P.wantsFav([hn,an]))) && (st0.state==='in' || st0.state==='post')){
             const fb = 'fb|'+ev.id, first = !seen[fb]; silent.add(fb);
             const hs = parseInt(Hf.score,10)||0, as = parseInt(Af.score,10)||0, vs = `${hn} ${hs}-${as} ${an}`, cand = [];
             if(st0.state==='in'){
@@ -82,7 +83,7 @@ async function main(){
               try{ const s2 = await get(`${API}/soccer/${slug}/summary?event=${ev.id}`), T2 = (s2.boxscore&&s2.boxscore.teams)||[];
                 const red = T2.reduce((a,t2)=>a+(stat(t2,'redCards')||0),0); if(red>0) cand.push({id:`fred|${ev.id}|${red}`, fresh:early, title:`Tarjeta roja · ${vs}`, msg:min!=null?`Minuto ${min}'`:'Roja'}); }catch(e){}
             } else if(Date.now()-Date.parse(ev.date) < 8*3600e3) cand.push({id:'ffin|'+ev.id, fresh:false, title:`Final: ${vs}`, msg:'Partido terminado'});
-            for(const it of cand){ if(seen[it.id]) continue; if(first && !it.fresh){ silent.add(it.id); continue; } found.push({id:it.id, title:it.title, msg:it.msg||' ', tags:'star', prio:4}); }
+            for(const it of cand){ if(seen[it.id]) continue; if(first && !it.fresh){ silent.add(it.id); continue; } found.push({id:it.id, title:it.title, msg:it.msg||' ', tags:'star', prio:4, tipo:'fav', teams:[hn,an], mine:isFav(hn)||isFav(an)}); }
           }
         }
         if(st0.state==='pre'){ // alineación confirmada (partidos que empiezan en menos de 90 min)
@@ -91,7 +92,7 @@ async function main(){
           const s2 = await get(`${API}/soccer/${slug}/summary?event=${ev.id}`), R = s2.rosters;
           if(!Array.isArray(R) || R.length<2 || R.filter(r=>(r.roster||[]).filter(p=>p.starter).length>=9).length<2) continue;
           const fm = R.map(r=>r.formation).filter(Boolean).join(' vs '), hora = new Date(t0).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',timeZone:'America/Guayaquil'});
-          found.push({id:`lu|${ev.id}`, title:'Alineación confirmada', msg:`${H0.team.displayName||H0.team.name} vs ${A0.team.displayName||A0.team.name} · ${hora} (Ecuador)${fm?'\nFormaciones: '+fm:''}\nAbre AlexBet para ver la alineación.`, tags:'clipboard', prio:3});
+          found.push({id:`lu|${ev.id}`, tipo:'alineacion', title:'Alineación confirmada', msg:`${H0.team.displayName||H0.team.name} vs ${A0.team.displayName||A0.team.name} · ${hora} (Ecuador)${fm?'\nFormaciones: '+fm:''}\nAbre AlexBet para ver la alineación.`, tags:'clipboard', prio:3});
           continue;
         }
         const st = (c.status&&c.status.type)||{}; if(st.state!=='in' || /HALF/i.test(st.name||'') && !/FIRST|SECOND/i.test(st.name||'')) continue;
@@ -138,10 +139,16 @@ async function main(){
   let sent = 0;
   for(const a of found){
     if(seen[a.id]) continue;
-    if(!TOPIC){ console.log('[sin NTFY_TOPIC] '+a.title+' :: '+a.msg.replace(/\n/g,' | ')); continue; }
+    const tipo = a.tipo || 'movido';
+    // celulares de los usuarios Premium (cada uno según lo que eligió)
+    if(P){ try{ await P.notify(tipo, a.title, a.msg, {teams:a.teams, tag:a.id}); }catch(e){ errs.push('push '+e.message); } }
+    // tu canal de ntfy (los favoritos solo si son tuyos)
+    if(tipo==='fav' && !a.mine){ seen[a.id] = t; continue; }
+    if(!TOPIC){ console.log('[sin NTFY_TOPIC] '+a.title+' :: '+a.msg.replace(/\n/g,' | ')); seen[a.id] = t; continue; }
     const r = await fetch(NTFY, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({topic:TOPIC, title:a.title, message:a.msg, tags:a.tags.split(','), priority:a.prio})});
-    if(r.ok){ seen[a.id] = t; sent++; } else errs.push('ntfy HTTP '+r.status);
+    if(r.ok){ seen[a.id] = t; sent++; } else { errs.push('ntfy HTTP '+r.status); if(P) seen[a.id] = t; }
   }
+  if(P){ const S = P.stats(); console.log(`push: enviadas ${S.sent}${S.dead?' · celulares dados de baja '+S.dead:''}`); }
   fs.writeFileSync(SEEN_FILE, JSON.stringify(seen));
   console.log(`Alertas encontradas: ${found.length} · enviadas: ${sent}${errs.length?' · avisos: '+errs.slice(0,5).join(' | '):''}`);
 }

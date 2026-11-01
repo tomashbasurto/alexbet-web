@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - 'alerts.js'
+      - 'push-send.js'
       - '.github/workflows/alertas.yml'
 permissions:
   contents: write
@@ -24,6 +25,7 @@ jobs:
         run: node alerts.js
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - name: Guardar alertas ya enviadas
         run: |
           git config user.name "alexbet-bot"

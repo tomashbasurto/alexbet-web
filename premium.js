@@ -98,7 +98,8 @@ function leerDoc(x, u) {
     creado: ms(x.creado) || Date.now(),
     premiumHasta: ms(x.premiumHasta),
     plan: x.plan || 'gratis',
-    pendiente: x.pendiente || ''
+    pendiente: x.pendiente || '',
+    push: x.push || null
   };
 }
 let quitarEscucha = null;
@@ -300,4 +301,36 @@ window.abComprobante = async () => {
 
 // Revisa cada hora por si la prueba vence con la app abierta.
 setInterval(() => { if (AB.user) aplicar(AB.user); }, 3600e3);
+
+// ---------- Notificaciones en el celular (Premium) ----------
+// Clave pública de "Certificados push web" (Firebase > Configuración > Cloud Messaging).
+const VAPID = '';
+const PUSH_TIPOS = [['movido', 'Partido movido (goles, córners, tarjetas, puntos)'], ['alineacion', 'Alineación confirmada'], ['fav', 'Mis equipos favoritos: empieza, gol, roja, final'], ['combinadas', 'Combinadas del día publicadas']];
+window.abPushInfo = () => ({ok: !!VAPID && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window, perm: ('Notification' in window) ? Notification.permission : 'no', tipos: PUSH_TIPOS, on: !!(AB.user && AB.user.push && AB.user.push.token), sel: (AB.user && AB.user.push && AB.user.push.tipos) || PUSH_TIPOS.map(t => t[0]), ios: /iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone});
+window.abPushEnable = async tipos => {
+  if (!fb || !AB.uid) throw new Error('Inicia sesión primero');
+  if (!VAPID) throw new Error('Las notificaciones todavía no están configuradas');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Este navegador no permite notificaciones. En iPhone, primero agrega AlexBet a la pantalla de inicio y ábrela desde ahí');
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') throw new Error('No diste permiso de notificaciones. Actívalo en los ajustes del navegador');
+  const reg = await navigator.serviceWorker.ready;
+  const M = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-messaging.js`);
+  const messaging = M.getMessaging();
+  const token = await M.getToken(messaging, {vapidKey: VAPID, serviceWorkerRegistration: reg});
+  if (!token) throw new Error('No se pudo registrar este celular');
+  const push = {token, tipos: tipos || PUSH_TIPOS.map(t => t[0]), favs: typeof window.favList === 'function' ? window.favList().slice(0, 50) : [], t: Date.now(), ua: navigator.userAgent.slice(0, 80)};
+  await fb.F.updateDoc(fb.F.doc(fb.db, 'users', AB.uid), {push});
+  if (AB.user) AB.user.push = push;
+  return push;
+};
+window.abPushSyncFavs = async () => {
+  if (!fb || !AB.uid || !AB.user || !AB.user.push || typeof window.favList !== 'function') return;
+  const push = {...AB.user.push, favs: window.favList().slice(0, 50)};
+  try { await fb.F.updateDoc(fb.F.doc(fb.db, 'users', AB.uid), {push}); AB.user.push = push; } catch (e) {}
+};
+window.abPushDisable = async () => {
+  if (!fb || !AB.uid) return;
+  await fb.F.updateDoc(fb.F.doc(fb.db, 'users', AB.uid), {push: null});
+  if (AB.user) AB.user.push = null;
+};
 iniciar();

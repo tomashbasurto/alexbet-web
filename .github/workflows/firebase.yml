@@ -13,6 +13,7 @@ on:
       - 'manifest.webmanifest'
       - '*.png'
       - 'firebase.json'
+      - 'firestore.rules'
       - '.github/workflows/firebase.yml'
   workflow_dispatch:
 concurrency:
@@ -45,3 +46,12 @@ jobs:
           fi
           rm -f "$RUNNER_TEMP/sa.json"
           exit $rc
+      - name: Publicar reglas de Firestore
+        continue-on-error: true
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx -y firebase-tools@latest deploy --only firestore:rules --project alexbet-e14aa --non-interactive || echo "::warning::No se pudieron publicar las reglas: cópialas a mano en Firebase > Firestore > Reglas"
+          rm -f "$RUNNER_TEMP/sa.json"
