@@ -10,7 +10,8 @@
       "fetch-data.js",
       "alerts.js",
       "resumen.js",
-      "alerts-seen.json"
+      "alerts-seen.json",
+      "tenis-elo.js"
     ],
     "headers": [
       {

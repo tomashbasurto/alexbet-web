@@ -54,6 +54,7 @@ async function tnLoad(force) {
     days.forEach(k => jobs.push([t, 's', webGet(`${TN_API}/${t}/scoreboard?dates=${k}`)]));
     if (!TN.rt || Date.now() - TN.rt > 12 * 3600e3) jobs.push([t, 'r', webGet(`${TN_API}/${t}/rankings`)]);
   });
+  if (!TN.elo || Date.now() - TN.elo.lt > 12 * 3600e3) mirrorGet('elo-tenis.json').then(j => { TN.elo = {lt: Date.now(), r: (j && j.r) || {}}; TN.cache = {}; if (sport === 'tenis') renderMatches(); }).catch(() => {});
   const res = await Promise.allSettled(jobs.map(x => x[2]));
   let ok = 0, last = '';
   res.forEach((r, i) => {
@@ -149,7 +150,12 @@ function tnModel(m) {
 function tnModelCalc(m) {
   const A = tnStrength(m, 0), B = tnStrength(m, 1);
   const c = 0.85;
-  const pMatch = Math.max(0.04, Math.min(0.96, Math.pow(A.f, c) / (Math.pow(A.f, c) + Math.pow(B.f, c))));
+  let pMatch = Math.max(0.04, Math.min(0.96, Math.pow(A.f, c) / (Math.pow(A.f, c) + Math.pow(B.f, c))));
+  // v34: con Elo (resultados de 150 días) si ambos lo tienen; si no, el ranking pero más prudente
+  // (la prueba mostró que con ranking los favoritos claros ganaban mucho menos de lo prometido).
+  const ER = TN.elo && TN.elo.r, ea = ER && ER[m.p[0].id], eb = ER && ER[m.p[1].id];
+  if (ea && eb) { pMatch = Math.max(0.05, Math.min(0.95, 1 / (1 + Math.pow(10, (eb[0] - ea[0]) / 400)))); A.elo = ea[0]; B.elo = eb[0]; }
+  else pMatch = 0.5 + (pMatch - 0.5) * 0.7;
   const need = m.bo === 5 ? 3 : 2;
   // 1) probabilidad de set que reproduce la de partido
   let lo = 0.01, hi = 0.99;
@@ -183,7 +189,7 @@ function tnModelCalc(m) {
   const L0 = Math.floor(med) - 0.5;
   const exp = Object.keys(games).reduce((t, g) => t + g * games[g], 0);
   return {A, B, pA, pB: 1 - pA, sSet, ha, hb, sets, over, lines: [L0 - 2, L0, L0 + 2], exp, need,
-    oneA: 1 - (sets[`0-${need}`] || 0), oneB: 1 - (sets[`${need}-0`] || 0), est: A.est || B.est};
+    oneA: 1 - (sets[`0-${need}`] || 0), oneB: 1 - (sets[`${need}-0`] || 0), est: (ea && eb) ? false : (A.est || B.est)};
 }
 // En vivo: sets ganados y juegos del set actual.
 function tnLive(m, base) {
@@ -257,13 +263,15 @@ function tnRenderMatches() {
       <div class="mini1x2-labels"><span>${escA(m.p[0].short)} ${a}%</span><span>${escA(m.p[1].short)} ${b}%</span></div>
       <div class="lv-stats" style="justify-content:center;margin-top:8px;"><span>${m.state === 'pre' ? `Juegos esperados: <b>${M.exp.toFixed(1)}</b> · Sets corridos: <b>${tnPc(straight)}%</b>` : 'Probabilidad según el marcador actual'}${M.est ? ' (est.)' : ''}</span></div>
     </div>`;
-  }).join('') + `<div class="foot-note">Tenis: probabilidades según los puntos del ranking ATP/WTA y la forma en los torneos recientes (ESPN). No considera superficie, lesiones ni cuotas. "(est.)" = jugador sin ranking conocido. No garantizan el resultado.</div>`;
+  }).join('') + `<div class="foot-note">Tenis: probabilidades según el rating Elo de cada jugador (resultados de los últimos 150 días, ESPN); si no tiene Elo, según el ranking ATP/WTA. No considera superficie, lesiones ni cuotas. "(est.)" = jugador sin ranking conocido. No garantizan el resultado.</div>`;
 }
 function tnCands(m, M) {
   const c = [], add = (label, p, why) => { const q = tnPc(p); if (q >= 60 && q <= 97) c.push({label, prob: q, why}); };
   const A = m.p[0].name, B = m.p[1].name, need = M.need;
   add(`Gana ${A}`, M.pA, 'ganador del partido'); add(`Gana ${B}`, M.pB, 'ganador del partido');
-  if (M.pA < 0.5) add(`${A} gana al menos un set`, M.oneA, `no pierde ${need}-0`); else add(`${B} gana al menos un set`, M.oneB, `no pierde ${need}-0`);
+  // v34: "gana al menos un set" prometía de más (decía 70%, salía 62%): se acerca al 50%
+  const st = x => 0.5 + (x - 0.5) * 0.65;
+  if (M.pA < 0.5) add(`${A} gana al menos un set`, st(M.oneA), `no pierde ${need}-0`); else add(`${B} gana al menos un set`, st(M.oneB), `no pierde ${need}-0`);
   M.lines.forEach(L => { add(`Más de ${L} juegos`, M.over(L), `esperados ${M.exp.toFixed(1)}`); add(`Menos de ${L} juegos`, 1 - M.over(L), `esperados ${M.exp.toFixed(1)}`); });
   return c.sort((x, y) => y.prob - x.prob);
 }

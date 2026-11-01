@@ -964,6 +964,8 @@ let LEAGUES = STATIC_LEAGUES;
 function poissonP(k, lambda){
   return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k);
 }
+function lnGamma(z){ const c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7]; if(z<0.5) return Math.log(Math.PI/Math.sin(Math.PI*z))-lnGamma(1-z); z-=1; let x=c[0]; for(let i=1;i<9;i++) x+=c[i]/(z+i); const t=z+7.5; return 0.5*Math.log(2*Math.PI)+(z+0.5)*Math.log(t)-t+Math.log(x); }
+function nbDist(m, r, N){ const o=[]; for(let k=0;k<=N;k++) o.push(Math.exp(lnGamma(k+r)-lnGamma(r)-lnGamma(k+1)+r*Math.log(r/(r+m))+k*Math.log(m/(r+m)))); return o; }
 function factorial(n){ let r=1; for(let i=2;i<=n;i++) r*=i; return r; }
 function poissonAtLeast(k, lambda){ // P(X >= k)
   let p=0; for(let i=0;i<k;i++) p+=poissonP(i, lambda);
@@ -1194,8 +1196,10 @@ function calLearn(cat){
     }catch(e){} }
   return CAL_C.v[cat]||0;
 }
-function calP(cat, raw, est){
-  const f = (CAL_F[cat]||.85)*(est?.8:1); let p = 50+(raw-50)*f; const g = calLearn(cat); if(g<0) p = Math.min(p, raw+g);
+// v34: factores por deporte según la prueba con partidos pasados (NBA y MLB ya salen bien calibrados con los modelos nuevos)
+const CAL_SP = {nba:{ml:.97, line:.95, tot:.95}, mlb:{ml:.9, line:.95, tot:.95}};
+function calP(cat, raw, est, sp){
+  const f = ((CAL_SP[sp]&&CAL_SP[sp][cat]) || CAL_F[cat] || .85)*(est?.8:1); let p = 50+(raw-50)*f; const g = calLearn(cat); if(g<0) p = Math.min(p, raw+g);
   return Math.max(1, Math.min(85, Math.round(p)));
 }
 const normN = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/&/g,' and ').replace(/\b(fc|afc|cf|sc|ac|cd|ca|club|de|the)\b/g,' ').replace(/^man (city|utd|united)/,m=>'manchester '+m.slice(4)).replace(/^spurs$/,'tottenham hotspur').replace(/^wolves$/,'wolverhampton wanderers').replace(/[^a-z0-9]/g,'');
@@ -1256,7 +1260,7 @@ function oddBoxInit(sp,lid,h,a,mf){
 }
 function calAll(c, sp, h, a, est){
   const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
-  c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x)); const mp = mkProb(row,x.label,h,a);
+  c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x), sp); const mp = mkProb(row,x.label,h,a);
     x.dc = / o empate$|^Empate o /.test(x.label); x.edge = null;
     if(mp!=null){ x.drop = q-mp>=12 || q-mp<-3; x.edge = q-mp; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · Mercado '+x.mk+'%'; }
     else if(had && row==null) x.why += ' · sin cuota del mercado';
@@ -1291,6 +1295,8 @@ function pkDoneHTML(flt){
   return `<div class="lv-h" style="margin:14px 0 6px">${esHoy?'Ya jugados hoy':'Jugados el '+today.slice(8,10)+'/'+today.slice(5,7)} · ✅ acertó ❌ falló</div>` + cards;
 }
 // ---- Sugerencias: mejores mercados por partido según el modelo ----
+const FT_OFF = {'Menos de 2.5 goles':-8, 'Ambos NO anotan':-9, 'Local o empate':9, 'Empate o visita':-3, 'Más de 1.5 goles':5, 'Gana visita':-6, 'Gana local':2, 'Más de 3.5 tarjetas':3, 'Menos de 10.5 córners':-4, 'Ambos equipos anotan':-1, 'Menos de 3.5 goles':1};
+const FT_OFF_KEY = (l,h,a) => l===`${h} o empate` ? 'Local o empate' : l===`Empate o ${a}` ? 'Empate o visita' : l===`Gana ${h}` ? 'Gana local' : l===`Gana ${a}` ? 'Gana visita' : l;
 function matchPicks(league, f){
   const home = league.teams[f[0]], away = league.teams[f[1]];
   if(!home || !away) return null;
@@ -1322,6 +1328,8 @@ function matchPicks(league, f){
   add('corn','Menos de 10.5 córners', 100-p.over105corners, kEst, rWhy);
   // v25: recorta sobreconfianza, contrasta con el mercado y descarta lo dudoso
   const cc = calAll(c, 'futbol', hn, an, x=>x.est);
+  // v34: corrección por mercado medida con 2.047 partidos de esta temporada (lo que el mercado prometía de más o de menos)
+  cc.forEach(x=>{ const k = FT_OFF_KEY(x.label, hn, an), o = FT_OFF[k]; if(!o) return; x.prob = Math.max(1, Math.min(85, Math.round(x.prob + (x.mk!=null ? .4 : 1)*o))); });
   const best = {};
   cc.forEach(x=>{ x.score = pkScore(x, x.est); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
   const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:65)).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
@@ -1635,10 +1643,11 @@ async function logosLoad(force){
 // ---------- NBA y MLB (ESPN) ----------
 let sport = 'futbol';
 const US = {
-  nba:{name:'NBA', path:'basketball/nba', color:'#f97316', avg:{pf:114, pa:114}, k:8,  unit:'puntos'},
-  mlb:{name:'MLB', path:'baseball/mlb',   color:'#60a5fa', avg:{pf:4.5, pa:4.5},  k:20, unit:'carreras'},
+  nba:{name:'NBA', path:'basketball/nba', color:'#f97316', avg:{pf:114, pa:114}, k:4,  unit:'puntos'},
+  mlb:{name:'MLB', path:'baseball/mlb',   color:'#60a5fa', avg:{pf:4.5, pa:4.5},  k:40, unit:'carreras'},
 };
-const NBA_HFA = 2.5, NBA_SD_M = 12.5, NBA_SD_T = 18, NBA_TOT_REF = 228;
+// v34 (prueba con 1.323 partidos): ganador más seguro de sí (10.5), hándicap con más margen de error (14), total con 20.
+const NBA_HFA = 2.5, NBA_SD_M = 10.5, NBA_SD_L = 14, NBA_SD_T = 20, NBA_TOT_REF = 228;
 const usData = {nba:{games:[],teams:{},t:0,err:'',loading:false}, mlb:{games:[],teams:{},t:0,err:'',loading:false}};
 const usLive = {nba:{t:0,list:[],err:''}, mlb:{t:0,list:[],err:''}};
 let usLiveTimer = null, usLiveBusy = false;
@@ -1740,13 +1749,14 @@ function usPre(g){
     const eh = (H.pf+A.pa)/2 + NBA_HFA/2, ea = (A.pf+H.pa)/2 - NBA_HFA/2;
     const mu = eh-ea, tot = eh+ea;
     return {sp:'nba', est, H, A, eh, ea, mu, tot, pH:normCdf(mu/NBA_SD_M), pA:1-normCdf(mu/NBA_SD_M),
-      over:L=>1-normCdf((L-tot)/NBA_SD_T), cover:k=>1-normCdf((k-mu)/NBA_SD_M)};
+      over:L=>1-normCdf((L-tot)/NBA_SD_T), cover:k=>1-normCdf((k-mu)/NBA_SD_L)};
   }
   const lh = (H.pf+A.pa)/2*1.03, la = (A.pf+H.pa)/2*0.97;
-  const N = 20, mat = [];
+  // v34: binomial negativa (las carreras varían más que Poisson; la prueba con 2.430 partidos lo confirmó)
+  const N = 25, mat = [], ph = nbDist(lh, 4, N), pa = nbDist(la, 4, N);
   let w=0,d=0,l=0; const margin = {}; const totD = [];
   for(let i=0;i<=N;i++) for(let j=0;j<=N;j++){
-    const p = poissonP(i,lh)*poissonP(j,la);
+    const p = ph[i]*pa[j];
     if(i>j) w+=p; else if(i===j) d+=p; else l+=p;
     margin[i-j] = (margin[i-j]||0)+p; totD[i+j] = (totD[i+j]||0)+p;
   }
@@ -1767,11 +1777,11 @@ function usPicks(g, m){
   if(g.sp==='nba'){
     const am = Math.abs(m.mu);
     let best = null;
-    [1.5,3.5,5.5,7.5,9.5,11.5,13.5].forEach(k=>{ const p = Math.max(0,Math.min(1,1-normCdf((k-am)/NBA_SD_M))); if(p>=.6) best = {k,p}; });
+    [1.5,3.5,5.5,7.5,9.5,11.5,13.5].forEach(k=>{ const p = Math.max(0,Math.min(1,1-normCdf((k-am)/NBA_SD_L))); if(p>=.6) best = {k,p}; });
     // objetivo: que la probabilidad siga en 62% o más después del ajuste por sobreconfianza
     const goal = 50 + 13/((CAL_F.line)*(m.est?.8:1)), gT = (50 + 13/((CAL_F.tot)*(m.est?.8:1)))/100;
     if(best && best.p*100>=goal) add('line', `${favN} -${best.k}`, best.p, `Margen esperado: ${am.toFixed(1)} puntos`);
-    else { for(let k=1.5; k<=16.5; k+=1){ const p = normCdf((k-am)/NBA_SD_M); if(p*100>=goal){ add('line', `${dogN} +${k}`, p, `Margen esperado: ${am.toFixed(1)} puntos (${favN} favorito)`); break; } } }
+    else { for(let k=1.5; k<=16.5; k+=1){ const p = normCdf((k-am)/NBA_SD_L); if(p*100>=goal){ add('line', `${dogN} +${k}`, p, `Margen esperado: ${am.toFixed(1)} puntos (${favN} favorito)`); break; } } }
     // total de puntos: línea más cercana a la proyección que llegue al objetivo, hacia el lado que indica el modelo
     const lean = m.tot >= NBA_TOT_REF ? 'Más' : 'Menos';
     for(let d=0.5; d<=14.5; d+=1){
@@ -2447,7 +2457,7 @@ function usOpen(sp, id, keep){
   let markets = '';
   if(sp==='nba'){
     const am = Math.abs(m.mu), favN = m.mu>=0 ? g.h.name : g.a.name;
-    const hl = [3.5,6.5,9.5].map(k=>({k, p:pc(1-normCdf((k-am)/NBA_SD_M))}));
+    const hl = [3.5,6.5,9.5].map(k=>({k, p:pc(1-normCdf((k-am)/NBA_SD_L))}));
     markets += `<div class="prob-card"><h3><span class="dot"></span>Hándicap (${favN} favorito)</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${hl.map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Gana por ${Math.ceil(x.k)}+ (-${x.k})</div></div>`).join('')}</div></div>`;
     const lines = [-10,-5,0,5,10].map(d=>roundHalf(m.tot+d));
     markets += `<div class="prob-card"><h3><span class="dot"></span>Total de puntos</h3><div class="lv-stats" style="margin-top:0;">Proyectado: <b>${m.tot.toFixed(1)}</b> · rango probable (80%): <b>${Math.round(m.tot-1.28*NBA_SD_T)}–${Math.round(m.tot+1.28*NBA_SD_T)}</b></div>` + lines.map(L=>{ const p = pc(m.over(L)); return `<div class="pk-line"><div class="t">Más de ${L}</div><div class="bar-track"><div class="bar-fill ${p>=70?'strong':''}" style="width:${p}%"></div></div><div class="v">${p}%</div></div>`; }).join('') + `<div class="lv-stats">Compara estas líneas con la de tu casa de apuestas: la probabilidad de "Menos de" es 100% menos la de "Más de".</div></div>`;
@@ -3713,7 +3723,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v33.5 · tarjetas según faltas';
+const APP_VERSION = 'v34 · modelos ajustados con partidos pasados';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
