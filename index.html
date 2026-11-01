@@ -2343,7 +2343,7 @@ function usRenderPicks(){
     list.innerHTML = usStatusLine(sp) + ((dayS + doneS) || `<div class="empty-state">No hay sugerencias guardadas para ese día. Los aciertos se guardan en este celular desde que la app mostró las sugerencias.</div>`);
     return;
   }
-  if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
+  if(!items.length){ list.innerHTML = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), cbHTML(sp)) : '') + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
   let html = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), cbHTML(sp)) : '') + pkDayHTML(p=>p.sp===sp);
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
@@ -3672,7 +3672,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v33 · más rápida';
+const APP_VERSION = 'v33.1 · combinadas en MLB y tenis';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

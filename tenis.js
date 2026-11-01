@@ -278,9 +278,10 @@ function tnRenderPicks() {
   ms.forEach(m => { const M = tnModel(m); if (M.est) return; tnCands(m, M).slice(0, 1).forEach(k => rows.push({m, M, k})); });
   rows.sort((x, y) => y.k.prob - x.k.prob);
   document.getElementById('matchCount').textContent = ms.length + (ms.length === 1 ? ' partido' : ' partidos');
-  if (!ms.length) { list.innerHTML = tnHeader() + tnEmpty('por jugar en esta fecha'); return; }
+  const cbx = day === ymd(todayDate) && typeof cbHTML === 'function' ? (cbPrime(), cbHTML('tenis')) : '';
+  if (!ms.length) { list.innerHTML = tnHeader() + cbx + tnEmpty('por jugar en esta fecha'); return; }
   const top = rows.slice(0, 10);
-  list.innerHTML = tnHeader() + `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones de tenis</h3>` + (top.length ? top.map(x => {
+  list.innerHTML = tnHeader() + cbx + `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones de tenis</h3>` + (top.length ? top.map(x => {
     const f = fmtParts(x.m.d, 0);
     return `<div class="pick-row" onclick="tnOpen('${x.m.id}')"><div class="pick-main"><b>${escA(x.k.label)}</b><small>${escA(x.m.p[0].name)} vs ${escA(x.m.p[1].name)} · ${tnTime(x.m, f)} · ${TN_TOURS[x.m.tour].name} ${escA(x.m.ev)}${x.M.est ? ' · (est.)' : ''}</small></div><div class="pick-pct"><b>${x.k.prob}%</b></div></div>`;
   }).join('') : `<div class="pl-none">Ningún mercado pasa el filtro de confianza hoy.</div>`) + `</div>` +

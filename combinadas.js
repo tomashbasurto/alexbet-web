@@ -13,7 +13,7 @@ const CB_TIERS = [
   {k: 'alt', name: 'Altas', min: 5.0001, max: 10, n: 2, want: 2, sizes: [3, 4, 5], minP: 55, maxP: 70, maxO: 2.3}
 ];
 const cbDay = () => ymd(todayDate);
-const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB'};
+const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
 // historial: {día: {deporte: {t, combos, lock}}}
 function cbAll() {
   let all = LS.get('ab_cb2', null);
@@ -40,6 +40,17 @@ function cbLegs(want) {
       const pk = matchPicks(l, f); if (!pk) return;
       pk.picks.slice(0, 2).forEach(k => push('futbol', l.id, f[0], f[1], f[2], pkTs(f[2], l.utcOffset), null, k, l.name));
     }));
+  } catch (e) {}
+  if (want === 'tenis') try {
+    const cat = l => /^Gana /.test(l) ? 'ml' : / set$/.test(l) ? 'line' : 'tot';
+    Object.values(TN.m).forEach(m => {
+      if (m.state !== 'pre' || m.off || isoDateOnlyEcuador(m.d, 0) !== day) return;
+      const M = tnModel(m); if (M.est) return;
+      const ts = Date.parse(m.d + (m.d.length <= 16 ? ':00Z' : '')), h = m.p[0].name, a = m.p[1].name;
+      if (m.tv && ts < now + 10 * 60e3) return;
+      tnCands(m, M).slice(0, 2).forEach(k => { const c = cat(k.label), q = calP(c, k.prob, false); if (q < 55) return;
+        out.push({sp: 'tenis', lid: m.tour, h, a, when: m.d, ts, gid: m.id, label: k.label, cat: c, prob: q, raw: k.prob, odds: +(100 / q).toFixed(2), real: false, mkt: {t: 'tn'}, where: TN_TOURS[m.tour].name + ' ' + m.ev, res: null}); });
+    });
   } catch (e) {}
   ['nba', 'mlb'].filter(sp => sp === want).forEach(sp => {
     try {
@@ -93,7 +104,8 @@ function cbToday(sp) {
   const all = cbAll(), day = cbDay(), D = all[day] = all[day] || {}, cur = D[sp];
   if (cur && (cur.lock || cbFull(cur.combos))) return cur;
   if (cur && cur.combos.some(c => c.first <= Date.now())) { cur.lock = true; LS.set('ab_cb2', all); return cur; }
-  if (sp !== 'futbol' && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
+  if ((sp === 'nba' || sp === 'mlb') && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
+  if (sp === 'tenis' && !TN.t) return cur || {combos: [], lock: false};
   const M = (CB.memo = CB.memo || {})[sp]; if (M && Date.now() - M.t < 90e3) return M.D; // no recalcular en cada toque
   const combos = cbBuild(sp);
   if (!combos.length && !cur) return {combos: [], lock: false};
@@ -108,7 +120,20 @@ function cbToday(sp) {
 function cbNeeds(need, now) {
   const all = cbAll(), res = LS.get('ab_res', {});
   cbEach(all, x => x.combos.forEach(c => { if (c.status !== 'p') return;
-    c.legs.forEach(l => { if (l.res == null && l.ts + 3 * 3600e3 < now) { const k = pkKey(l); if (!res[k]) need[k] = need[k] || l; } }); }));
+    c.legs.forEach(l => { if (l.sp !== 'tenis' && l.res == null && l.ts + 3 * 3600e3 < now) { const k = pkKey(l); if (!res[k]) need[k] = need[k] || l; } }); }));
+}
+// Tenis: se resuelve con los partidos ya terminados que trae ESPN en el marcador del torneo
+function cbSettleTennis() {
+  if (typeof TN === 'undefined' || !TN.t) return false;
+  const all = cbAll(); let ch = false;
+  cbEach(all, (x, d, sp) => { if (sp !== 'tenis') return; x.combos.forEach(c => { if (c.status !== 'p') return;
+    c.legs.forEach(l => { if (l.res != null) return; const m = TN.m[l.gid]; if (!m) return;
+      if (m.off && m.state !== 'pre') { l.res = 'v'; ch = true; return; }
+      if (m.state !== 'post' || !(m.p[0].winner || m.p[1].winner)) return;
+      const v = tnHit(m, l); if (v != null) { l.res = v ? 1 : 0; ch = true; } });
+    pkSettleBet(c, {}); if (c.status === 'm') c.status = 'w'; }); });
+  if (ch) LS.set('ab_cb2', all);
+  return ch;
 }
 function cbSettle(res) {
   const all = cbAll();
@@ -117,17 +142,18 @@ function cbSettle(res) {
 }
 
 // ---------- Pantalla ----------
-const cbSpName = l => l.sp === 'futbol' ? l.where : (US[l.sp] || {}).name || l.sp;
+const cbSpName = l => (l.sp === 'futbol' || l.sp === 'tenis') ? l.where : (US[l.sp] || {}).name || l.sp;
 const cbMark = s => s === 'w' ? '✅' : s === 'l' ? '❌' : s === 'v' ? '➖' : '⏳';
 function cbHTML(sp) {
   sp = sp || sport;
+  if (sp === 'tenis') cbSettleTennis();
   if (!PREM()) return `<div class="prob-card"><h3><span class="dot"></span>Combinadas AlexBet</h3><div class="pl-none">Combinadas del día (seguras de cuota 2 a 2.5, medias de 3.5 a 5 y altas de más de 5) con su historial de resultados. <a href="#" onclick="abPay();return false;" style="color:var(--accent)">Disponible en Premium</a>.</div></div>`;
   const tab = (k, t) => `<button type="button" class="tn-chip ${CB.tab === k ? 'on' : ''}" onclick="CB.tab='${k}';renderMatches()">${t}</button>`;
   let h = `<div class="prob-card cb-box"><h3><span class="dot"></span>Combinadas AlexBet · ${CB_SP[sp]}</h3><div class="tn-chips" style="margin:2px 0 8px">${tab('hoy', 'Hoy')}${tab('res', 'Resultados')}</div>`;
   if (CB.tab === 'res') return h + cbResHTML(sp) + `</div>`;
   const D = cbToday(sp), C = D.combos || [];
   if (!C.length) {
-    const loading = sp !== 'futbol' && (usData[sp].loading || !usData[sp].t);
+    const loading = sp === 'tenis' ? !TN.t : sp !== 'futbol' && (usData[sp].loading || !usData[sp].t);
     return h + `<div class="pl-none">${loading ? 'Cargando partidos para armar las combinadas…' : `Hoy no hay suficientes selecciones de ${CB_SP[sp]} para armar combinadas. Mejor no forzar.`}</div></div>`;
   }
   h += CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k);
@@ -138,7 +164,7 @@ function cbHTML(sp) {
 }
 function cbCard(c, title) {
   return `<div class="cb-c"><div class="cb-hd"><b>${title}</b><span>${cbMark(c.status)} ${c.legs.length} selecciones</span></div>` +
-    c.legs.map(l => { const f = fmtParts(l.when, l.sp === 'futbol' ? (LEAGUES.find(x => x.id === l.lid) || {}).utcOffset || 0 : 0);
+    c.legs.map(l => { const f = l.sp === 'tenis' && TN.m[l.gid] && !TN.m[l.gid].tv ? {time: 'hora por conf.'} : fmtParts(l.when, l.sp === 'futbol' ? (LEAGUES.find(x => x.id === l.lid) || {}).utcOffset || 0 : 0);
       return `<div class="cb-l"><div><b>${escA(l.label)}${l.res === 1 ? ' ✔' : l.res === 0 ? ' ✖' : ''}</b><small>${escA(cbSpName(l))} · ${escA(l.h)} vs ${escA(l.a)} · ${f.time}</small></div><span>${l.prob}%<small>${l.odds.toFixed(2)}${l.real ? '' : '*'}</small></span></div>`; }).join('') +
     `<div class="cb-ft"><span>Prob. de acertar <b>${c.prob}%</b></span><span>Cuota <b>${c.odds.toFixed(2)}</b></span></div></div>`;
 }
