@@ -2615,6 +2615,21 @@ const AL_DEF = {on:false, corners:true, cards:true, pace:true, lineups:true, fav
 function alCfg(){ return Object.assign({}, AL_DEF, LS.get('ab_al', {})); }
 function alSave(c){ LS.set('ab_al', c); }
 function alLN(){ return (window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications) || null; }
+// Elige las líneas a recomendar: solo avisa si el partido está claramente movido (alguna línea con 70% o más),
+// pero recomienda una línea más alta (cerca de 50%, cuota ~1.9-2.1) y otra más arriesgada (cerca de 33%, cuota ~2.8-3.2).
+function pickLines(cands){
+  if(!cands.some(x=>x.p>=0.70)) return null;
+  let main = null, risky = null;
+  cands.forEach(x=>{ if(x.p>=0.50) main = x; });
+  cands.forEach(x=>{ if(x.p>=0.33 && main && x.L>main.L) risky = x; });
+  return main && {L:main.L, p:main.p, rL:risky?risky.L:null, rp:risky?risky.p:null};
+}
+const cuo = p => (1/p).toFixed(2);
+function optTxt(r, u){
+  return `Opción: Más de ${r.L} ${u} · modelo ${Math.round(r.p*100)}% · cuota mínima ${cuo(r.p)}` +
+    (r.rL!=null ? `\nMás arriesgada: Más de ${r.rL} ${u} · modelo ${Math.round(r.rp*100)}% · cuota mínima ${cuo(r.rp)}` : '') +
+    `\nSi la casa paga menos que la cuota mínima, no vale la pena.`;
+}
 // Partido "movido": muchos córners o tarjetas para el minuto. n = cantidad actual, lam = promedio esperado de un partido completo
 function alMoved(kind, pos, n, lam, T){
   T = T||90;
@@ -2622,9 +2637,10 @@ function alMoved(kind, pos, n, lam, T){
   if(!C || pos<C.a || pos>C.b || n==null || !lam) return null;
   const exp = lam*pos/T; if(n < C.n || n < C.r*exp) return null;
   const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = rate*(T-pos);
-  let best = null;
-  for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?10:8); L+=1){ const p = poissonAtLeast(Math.ceil(L)-n, rem); if(p>=0.70) best = {L, p}; }
-  return best ? {L:best.L, p:best.p, exp, final:n+rem} : null;
+  const cands = [];
+  for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?15:25); L+=1){ const p = poissonAtLeast(Math.ceil(L)-n, rem); cands.push({L, p}); }
+  const best = pickLines(cands);
+  return best ? {...best, exp, final:n+rem} : null;
 }
 // NBA: ritmo de puntos (normal). g = partido en vivo, base = modelo previo
 function alNba(g){
@@ -2633,8 +2649,9 @@ function alNba(g){
   if(e<10 || rem<6) return null;
   const norm = base.tot/48, ratio = (T/e)/norm; if(ratio<1.10) return null;
   const w = e/(e+24), rate = w*(T/e)+(1-w)*norm, mean = T+rate*rem, sd = Math.max(3, NBA_SD_T*Math.sqrt(rem/48));
-  let best = null; for(let L=Math.floor(T)+0.5; L<=mean+40; L+=1){ const p = 1-normCdf((L-mean)/sd); if(p>=0.70) best = {L,p}; }
-  return best ? {L:best.L, p:best.p, T, e, exp:norm*e, est:base.est} : null;
+  const cands = []; for(let L=Math.floor(T)+0.5; L<=mean+40; L+=1){ const p = 1-normCdf((L-mean)/sd); cands.push({L,p}); }
+  const best = pickLines(cands);
+  return best ? {...best, T, e, exp:norm*e, est:base.est} : null;
 }
 function alMlb(g){
   const d = String(g.detail), mm = d.match(/(top|bot\w*|mid\w*|end)\s*(?:of\s*the\s*)?(\d+)/i); if(!mm) return null;
@@ -2653,17 +2670,17 @@ function alLive(cfg){
     if(cfg.corners && s.ch!=null && s.ca!=null){
       const lam = ((X.t&&X.t.corners)||5) + ((Y.t&&Y.t.corners)||5), C = s.ch+s.ca, r = alMoved('corners', m.min, C, lam);
       if(r) out.push({id:`corn|${m.lid}|${m.id}|${r.L}`, type:'corners', title:`Partido movido · córners (${m.lname})`,
-        body:`${vs}\n${C} córners (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} córners · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${est?' (est.)':''}`});
+        body:`${vs}\n${C} córners (lo normal a esta altura: ${r.exp.toFixed(1)}). ${optTxt(r,'córners')}${est?' (est.)':''}`});
     }
     if(cfg.pace){
       const G = (m.gh||0)+(m.ga||0), lamG = (((X.t&&X.t.gf)||1.35)+((Y.t&&Y.t.ga)||1.35))/2 + (((Y.t&&Y.t.gf)||1.35)+((X.t&&X.t.ga)||1.35))/2, r = alMoved('goals', m.min, G, lamG);
       if(r) out.push({id:`goal|${m.lid}|${m.id}|${r.L}`, type:'goals', title:`Partido movido · goles (${m.lname})`,
-        body:`${vs}\n${G} goles (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} goles · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${est?' (est.)':''}`});
+        body:`${vs}\n${G} goles (lo normal a esta altura: ${r.exp.toFixed(1)}). ${optTxt(r,'goles')}${est?' (est.)':''}`});
     }
     if(cfg.cards && s.yh!=null && s.ya!=null){
       const lam = ((X.t&&X.t.cards)||2.2) + ((Y.t&&Y.t.cards)||2.2), K = s.yh+s.ya+(s.rh||0)+(s.ra||0), r = alMoved('cards', m.min, K, lam);
       if(r) out.push({id:`card|${m.lid}|${m.id}|${r.L}`, type:'cards', title:`Partido movido · tarjetas (${m.lname})`,
-        body:`${vs}\n${K} tarjetas (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} tarjetas · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${est?' (est.)':''}`});
+        body:`${vs}\n${K} tarjetas (lo normal a esta altura: ${r.exp.toFixed(1)}). ${optTxt(r,'tarjetas')}${est?' (est.)':''}`});
     }
   });
   return out;
@@ -2672,9 +2689,9 @@ function alUs(cfg){
   const out = [];
   if(!cfg.pace) return out;
   (usLive.nba.list||[]).forEach(g=>{ try{ const r = alNba(g); if(r) out.push({id:`nba|${g.id}|${r.L}`, type:'pace', title:'Partido movido · puntos (NBA)',
-    body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${usLiveModel(g).label}\n${r.T} puntos en ${r.e.toFixed(0)} min (ritmo normal: ${r.exp.toFixed(0)}). Opción: Más de ${r.L} puntos · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${r.est?' (est.)':''}`}); }catch(e){} });
+    body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${usLiveModel(g).label}\n${r.T} puntos en ${r.e.toFixed(0)} min (ritmo normal: ${r.exp.toFixed(0)}). ${optTxt(r,'puntos')}${r.est?' (est.)':''}`}); }catch(e){} });
   (usLive.mlb.list||[]).forEach(g=>{ try{ const r = alMlb(g); if(r) out.push({id:`mlb|${g.id}|${r.L}`, type:'pace', title:'Partido movido · carreras (MLB)',
-    body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${g.detail}\n${r.R} carreras (lo normal a esta altura: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} carreras · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)}${r.est?' (est.)':''}`}); }catch(e){} });
+    body:`${g.h.name} ${g.h.score}-${g.a.score} ${g.a.name} · ${g.detail}\n${r.R} carreras (lo normal a esta altura: ${r.exp.toFixed(1)}). ${optTxt(r,'carreras')}${r.est?' (est.)':''}`}); }catch(e){} });
   return out;
 }
 async function alLineups(cfg){
@@ -3645,7 +3662,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v29 · partidos favoritos y más sugerencias NBA';
+const APP_VERSION = 'v30 · alertas con cuota más alta';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

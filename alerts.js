@@ -12,22 +12,39 @@ const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-
 const isFav = n => { const x = norm(n); return !!x && FAVS.some(f=>{ const y = norm(f); return y && (x===y || x.includes(y) || y.includes(x)); }); };
 const LAM = {corners: 10.2, cards: 4.2, goals: 2.7, nba: 222, mlb: 8.8}; // promedios generales de un partido completo (sin datos por equipo)
 const get = async u => { const r = await fetch(u, {headers:{accept:'application/json'}}); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); };
+// Elige las líneas a recomendar: solo avisa si el partido está claramente movido (alguna línea con 70% o más),
+// pero recomienda una línea más alta (cerca de 50%, cuota ~1.9-2.1) y otra más arriesgada (cerca de 33%, cuota ~2.8-3.2).
+function pickLines(cands){
+  if(!cands.some(x=>x.p>=0.70)) return null;
+  let main = null, risky = null;
+  cands.forEach(x=>{ if(x.p>=0.50) main = x; });
+  cands.forEach(x=>{ if(x.p>=0.33 && main && x.L>main.L) risky = x; });
+  return main && {L:main.L, p:main.p, rL:risky?risky.L:null, rp:risky?risky.p:null};
+}
+const cuo = p => (1/p).toFixed(2);
+function optTxt(r, u){
+  return `Opción: Más de ${r.L} ${u} · modelo ${Math.round(r.p*100)}% · cuota mínima ${cuo(r.p)}` +
+    (r.rL!=null ? `\nMás arriesgada: Más de ${r.rL} ${u} · modelo ${Math.round(r.rp*100)}% · cuota mínima ${cuo(r.rp)}` : '') +
+    `\nSi la casa paga menos que la cuota mínima, no vale la pena.`;
+}
 function pAtLeast(k, lam){ if(k<=0) return 1; let term = Math.exp(-lam), cdf = term; for(let i=1;i<k;i++){ term *= lam/i; cdf += term; } return Math.max(0, 1-cdf); }
 function moved(kind, pos, n, lam, T){
   T = T||90;
   const C = {corners:{r:1.35,n:5,a:15,b:82}, cards:{r:1.5,n:3,a:15,b:82}, goals:{r:1.5,n:3,a:15,b:80}, runs:{r:1.4,n:6,a:3,b:7}}[kind];
   if(!C || pos<C.a || pos>C.b || n==null) return null;
   const exp = lam*pos/T; if(n < C.n || n < C.r*exp) return null;
-  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = rate*(T-pos); let best = null;
-  for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?10:8); L+=1){ const p = pAtLeast(Math.ceil(L)-n, rem); if(p>=0.70) best = {L, p}; }
+  const w = pos/(pos+T/3), rate = w*(n/pos) + (1-w)*(lam/T), rem = rate*(T-pos), cands = [];
+  for(let L=Math.floor(n)+0.5; L<=n+(kind==='runs'?15:25); L+=1){ const p = pAtLeast(Math.ceil(L)-n, rem); cands.push({L, p}); }
+  const best = pickLines(cands);
   return best && {...best, exp};
 }
 const normCdf = x => { const t = 1/(1+0.2316419*Math.abs(x)), d = 0.3989423*Math.exp(-x*x/2), p = d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274)))); return x>0 ? 1-p : p; };
 function nbaPace(T, e, rem){
   if(e<10 || rem<6) return null;
   const norm = LAM.nba/48; if((T/e)/norm < 1.10) return null;
-  const w = e/(e+24), rate = w*(T/e)+(1-w)*norm, mean = T+rate*rem, sd = Math.max(3, 18*Math.sqrt(rem/48)); let best = null;
-  for(let L=Math.floor(T)+0.5; L<=mean+40; L+=1){ const p = 1-normCdf((L-mean)/sd); if(p>=0.70) best = {L,p}; }
+  const w = e/(e+24), rate = w*(T/e)+(1-w)*norm, mean = T+rate*rem, sd = Math.max(3, 18*Math.sqrt(rem/48)), cands = [];
+  for(let L=Math.floor(T)+0.5; L<=mean+40; L+=1){ const p = 1-normCdf((L-mean)/sd); cands.push({L,p}); }
+  const best = pickLines(cands);
   return best && {...best, exp:norm*e};
 }
 const stat = (t, n) => { const it = (t.statistics||[]).find(s=>s.name===n); if(!it) return null; const v = parseFloat(it.displayValue!=null?it.displayValue:it.value); return isNaN(v)?null:v; };
@@ -78,12 +95,12 @@ async function main(){
         const hn = H.team.displayName||H.team.name, an = A.team.displayName||A.team.name, vs = `${hn} ${H.score}-${A.score} ${an} · ${min}'`;
         const ch = stat(th,'wonCorners'), ca = stat(ta,'wonCorners');
         if(ch!=null && ca!=null){ const C = ch+ca, r = moved('corners', min, C, LAM.corners);
-          if(r) found.push({id:`corn|${ev.id}|${r.L}`, title:'Partido movido · córners', msg:`${vs}\n${C} córners (lo normal: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} córners · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)} (est.)`, tags:'soccer,fire', prio:4}); }
+          if(r) found.push({id:`corn|${ev.id}|${r.L}`, title:'Partido movido · córners', msg:`${vs}\n${C} córners (lo normal: ${r.exp.toFixed(1)}). ${optTxt(r,'córners')} (est.)`, tags:'soccer,fire', prio:4}); }
         const G = (parseInt(H.score,10)||0)+(parseInt(A.score,10)||0), rg = moved('goals', min, G, LAM.goals);
-        if(rg) found.push({id:`goal|${ev.id}|${rg.L}`, title:'Partido movido · goles', msg:`${vs}\n${G} goles (lo normal: ${rg.exp.toFixed(1)}). Opción: Más de ${rg.L} goles · modelo ${Math.round(rg.p*100)}% · solo vale si la cuota es mayor a ${(1/rg.p).toFixed(2)} (est.)`, tags:'soccer,fire', prio:4});
+        if(rg) found.push({id:`goal|${ev.id}|${rg.L}`, title:'Partido movido · goles', msg:`${vs}\n${G} goles (lo normal: ${rg.exp.toFixed(1)}). ${optTxt(rg,'goles')} (est.)`, tags:'soccer,fire', prio:4});
         const yh = stat(th,'yellowCards'), ya = stat(ta,'yellowCards');
         if(yh!=null && ya!=null){ const K = yh+ya+(stat(th,'redCards')||0)+(stat(ta,'redCards')||0), r = moved('cards', min, K, LAM.cards);
-          if(r) found.push({id:`card|${ev.id}|${r.L}`, title:'Partido movido · tarjetas', msg:`${vs}\n${K} tarjetas (lo normal: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} tarjetas · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)} (est.)`, tags:'soccer,warning', prio:4}); }
+          if(r) found.push({id:`card|${ev.id}|${r.L}`, title:'Partido movido · tarjetas', msg:`${vs}\n${K} tarjetas (lo normal: ${r.exp.toFixed(1)}). ${optTxt(r,'tarjetas')} (est.)`, tags:'soccer,warning', prio:4}); }
       }
     }catch(e){ errs.push(slug+': '+e.message); }
   }));
@@ -99,12 +116,12 @@ async function main(){
           const per = (c.status&&c.status.period)||0; if(per<1||per>4) continue;
           const cm = String((c.status&&c.status.displayClock)||'').match(/^(\d+):(\d+)/); const left = cm ? parseInt(cm[1],10)+parseInt(cm[2],10)/60 : 0;
           const rem = (4-per)*12+left, r = nbaPace(T, 48-rem, rem);
-          if(r) found.push({id:`nba|${ev.id}|${r.L}`, title:'Partido movido · puntos (NBA)', msg:`${hn} ${hs}-${as} ${an} · Q${per} ${c.status.displayClock}\n${T} puntos en ${(48-rem).toFixed(0)} min (ritmo normal: ${r.exp.toFixed(0)}). Opción: Más de ${r.L} puntos · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)} (est.)`, tags:'basketball,fire', prio:4});
+          if(r) found.push({id:`nba|${ev.id}|${r.L}`, title:'Partido movido · puntos (NBA)', msg:`${hn} ${hs}-${as} ${an} · Q${per} ${c.status.displayClock}\n${T} puntos en ${(48-rem).toFixed(0)} min (ritmo normal: ${r.exp.toFixed(0)}). ${optTxt(r,'puntos')} (est.)`, tags:'basketball,fire', prio:4});
         } else {
           const d = String(st.detail||st.shortDetail||''), mm = d.match(/(top|bot\w*|mid\w*|end)\s*(?:of\s*the\s*)?(\d+)/i); if(!mm) continue;
           const k = mm[1].toLowerCase(), n = parseInt(mm[2],10), el = k==='top' ? 2*(n-1) : (k.startsWith('bot')||k.startsWith('mid')) ? 2*(n-1)+1 : 2*n;
           const r = moved('runs', el/2, T, LAM.mlb, 9);
-          if(r) found.push({id:`mlb|${ev.id}|${r.L}`, title:'Partido movido · carreras (MLB)', msg:`${hn} ${hs}-${as} ${an} · ${d}\n${T} carreras (lo normal: ${r.exp.toFixed(1)}). Opción: Más de ${r.L} carreras · modelo ${Math.round(r.p*100)}% · solo vale si la cuota es mayor a ${(1/r.p).toFixed(2)} (est.)`, tags:'baseball,fire', prio:4});
+          if(r) found.push({id:`mlb|${ev.id}|${r.L}`, title:'Partido movido · carreras (MLB)', msg:`${hn} ${hs}-${as} ${an} · ${d}\n${T} carreras (lo normal: ${r.exp.toFixed(1)}). ${optTxt(r,'carreras')} (est.)`, tags:'baseball,fire', prio:4});
         }
       }
     }catch(e){ errs.push(f+': '+e.message); }
