@@ -11,7 +11,9 @@
       "alerts.js",
       "resumen.js",
       "alerts-seen.json",
-      "tenis-elo.js"
+      "tenis-elo.js",
+      "historial.js",
+      "node_modules/**"
     ],
     "headers": [
       {

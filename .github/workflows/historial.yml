@@ -1,0 +1,38 @@
+name: Historial oficial
+on:
+  schedule:
+    - cron: '7 */2 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'historial.js'
+      - '.github/workflows/historial.yml'
+permissions:
+  contents: write
+concurrency:
+  group: historial
+  cancel-in-progress: false
+jobs:
+  historial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar navegador sin pantalla
+        run: |
+          npm i --no-save --no-package-lock playwright@1.47.2
+          npx playwright install --with-deps chromium
+      - name: Publicar y revisar sugerencias
+        run: node historial.js
+      - name: Guardar
+        run: |
+          git config user.name "alexbet-bot"
+          git config user.email "alexbet-bot@users.noreply.github.com"
+          git add historial.json
+          git diff --staged --quiet && exit 0
+          git commit -m "Historial oficial"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done

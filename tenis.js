@@ -286,7 +286,7 @@ function tnRenderPicks() {
   ms.forEach(m => { const M = tnModel(m); if (M.est) return; tnCands(m, M).slice(0, 1).forEach(k => rows.push({m, M, k})); });
   rows.sort((x, y) => y.k.prob - x.k.prob);
   document.getElementById('matchCount').textContent = ms.length + (ms.length === 1 ? ' partido' : ' partidos');
-  const cbx = day === ymd(todayDate) && typeof cbHTML === 'function' ? (cbPrime(), cbHTML('tenis')) : '';
+  const cbx = day === ymd(todayDate) && typeof cbHTML === 'function' ? (cbPrime(), (typeof ofCardHTML === 'function' ? ofCardHTML('tenis') : '') + cbHTML('tenis')) : '';
   if (!ms.length) { list.innerHTML = tnHeader() + cbx + tnEmpty('por jugar en esta fecha'); return; }
   const top = rows.slice(0, 10);
   list.innerHTML = tnHeader() + cbx + `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones de tenis</h3>` + (top.length ? top.map(x => {
