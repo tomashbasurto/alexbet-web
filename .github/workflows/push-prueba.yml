@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       para:
-        description: 'Correo del usuario (vacío = todos)'
+        description: 'Correo del usuario (todos = a todos)'
         required: false
-        default: 'tomashbasurto@gmail.com'
+        default: 'todos'
 jobs:
   prueba:
     runs-on: ubuntu-latest
