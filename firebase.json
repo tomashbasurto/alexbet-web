@@ -14,6 +14,7 @@
       "tenis-elo.js",
       "historial.js",
       "push-send.js",
+      "push-prueba.js",
       "node_modules/**"
     ],
     "headers": [

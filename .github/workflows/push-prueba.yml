@@ -1,0 +1,20 @@
+name: Notificación de prueba
+on:
+  workflow_dispatch:
+    inputs:
+      para:
+        description: 'Correo del usuario (vacío = todos)'
+        required: false
+        default: 'tomashbasurto@gmail.com'
+jobs:
+  prueba:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node push-prueba.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PARA: ${{ github.event.inputs.para }}
