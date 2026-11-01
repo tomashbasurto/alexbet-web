@@ -175,6 +175,10 @@ function applySummary(j, id, stats){
   const e = {y, c};
   [['s','totalShots'],['t','shotsOnTarget'],['f','foulsCommitted'],['r','redCards'],['p','possessionPct']].forEach(([k,nm])=>{ const p = get(h,nm), q = get(a,nm); if(p!=null&&q!=null) e[k] = [p,q]; });
   if(!e.s) e.nx = 1; // sin tiros publicados: no volver a pedirlo
+  // árbitro principal (para el promedio de tarjetas por árbitro)
+  const offs = (j.gameInfo && j.gameInfo.officials) || [];
+  const ref = offs.find(x => /referee|árbitro|arbitro/i.test(String((x.position && (x.position.name || x.position.displayName)) || x.position || x.role || ''))) || offs[0];
+  if(ref && (ref.displayName || ref.fullName)) e.ref = String(ref.displayName || ref.fullName).slice(0, 40);
   stats[id] = e; return true;
 }
 

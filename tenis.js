@@ -2,6 +2,14 @@
 // Modelo: fuerza de cada jugador según puntos del ranking y forma reciente;
 // de ahí sale la probabilidad de ganar, sets exactos y total de juegos (simulación por saque).
 
+// superficie por nombre del torneo (ESPN no la trae): c = arcilla, g = césped, h = dura (por defecto)
+function tnSurface(name, iso) {
+  const n = String(name || '').toLowerCase(), mo = iso ? new Date(iso).getUTCMonth() + 1 : 0;
+  if (/stuttgart/.test(n)) return mo >= 6 && mo <= 7 ? 'g' : 'c';
+  if (/wimbledon|halle|queen|hertogenbosch|libema|mallorca|eastbourne|newport|berlin|nottingham|birmingham|bad homburg|grass/.test(n)) return 'g';
+  if (/roland|french open|madrid|rome|italian|internazionali|monte|barcelona|hamburg|gstaad|kitzb|umag|bastad|nordea|buenos aires|rio |rio open|santiago|chile|estoril|geneva|lyon|bucharest|houston|marrakech|munich|bmw open|charleston|bogota|rabat|strasbourg|palermo|prague|budapest|lausanne|iasi|cluj|parma|clay|cordoba|morocco|tiriac/.test(n)) return 'c';
+  return 'h';
+}
 const TN_API = 'https://site.api.espn.com/apis/site/v2/sports/tennis';
 const TN_TOURS = {atp: {name: 'ATP', color: '#38bdf8', hold: 0.79}, wta: {name: 'WTA', color: '#f472b6', hold: 0.64}};
 const TN = {m: {}, rank: {atp: {}, wta: {}}, t: 0, rt: 0, err: '', loading: false, tour: 'all'};
@@ -54,7 +62,7 @@ async function tnLoad(force) {
     days.forEach(k => jobs.push([t, 's', webGet(`${TN_API}/${t}/scoreboard?dates=${k}`)]));
     if (!TN.rt || Date.now() - TN.rt > 12 * 3600e3) jobs.push([t, 'r', webGet(`${TN_API}/${t}/rankings`)]);
   });
-  if (!TN.elo || Date.now() - TN.elo.lt > 12 * 3600e3) mirrorGet('elo-tenis.json').then(j => { TN.elo = {lt: Date.now(), r: (j && j.r) || {}}; TN.cache = {}; if (sport === 'tenis') renderMatches(); }).catch(() => {});
+  if (!TN.elo || Date.now() - TN.elo.lt > 12 * 3600e3) mirrorGet('elo-tenis.json').then(j => { TN.elo = {lt: Date.now(), r: (j && j.r) || {}, h2h: (j && j.h2h) || {}}; TN.cache = {}; if (sport === 'tenis') renderMatches(); }).catch(() => {});
   const res = await Promise.allSettled(jobs.map(x => x[2]));
   let ok = 0, last = '';
   res.forEach((r, i) => {
@@ -154,7 +162,16 @@ function tnModelCalc(m) {
   // v34: con Elo (resultados de 150 días) si ambos lo tienen; si no, el ranking pero más prudente
   // (la prueba mostró que con ranking los favoritos claros ganaban mucho menos de lo prometido).
   const ER = TN.elo && TN.elo.r, ea = ER && ER[m.p[0].id], eb = ER && ER[m.p[1].id];
-  if (ea && eb) { pMatch = Math.max(0.05, Math.min(0.95, 1 / (1 + Math.pow(10, (eb[0] - ea[0]) / 400)))); A.elo = ea[0]; B.elo = eb[0]; }
+  if (ea && eb) {
+    // v35: mitad Elo general y mitad Elo de la superficie del torneo (si ambos tienen 5+ partidos en ella)
+    const sf = tnSurface(m.ev, m.d), xa = ea[2] && ea[2][sf], xb = eb[2] && eb[2][sf];
+    const ra = xa && xb ? (ea[0] + xa[0]) / 2 : ea[0], rb = xa && xb ? (eb[0] + xb[0]) / 2 : eb[0];
+    pMatch = 1 / (1 + Math.pow(10, (rb - ra) / 400)); A.elo = Math.round(ra); B.elo = Math.round(rb); m.surf = sf;
+    // cara a cara (2+ partidos en el último año): hasta ±5 puntos
+    const H2 = TN.elo.h2h || {}, ia = String(m.p[0].id), ib = String(m.p[1].id), hk = ia < ib ? ia + '|' + ib : ib + '|' + ia, h = H2[hk];
+    if (h) { const wa = ia < ib ? h[0] : h[1], wb = ia < ib ? h[1] : h[0]; pMatch += Math.max(-0.05, Math.min(0.05, 0.02 * (wa - wb))); m.h2h = [wa, wb]; }
+    pMatch = Math.max(0.05, Math.min(0.95, pMatch));
+  }
   else pMatch = 0.5 + (pMatch - 0.5) * 0.7;
   const need = m.bo === 5 ? 3 : 2;
   // 1) probabilidad de set que reproduce la de partido
@@ -237,7 +254,7 @@ function tnRow(m, M, mid) {
   return `<div class="teams-row">${pl(m.p[0], M.A)}${mid}${pl(m.p[1], M.B, true)}</div>`;
 }
 function tnMeta(m, f) {
-  return `<div class="match-meta"><span><i class="lg-dot" style="background:${TN_TOURS[m.tour].color}"></i>${TN_TOURS[m.tour].name} · ${escA(m.ev)}${m.round ? ' · ' + escA(m.round) : ''}</span><span>${f.date} · hora Ecuador${fmStar(m.p[0].name, m.p[1].name, isoDateOnlyEcuador(m.d, 0))}</span></div>`;
+  return `<div class="match-meta"><span><i class="lg-dot" style="background:${TN_TOURS[m.tour].color}"></i>${TN_TOURS[m.tour].name} · ${escA(m.ev)}${m.round ? ' · ' + escA(m.round) : ''} · ${({h: 'dura', c: 'arcilla', g: 'césped'})[tnSurface(m.ev, m.d)]}${m.h2h ? ' · cara a cara ' + m.h2h[0] + '-' + m.h2h[1] : ''}</span><span>${f.date} · hora Ecuador${fmStar(m.p[0].name, m.p[1].name, isoDateOnlyEcuador(m.d, 0))}</span></div>`;
 }
 function tnRenderMatches() {
   const list = document.getElementById('matchList');

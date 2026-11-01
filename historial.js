@@ -64,8 +64,8 @@ const KEEP_DAYS = 120;
     };
   });
   await page.evaluate(async () => {
-    await Promise.allSettled([usLoad('nba', true), usLoad('mlb', true), tnLoad(true)]);
-    try { const j = await mirrorGet('elo-tenis.json'); TN.elo = {lt: Date.now(), r: j.r || {}}; TN.cache = {}; } catch (e) {}
+    await Promise.allSettled([usLoad('nba', true), usLoad('mlb', true), tnLoad(true), plLoad2('nba')]);
+    try { const j = await mirrorGet('elo-tenis.json'); TN.elo = {lt: Date.now(), r: j.r || {}, h2h: j.h2h || {}}; TN.cache = {}; } catch (e) {}
   });
 
   // ---------- 1) publicar ----------

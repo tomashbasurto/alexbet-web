@@ -1301,7 +1301,16 @@ const FT_OFF_KEY = (l,h,a) => l===`${h} o empate` ? 'Local o empate' : l===`Empa
 function matchPicks(league, f){
   const home = league.teams[f[0]], away = league.teams[f[1]];
   if(!home || !away) return null;
-  const p = project(home, away);
+  const pm = PM[league.id+'|'+f[0]+'|'+f[1]+'|'+f[2]], notes = [];
+  let H0 = home, A0 = away;
+  if(pm){
+    if(pm.outH && pm.outH.share){ H0 = {...H0, gf: H0.gf*(1-0.5*pm.outH.share)}; notes.push(`${f[0]} sin ${pm.outH.who.join(', ')}`); }
+    if(pm.outA && pm.outA.share){ A0 = {...A0, gf: A0.gf*(1-0.5*pm.outA.share)}; notes.push(`${f[1]} sin ${pm.outA.who.join(', ')}`); }
+    const R = pm.ref && REFS.by[pm.ref];
+    if(R && R.n>=5){ const k = Math.max(0.75, Math.min(1.35, (R.k/R.n)/REFS.lg)), w = R.n/(R.n+10), m = 1 + (k-1)*w*2/ (1+w); H0 = {...H0, cards: H0.cards*m}; A0 = {...A0, cards: A0.cards*m}; notes.push(`Árbitro ${pm.ref}: ${(R.k/R.n).toFixed(1)} tarjetas por partido (${R.n} partidos)`); }
+    else if(pm.ref) notes.push(`Árbitro ${pm.ref}`);
+  }
+  const p = project(H0, A0);
   const live = !!league.live;
   const gEst = !live || home.estG || away.estG;
   const cEst = !live || home.estC || away.estC;
@@ -1336,7 +1345,7 @@ function matchPicks(league, f){
   const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:65)).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
     ...x, conf: x.est ? 'est' : (x.prob>=75 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))
   }));
-  return {picks, best: picks.length ? picks[0].score : 0, p};
+  return {picks, best: picks.length ? picks[0].score : 0, p, notes};
 }
 function confBadge(x){
   return x.conf==='alta' ? '<span class="badge-c alta">Confianza alta</span>'
@@ -1345,7 +1354,7 @@ function confBadge(x){
        : '<span class="badge-c est">Dato estimado</span>';
 }
 function renderPicks(){
-  const list = document.getElementById('matchList');
+  const list = document.getElementById('matchList'); pmPrime();
   vaPrime(); if(VA.t && VA.sp===sport) pkLogAll(); if(Date.now()-PK.last>10*60e3 && !PK.busy && Object.values(LS.get('ab_preds',{})).some(p=>p.res==null && p.ts<Date.now()-3*3600e3)) pkSweep();
   const leagues = activeLeague==='all' ? LEAGUES : LEAGUES.filter(l=>l.id===activeLeague);
   const items = [];
@@ -1391,7 +1400,7 @@ function renderPicks(){
     return `<div class="match-card" onclick="openMatch('${x.l.id}', ${x.idx})">
       <div class="match-meta"><span><i class="lg-dot" style="background:${x.l.color}"></i>${x.l.name}</span><span>${fmtParts(when, x.l.utcOffset).date} · ${fmtParts(when, x.l.utcOffset).time} Ecuador${fmStar(hn,an,isoDateOnlyEcuador(when, x.l.utcOffset))}</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${hn} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${an}</div>
-      ${mkSummary('futbol',hn,an)}${body}
+      ${x.pk.notes&&x.pk.notes.length?`<div class="lv-stats" style="color:#f5b942;margin:-2px 0 6px">⚠ ${escA(x.pk.notes.join(' · '))} (ya incluido)</div>`:''}${mkSummary('futbol',hn,an)}${body}
     </div>`;
   }).join('');
   html += doneS;
@@ -1686,6 +1695,11 @@ function usParseStandings(sp, j){
   walk(j);
   return out;
 }
+function mlbEra(pr){
+  const S = pr.statistics || [], s = S.find(x=>/^era$/i.test(x.abbreviation||x.name||'')); let v = s ? parseFloat(s.displayValue!=null?s.displayValue:s.value) : NaN;
+  if(isNaN(v)){ const m = String(pr.record||'').match(/(\d+\.\d{2})\)?\s*$/); if(m) v = parseFloat(m[1]); }
+  return isNaN(v) || v<=0 || v>15 ? null : v;
+}
 function usParseBoard(sp, j, into){
   for(const ev of (j.events||[])){
     const c = ev.competitions && ev.competitions[0]; if(!c || !c.competitors) continue;
@@ -1698,7 +1712,7 @@ function usParseBoard(sp, j, into){
       noteLogo(x.team.displayName||x.team.name, x.team.logo);
       return {id:String(x.team.id), name:x.team.displayName||x.team.name, abbr:x.team.abbreviation,
         score:parseInt(x.score,10), rec:(ov&&ov.summary)||(typeof x.record==='string'?x.record:null),
-        sp: pr && pr.athlete ? {name:pr.athlete.fullName||pr.athlete.displayName, rec:pr.record||''} : null};
+        sp: pr && pr.athlete ? {name:pr.athlete.fullName||pr.athlete.displayName, rec:pr.record||'', era:mlbEra(pr)} : null};
     };
     into[ev.id] = {id:String(ev.id), sp, d:String(ev.date).slice(0,16), h:side(h), a:side(a),
       state: st.completed ? 'post' : (st.state==='in' ? 'in' : 'pre'),
@@ -1723,9 +1737,11 @@ async function usLoad(sp, force){
       const M = await mirrorGet('espn-'+sp+'.json');
       (M.boards||[]).forEach(b=>usParseBoard(sp, b, into));
       if(M.standings) D.teams = usParseStandings(sp, M.standings);
+      if(M.inj) D.inj = M.inj;
       okBoards = (M.boards||[]).length; D.src = 'espejo'; D.mt = M.t;
     }catch(e){}
   }
+  if(sp==='nba' && D.src!=='espejo'){ try{ const j = await webGet(`${US_API}/site/v2/sports/basketball/nba/injuries`); D.inj = nbaInjParse(j); }catch(e){ try{ const M = await mirrorGet('espn-nba.json'); if(M.inj) D.inj = M.inj; }catch(e2){} } }
   if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); D.retry = 0; }
   else {
     D.err = lastErr || 'sin respuesta de ESPN';
@@ -1735,24 +1751,53 @@ async function usLoad(sp, force){
   D.loading = false;
   if(sport===sp) renderMatches();
 }
+// v35 · NBA: lesionados de ESPN {equipo: [{id, n, st}]}
+function nbaInjParse(j){
+  const out = {};
+  (j.injuries || j.teams || []).forEach(T => { const tid = String(T.id || (T.team && T.team.id) || '');
+    (T.injuries || []).forEach(x => { const a = x.athlete || {}, st = x.status || (x.type && (x.type.description || x.type.name)) || '';
+      const id = String(a.id || ''), team = String((a.team && a.team.id) || tid); if(team) (out[team] = out[team] || []).push({id, n:a.displayName||a.fullName||'', st:String(st)}); }); });
+  return out;
+}
+// puntos por partido que se pierden por jugadores fuera (los "en duda" cuentan un tercio); ~55% lo cubren los suplentes
+function nbaMiss(side){
+  const L = (usData.nba.inj||{})[String(side.id)] || [], P = (PL.nba && PL.nba.byTeam && PL.nba.byTeam[String(side.id)]) || [];
+  let pts = 0; const who = [];
+  L.forEach(x => { const out = /out/i.test(x.st), dtd = /day|question|doubt/i.test(x.st); if(!out && !dtd) return;
+    const p = P.find(q => String(q.id)===String(x.id)) || P.find(q => normName(q.name||'')===normName(x.n)); const ppg = p ? (p.ppg||0) : 0;
+    if(ppg < 6) return; pts += ppg * (out ? 1 : 0.33); who.push(`${plShort(x.n)} (${out?'fuera':'en duda'})`); });
+  return {pts: Math.min(12, pts*0.45), who};
+}
+// partido el día anterior (back-to-back): la prueba con 1.323 partidos mostró que pesa ~2 puntos en el margen
+function nbaB2B(g, side){
+  const prev = ymd(new Date(toEcuador(g.d,0).getTime()-864e5));
+  return (usData.nba.games||[]).some(x => x.id!==g.id && (x.h.id===side.id || x.a.id===side.id) && isoDateOnlyEcuador(x.d,0)===prev);
+}
 function usTeam(sp, side){
   const D = usData[sp], T = D.teams[side.id] || D.teams['n:'+normName(side.name)] || null;
   const A = US[sp].avg;
   if(!T || T.pf==null || T.pa==null) return {pf:A.pf, pa:A.pa, gp:0, est:true, T};
   const w = T.gp/(T.gp+US[sp].k);
-  return {pf:w*T.pf+(1-w)*A.pf, pa:w*T.pa+(1-w)*A.pa, gp:T.gp, est:T.gp<5, T};
+  const r = {pf:w*T.pf+(1-w)*A.pf, pa:w*T.pa+(1-w)*A.pa, gp:T.gp, est:T.gp<5, T};
+  if(sp==='nba'){ const M = nbaMiss(side); if(M.pts){ r.pf -= M.pts; r.pa += M.pts*0.25; r.miss = M; } }
+  return r;
 }
 // ---- modelos previos al partido
 function usPre(g){
   const H = usTeam(g.sp, g.h), A = usTeam(g.sp, g.a);
   const est = H.est || A.est || g.stype===1;
   if(g.sp==='nba'){
-    const eh = (H.pf+A.pa)/2 + NBA_HFA/2, ea = (A.pf+H.pa)/2 - NBA_HFA/2;
+    const bh = nbaB2B(g, g.h), ba = nbaB2B(g, g.a), hfa = NBA_HFA - (bh?2:0) + (ba?2:0);
+    const eh = (H.pf+A.pa)/2 + hfa/2, ea = (A.pf+H.pa)/2 - hfa/2;
     const mu = eh-ea, tot = eh+ea;
-    return {sp:'nba', est, H, A, eh, ea, mu, tot, pH:normCdf(mu/NBA_SD_M), pA:1-normCdf(mu/NBA_SD_M),
+    const notes = [bh && `${g.h.name} jugó ayer`, ba && `${g.a.name} jugó ayer`, H.miss && `Bajas ${g.h.name}: ${H.miss.who.join(', ')}`, A.miss && `Bajas ${g.a.name}: ${A.miss.who.join(', ')}`].filter(Boolean);
+    return {sp:'nba', est, H, A, eh, ea, mu, tot, notes, pH:normCdf(mu/NBA_SD_M), pA:1-normCdf(mu/NBA_SD_M),
       over:L=>1-normCdf((L-tot)/NBA_SD_T), cover:k=>1-normCdf((k-mu)/NBA_SD_L)};
   }
-  const lh = (H.pf+A.pa)/2*1.03, la = (A.pf+H.pa)/2*0.97;
+  // v35: lanzador abridor (ERA de la temporada, mitad hacia el promedio; el abridor cubre ~60% del partido)
+  const pm = e => e==null ? 1 : Math.max(0.8, Math.min(1.25, 1 + 0.6*((0.5*e + 0.5*4.2)/4.2 - 1)));
+  const mh = pm(g.a.sp && g.a.sp.era), ma = pm(g.h.sp && g.h.sp.era);
+  const lh = (H.pf+A.pa)/2*1.03*mh, la = (A.pf+H.pa)/2*0.97*ma;
   // v34: binomial negativa (las carreras varían más que Poisson; la prueba con 2.430 partidos lo confirmó)
   const N = 25, mat = [], ph = nbDist(lh, 4, N), pa = nbDist(la, 4, N);
   let w=0,d=0,l=0; const margin = {}; const totD = [];
@@ -2407,7 +2452,7 @@ function usRenderPicks(){
     const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
       : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
     return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador${fmStar(x.g.h.name,x.g.a.name,isoDateOnlyEcuador(x.g.d,0))}</span></div>
-      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${mkSummary(sp,x.g.h.name,x.g.a.name)}${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
+      <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${x.m.notes&&x.m.notes.length?`<div class="lv-stats" style="color:#f5b942;margin:-2px 0 6px">⚠ ${escA(x.m.notes.join(' · '))} (ya incluido en el pronóstico)</div>`:''}${mkSummary(sp,x.g.h.name,x.g.a.name)}${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
   html += doneS;
   html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo), recortados por sobreconfianza y contrastados con la cuota del mercado cuando existe. No consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
@@ -3743,7 +3788,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v34.5 · notificaciones en iPhone';
+const APP_VERSION = 'v35 · lesiones, descanso, superficie, árbitro y abridor';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4049,6 +4094,36 @@ async function updateAll(){
   if(document.getElementById('settings').classList.contains('show')) renderSettings();
 }
 
+let REFS = {lg:4.2, by:{}};
+// Busca árbitro y alineación en ESPN para los partidos de las próximas 3 horas (máx. 8 por vez) y vuelve a dibujar.
+let pmBusy = false;
+async function pmPrime(){
+  if(pmBusy) return; pmBusy = true; let ch = false;
+  try{
+    const now = Date.now(), todo = [];
+    LEAGUES.forEach(l=>(l.fixtures||[]).forEach(f=>{ const slug = (SRC[l.id]||{}).espn; if(!slug) return;
+      const ts = pkTs(f[2], l.utcOffset), dt = ts-now; if(dt < -15*60e3 || dt > 3*3600e3) return;
+      const k = l.id+'|'+f[0]+'|'+f[1]+'|'+f[2], P0 = PM[k]; if(P0 && (P0.full || now-P0.t < 15*60e3)) return; todo.push({l,f,k,slug}); }));
+    for(const x of todo.slice(0,8)){
+      try{
+        const id = await mhResolve({sp:'futbol', lid:x.l.id, slug:x.slug, fid:'u|'+x.f[2]+'|'+x.f[0], date:x.f[2], h:x.f[0], a:x.f[1]}); if(!id) continue;
+        const j = await webGet(`${ESPN_BASE}/${x.slug}/summary?event=${id}`);
+        const offs = (j.gameInfo && j.gameInfo.officials) || [], rf = offs.find(o=>/referee|árbitro|arbitro/i.test(String((o.position&&(o.position.name||o.position.displayName))||o.position||''))) || offs[0];
+        const R = Array.isArray(j.rosters) ? j.rosters : [], st = r => ((r&&r.roster)||[]).filter(p=>p.starter).map(p=>normName((p.athlete&&(p.athlete.displayName||p.athlete.fullName))||''));
+        const rh = R.find(r=>r.homeAway==='home')||R[0], ra = R.find(r=>r.homeAway==='away')||R[1], sh = st(rh), sa = st(ra), full = sh.length>=9 && sa.length>=9;
+        // goleador ausente: sus goles por partido frente a los goles por partido del equipo
+        const miss = (team, starters) => { if(!full || !x.l.scorers) return null; const T = x.l.teams[team]; if(!T || !(T.gf>0.3)) return null;
+          const S = x.l.scorers.filter(s=>sameTeam(s.t, team) && s.g>=3 && !starters.some(n=>n && (n===normName(s.p) || n.includes(normName(s.p).slice(-6)))));
+          const gpg = S.reduce((t,s)=>t+s.g/Math.max(s.m||1,1),0); return gpg ? {share: Math.min(0.6, gpg/T.gf), who: S.map(s=>`${plShort(s.p)} (${s.g} goles)`)} : null; };
+        PM[x.k] = {t:Date.now(), ref: rf ? String(rf.displayName||rf.fullName||'').slice(0,40) : '', full, outH: miss(x.f[0], sh), outA: miss(x.f[1], sa)}; ch = true;
+      }catch(e){ PM[x.k] = {t:Date.now(), err:1}; }
+    }
+  }catch(e){}
+  pmBusy = false;
+  if(ch && viewMode==='picks' && sport==='futbol') renderMatches();
+}
+// v35: datos de última hora por partido (árbitro y alineación), de ESPN, solo para partidos de las próximas 3 horas
+const PM = {};
 function buildLive(){
   const out = {};
   const stats = LS.get('ab_stats',{});
@@ -4071,6 +4146,9 @@ function buildLive(){
   }
   Object.values(byAll).forEach(a=>a.sort((x,y)=>x.f.d.localeCompare(y.f.d)));
   const lgCards = cN ? cS/cN : 2.0, lgCorners = kN ? kS/kN : 4.8;
+  // v35: tarjetas por árbitro (total del partido) a partir de los partidos guardados
+  const RF = {}; Object.values(stats).forEach(s=>{ if(s && s.ref && s.y && s.y[0]!=null && s.y[1]!=null){ const r = RF[s.ref] = RF[s.ref] || {n:0, k:0}; r.n++; r.k += s.y[0]+s.y[1]+((s.r&&s.r[0]!=null)?s.r[0]+s.r[1]:0); } });
+  REFS = {lg: lgCards*2, by: RF};
   // búsqueda tolerante: el mismo equipo puede llamarse distinto según la fuente
   const keyIndex = {}; Object.keys(byAll).forEach(k=>{ keyIndex[normName(k)] = k; });
   const histFor = n => {
