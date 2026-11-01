@@ -15,9 +15,14 @@ const KEEP_DAYS = 120;
   const browser = await chromium.launch();
   const page = await browser.newPage();
   page.on('pageerror', e => console.log('error en la app:', e.message));
-  await page.route('**/*', r => {
+  await page.route('**/*', async r => {
     const u = r.request().url();
-    for (const pre of ['http://app/', 'tomashbasurto.github.io/alexbet-web/']) {
+    // ESPN y otras APIs: se piden desde el servidor y se entregan a la página (sin problemas de permisos del navegador)
+    if (/espn\.com|the-odds-api\.com|football-data/.test(u)) {
+      try { const resp = await r.fetch({timeout: 30000}); return r.fulfill({response: resp, headers: {...resp.headers(), 'access-control-allow-origin': '*'}}); }
+      catch (e) { return r.abort(); }
+    }
+    for (const pre of ['https://alexbetpro.web.app/', 'tomashbasurto.github.io/alexbet-web/']) {
       if (u.includes(pre)) {
         const f = path.join(ROOT, (u.split(pre)[1].split('?')[0] || 'index.html'));
         return fs.existsSync(f) ? r.fulfill({path: f}) : r.fulfill({status: 404});
@@ -29,7 +34,7 @@ const KEEP_DAYS = 120;
   await page.addInitScript(() => {
     Object.defineProperty(window, 'AB', {get() { return window.__ab || (window.__ab = {premium: true}); }, set(v) { window.__ab = Object.assign(v || {}, {premium: true}); }});
   });
-  await page.goto('http://app/index.html');
+  await page.goto('https://alexbetpro.web.app/index.html');
   await page.waitForFunction(() => typeof LEAGUES !== 'undefined' && LEAGUES.some(l => l.live && l.fixtures), null, {timeout: 120000}).catch(() => console.log('fútbol no cargó a tiempo'));
   await page.evaluate(() => {
     window.publishPart = sp => {
