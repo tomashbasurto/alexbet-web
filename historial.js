@@ -67,8 +67,10 @@ const KEEP_DAYS = 120;
   for (const sp of ['futbol', 'nba', 'mlb', 'tenis']) {
     const part = await page.evaluate(async sp => {
       sport = sp; if (sp !== 'tenis') { try { await vaLoad(true); } catch (e) {} }
-      return publishPart(sp);
+      const r = publishPart(sp); r.cuotas = sp !== 'tenis' ? (VA.rows || []).length + ' partidos con cuota' + (VA.err ? ' (' + VA.err + ')' : '') : '-';
+      return r;
     }, sp).catch(e => { console.log('fallo', sp, e.message); return {picks: [], combos: [], day: null, now: Date.now()}; });
+    console.log(sp, '· cuotas ESPN:', part.cuotas, '· sugerencias hoy:', part.picks.length, '· con cuota real:', part.picks.filter(p => p.odd).length);
     fresh.picks.push(...part.picks); fresh.combos[sp] = part.combos; fresh.day = part.day || fresh.day; fresh.now = part.now;
   }
   console.log('con cuota real:', fresh.picks.filter(p => p.odd).length, 'de', fresh.picks.length);
