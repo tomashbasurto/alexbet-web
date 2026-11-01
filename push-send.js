@@ -34,7 +34,7 @@ async function init() {
       const p = f.push; if (!p || !p.token) return;
       const creado = f.creado ? Date.parse(f.creado) : 0, hasta = f.premiumHasta ? Date.parse(f.premiumHasta) : 0, now = Date.now();
       const prem = now < creado + PRUEBA_DIAS * 864e5 || now < hasta || f.email === OWNER;
-      if (prem) users.push({path: d.name, email: f.email, token: p.token, tipos: p.tipos || ['movido', 'alineacion', 'fav', 'combinadas'], favs: p.favs || []});
+      if (prem) users.push({path: d.name, email: f.email, ep: p.ep || '', token: p.token, tipos: p.tipos || ['movido', 'alineacion', 'fav', 'combinadas'], favs: p.favs || []});
     });
     if (!j.nextPageToken) break; page = j.nextPageToken;
   }
@@ -45,7 +45,7 @@ async function init() {
         webpush: {headers: {TTL: '1800', Urgency: 'high'}, fcm_options: {link: 'https://alexbetpro.web.app/'}}}})});
     if (r.ok) { sent++; return true; }
     const t = await r.text();
-    console.log('push: FCM HTTP', r.status, (u.email || ''), t.replace(/\s+/g, ' ').slice(0, 300));
+    console.log('push: FCM HTTP', r.status, (u.email || ''), u.ep, t.replace(/\s+/g, ' ').slice(0, 300));
     if (/UNREGISTERED/.test(t)) { // celular que ya no existe: se borra
       dead++; u.dead = true;
       await fetch(`https://firestore.googleapis.com/v1/${u.path}?updateMask.fieldPaths=push`, {method: 'PATCH', headers: H, body: JSON.stringify({fields: {push: {nullValue: null}}})}).catch(() => {});

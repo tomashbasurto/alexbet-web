@@ -316,9 +316,13 @@ window.abPushEnable = async tipos => {
   const reg = await navigator.serviceWorker.ready;
   const M = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-messaging.js`);
   const messaging = M.getMessaging();
+  // registro limpio: borra un registro viejo guardado en este celular (en iPhone a veces queda uno inválido)
+  try { await M.deleteToken(messaging); } catch (e) {}
+  try { const old = await reg.pushManager.getSubscription(); if (old) await old.unsubscribe(); } catch (e) {}
   const token = await M.getToken(messaging, {vapidKey: VAPID, serviceWorkerRegistration: reg});
   if (!token) throw new Error('No se pudo registrar este celular');
-  const push = {token, tipos: tipos || PUSH_TIPOS.map(t => t[0]), favs: typeof window.favList === 'function' ? window.favList().slice(0, 50) : [], t: Date.now(), ua: navigator.userAgent.slice(0, 80)};
+  let ep = ''; try { const sub = await reg.pushManager.getSubscription(); ep = sub ? new URL(sub.endpoint).host : 'sin suscripción'; } catch (e) { ep = 'error'; }
+  const push = {token, ep, tipos: tipos || PUSH_TIPOS.map(t => t[0]), favs: typeof window.favList === 'function' ? window.favList().slice(0, 50) : [], t: Date.now(), ua: navigator.userAgent.slice(0, 80)};
   await fb.F.updateDoc(fb.F.doc(fb.db, 'users', AB.uid), {push});
   if (AB.user) AB.user.push = push;
   return push;
