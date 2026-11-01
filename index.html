@@ -1360,7 +1360,7 @@ function renderPicks(){
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  let html = ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), cbHTML()) : '') + pkDayHTML(p=>p.sp==='futbol' && (activeLeague==='all'||p.lid===activeLeague));
+  let html = ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), cbHTML('futbol')) : '') + pkDayHTML(p=>p.sp==='futbol' && (activeLeague==='all'||p.lid===activeLeague));
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
       const k = x.pk.picks[0], ri = pkReg('futbol', x.l.id, x.f[0], x.f[1], x.f[2], pkTs(x.f[2], x.l.utcOffset), null, k);
@@ -2345,7 +2345,7 @@ function usRenderPicks(){
   }
   if(!items.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
-  let html = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), cbHTML()) : '') + pkDayHTML(p=>p.sp===sp);
+  let html = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), cbHTML(sp)) : '') + pkDayHTML(p=>p.sp===sp);
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
     const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
     return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')"><div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}</div>`;
@@ -3665,7 +3665,7 @@ const SRC = {
   mex:        {             espn:'mex.1', primary:'espn'},
   mls:        {             espn:'usa.1', primary:'espn'},
 };
-const APP_VERSION = 'v31 · combinadas AlexBet';
+const APP_VERSION = 'v32 · combinadas por deporte';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
