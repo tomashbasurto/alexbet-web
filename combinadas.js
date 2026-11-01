@@ -8,11 +8,15 @@
 
 const CB = {tab: 'hoy'};
 const CB_TIERS = [
-  {k: 'seg', name: 'Seguras', min: 2.0, max: 2.5, n: 5, want: 3, sizes: [2, 3], minP: 62, maxP: 99, maxO: 1.75},
-  {k: 'med', name: 'Medias', min: 3.5, max: 5.0, n: 2, want: 2, sizes: [3, 4], minP: 60, maxP: 74, maxO: 2.0},
-  {k: 'alt', name: 'Altas', min: 5.0001, max: 10, n: 2, want: 2, sizes: [3, 4, 5], minP: 55, maxP: 70, maxO: 2.3}
+  {k: 'seg', name: 'Seguras', min: 2.0, max: 2.5, n: 5, want: 3, sizes: [2, 3, 4], minP: 62, maxP: 99, maxO: 1.75},
+  {k: 'med', name: 'Medias', min: 3.5, max: 5.0, n: 2, want: 2, sizes: [3, 4, 5], minP: 58, maxP: 74, maxO: 2.0},
+  {k: 'alt', name: 'Altas', min: 5.0001, max: 10, n: 2, want: 2, sizes: [4, 5], minP: 55, maxP: 68, maxO: 2.3}
 ];
 const cbDay = () => ymd(todayDate);
+// Las casas pagan menos que la cuota justa (se quedan un margen de ~7% por selección).
+// Sin cuota real, la cuota que se muestra es la estimada de la casa: cuota justa x 0.93.
+const CB_MARGIN = 0.93, CB_CV = 2;
+const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
 const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
 // historial: {día: {deporte: {t, combos, lock}}}
 function cbAll() {
@@ -31,8 +35,8 @@ function cbLegs(want) {
   const push = (sp, lid, h, a, when, ts, gid, k, where) => {
     if (ts < now + 10 * 60e3) return; // solo partidos que todavía no empiezan
     const mkt = pkMkt(k.label, h, a); if (!mkt) return;
-    const odds = k.odd > 1 ? k.odd : 100 / k.prob;
-    out.push({sp, lid, h, a, when, ts, gid, label: k.label, cat: k.cat, prob: k.prob, raw: k.raw, odds: +odds.toFixed(2), real: k.odd > 1, mkt, where, res: null});
+    const fair = 100 / k.prob, odds = k.odd > 1 ? k.odd : cbEst(fair);
+    out.push({sp, lid, h, a, when, ts, gid, label: k.label, cat: k.cat, prob: k.prob, raw: k.raw, odds: +odds.toFixed(2), fair: +fair.toFixed(2), real: k.odd > 1, mkt, where, res: null});
   };
   try {
     if (want === 'futbol') LEAGUES.forEach(l => l.fixtures.forEach(f => {
@@ -49,7 +53,7 @@ function cbLegs(want) {
       const ts = Date.parse(m.d + (m.d.length <= 16 ? ':00Z' : '')), h = m.p[0].name, a = m.p[1].name;
       if (m.tv && ts < now + 10 * 60e3) return;
       tnCands(m, M).slice(0, 2).forEach(k => { const c = cat(k.label), q = calP(c, k.prob, false); if (q < 55) return;
-        out.push({sp: 'tenis', lid: m.tour, h, a, when: m.d, ts, gid: m.id, label: k.label, cat: c, prob: q, raw: k.prob, odds: +(100 / q).toFixed(2), real: false, mkt: {t: 'tn'}, where: TN_TOURS[m.tour].name + ' ' + m.ev, res: null}); });
+        out.push({sp: 'tenis', lid: m.tour, h, a, when: m.d, ts, gid: m.id, label: k.label, cat: c, prob: q, raw: k.prob, odds: +cbEst(100 / q).toFixed(2), fair: +(100 / q).toFixed(2), real: false, mkt: {t: 'tn'}, where: TN_TOURS[m.tour].name + ' ' + m.ev, res: null}); });
     });
   } catch (e) {}
   ['nba', 'mlb'].filter(sp => sp === want).forEach(sp => {
@@ -60,7 +64,7 @@ function cbLegs(want) {
       });
     } catch (e) {}
   });
-  return out.filter(x => x.odds >= 1.2).sort((x, y) => y.prob - x.prob);
+  return out.filter(x => x.odds >= 1.12).sort((x, y) => y.prob - x.prob);
 }
 
 const cbPj = c => c.reduce((a, l) => a * l.prob / 100, 1);
@@ -90,7 +94,7 @@ function cbBuildTier(T, all, usedGlobal, sp) {
     pick.push(c);
   }
   return pick.map((c, i) => ({
-    id: cbDay() + '|' + sp + '|' + T.k + i, sp, tier: T.k, legs: c.map(l => ({...l})), odds: +c.reduce((a, l) => a * l.odds, 1).toFixed(2),
+    id: cbDay() + '|' + sp + '|' + T.k + i, sp, tier: T.k, legs: c.map(l => ({...l})), odds: +c.reduce((a, l) => a * l.odds, 1).toFixed(2), fair: +c.reduce((a, l) => a * (l.fair || 100 / l.prob), 1).toFixed(2),
     prob: Math.round(cbPj(c) * 100), ts: Math.max(...c.map(l => l.ts)), first: Math.min(...c.map(l => l.ts)), status: 'p'
   }));
 }
@@ -101,7 +105,9 @@ const cbFull = C => CB_TIERS.every(T => cbCount(C, T.k) >= T.want);
 
 // Se arman una vez al día. Si falta algún nivel, se reintenta hasta que empiece el primer partido.
 function cbToday(sp) {
-  const all = cbAll(), day = cbDay(), D = all[day] = all[day] || {}, cur = D[sp];
+  const all = cbAll(), day = cbDay(), D = all[day] = all[day] || {};
+  if (D[sp] && D[sp].cv !== CB_CV && !D[sp].combos.some(c => c.first <= Date.now())) delete D[sp]; // armadas con cuotas viejas
+  const cur = D[sp];
   if (cur && (cur.lock || cbFull(cur.combos))) return cur;
   if (cur && cur.combos.some(c => c.first <= Date.now())) { cur.lock = true; LS.set('ab_cb2', all); return cur; }
   if ((sp === 'nba' || sp === 'mlb') && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
@@ -109,7 +115,7 @@ function cbToday(sp) {
   const M = (CB.memo = CB.memo || {})[sp]; if (M && Date.now() - M.t < 90e3) return M.D; // no recalcular en cada toque
   const combos = cbBuild(sp);
   if (!combos.length && !cur) return {combos: [], lock: false};
-  if (!cur || combos.length >= cur.combos.length) D[sp] = {t: Date.now(), combos, lock: cbFull(combos)};
+  if (!cur || combos.length >= cur.combos.length) D[sp] = {t: Date.now(), combos, lock: cbFull(combos), cv: CB_CV};
   const ks = Object.keys(all).sort(); if (ks.length > 60) ks.slice(0, ks.length - 60).forEach(k => delete all[k]);
   LS.set('ab_cb2', all);
   CB.memo[sp] = {t: Date.now(), D: D[sp] || {combos: [], lock: false}};
@@ -159,14 +165,14 @@ function cbHTML(sp) {
   h += CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k);
     return `<div class="cb-t">${T.name} · cuota ${T.k === 'alt' ? 'mayor a 5' : T.min.toFixed(2) + ' a ' + T.max.toFixed(2)}</div>` + (G.length ? G.map((c, i) => cbCard(c, `${T.name.slice(0, -1)} ${i + 1}`)).join('') : `<div class="pl-none" style="padding:6px 0">Hoy no hay selecciones suficientes para este nivel.</div>`); }).join('');
   const est = C.some(c => c.legs.some(l => !l.real));
-  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} Dentro de cada combinada, cada selección es de un partido distinto. ${est ? '* cuota justa del modelo (sin cuota real de la casa); juega solo si tu casa paga igual o más. ' : ''}A más cuota, más riesgo: las altas se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
+  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} Dentro de cada combinada, cada selección es de un partido distinto. ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las altas se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
   return h;
 }
 function cbCard(c, title) {
   return `<div class="cb-c"><div class="cb-hd"><b>${title}</b><span>${cbMark(c.status)} ${c.legs.length} selecciones</span></div>` +
     c.legs.map(l => { const f = l.sp === 'tenis' && TN.m[l.gid] && !TN.m[l.gid].tv ? {time: 'hora por conf.'} : fmtParts(l.when, l.sp === 'futbol' ? (LEAGUES.find(x => x.id === l.lid) || {}).utcOffset || 0 : 0);
-      return `<div class="cb-l"><div><b>${escA(l.label)}${l.res === 1 ? ' ✔' : l.res === 0 ? ' ✖' : ''}</b><small>${escA(cbSpName(l))} · ${escA(l.h)} vs ${escA(l.a)} · ${f.time}</small></div><span>${l.prob}%<small>${l.odds.toFixed(2)}${l.real ? '' : '*'}</small></span></div>`; }).join('') +
-    `<div class="cb-ft"><span>Prob. de acertar <b>${c.prob}%</b></span><span>Cuota <b>${c.odds.toFixed(2)}</b></span></div></div>`;
+      return `<div class="cb-l"><div><b>${escA(l.label)}${l.res === 1 ? ' ✔' : l.res === 0 ? ' ✖' : ''}</b><small>${escA(cbSpName(l))} · ${escA(l.h)} vs ${escA(l.a)} · ${f.time}</small></div><span>${l.prob}%<small>${l.real ? '' : '≈'}${l.odds.toFixed(2)}</small></span></div>`; }).join('') +
+    `<div class="cb-ft"><span>Prob. de acertar <b>${c.prob}%</b></span><span>Cuota ${c.legs.every(l => l.real) ? '' : 'aprox. '}<b>${c.odds.toFixed(2)}</b></span></div></div>`;
 }
 function cbResHTML(sp) {
   const all = cbAll(), days = Object.keys(all).sort().reverse();
