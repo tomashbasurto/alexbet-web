@@ -12,7 +12,7 @@ const KEYS = [null, ['wonCorners'], ['shotsOnTarget', 'shotsOnGoal'], ['totalSho
 async function get(url) {
   for (let i = 0; i < 3; i++) {
     try {
-      const r = await fetch(url, {headers: {'User-Agent': 'Mozilla/5.0 AlexBet'}, signal: AbortSignal.timeout(20000)});
+      const r = await fetch(url, {headers: {'User-Agent': 'Mozilla/5.0 AlexBet'}, signal: AbortSignal.timeout(10000)});
       if (r.ok) return r.json();
       if (r.status === 404) return null;
     } catch (e) {}
@@ -57,7 +57,12 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
     S.ev[e.id] = [Date.parse(e.date), lg, H.team.id, A.team.id, H.team.shortDisplayName || H.team.displayName, A.team.shortDisplayName || A.team.displayName, h, a];
     ok++;
   };
-  for (let i = 0; i < todo.length; i += 8) await Promise.all(todo.slice(i, i + 8).map(one));
+  // límite de 25 minutos por vuelta: lo que falte se completa en la siguiente (cada 6 horas)
+  const t0 = Date.now(); todo.sort((x, y) => Date.parse(y[2].date) - Date.parse(x[2].date));
+  for (let i = 0; i < todo.length; i += 8) {
+    if (Date.now() - t0 > 25 * 60e3) { console.log('Tiempo agotado: faltan', todo.length - i, 'para la próxima vuelta'); break; }
+    await Promise.all(todo.slice(i, i + 8).map(one));
+  }
   // 3) limpiar y guardar
   for (const [id, r] of Object.entries(S.ev)) if (r[0] < lim) delete S.ev[id];
   S.t = Date.now(); S.keys = ['goles', 'corners', 'tirosArco', 'tiros', 'amarillas', 'rojas', 'faltas', 'posesion'];
