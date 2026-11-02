@@ -15,6 +15,7 @@ async function get(url) {
       const r = await fetch(url, {headers: {'User-Agent': 'Mozilla/5.0 AlexBet'}, signal: AbortSignal.timeout(10000)});
       if (r.ok) return r.json();
       if (r.status === 404) return null;
+      if (!get.logged) { get.logged = 1; console.log('ESPN respondió', r.status, 'en', url); }
     } catch (e) {}
     await new Promise(ok => setTimeout(ok, 1500 * (i + 1)));
   }
@@ -27,19 +28,24 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
   try { S = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) {}
   const lim = Date.now() - DAYS * 864e5, names = new Set();
   // 1) partidos terminados de cada liga (por tramos de 30 días)
-  const todo = [], T0 = Date.now();
+  const todo = [], T0 = Date.now(), seen = new Set();
+  const done = e => { const c = (e.competitions || [])[0] || {}, st = c.status || e.status || {}; return !!(st.type && st.type.completed); };
   await Promise.all(Object.entries(LG).map(async ([lg, code]) => {
-    let n = 0; const W = [];
-    for (let a = lim; a < Date.now(); a += 30 * 864e5) W.push(`${API}${code}/scoreboard?limit=400&dates=${ymd(new Date(a))}-${ymd(new Date(Math.min(Date.now(), a + 29 * 864e5)))}`);
-    const R = await Promise.all(W.map(get));
-    R.forEach(j => (j && j.events || []).forEach(e => { if (e.status && e.status.type && e.status.type.completed && !S.ev[e.id]) { todo.push([lg, code, e]); n++; } }));
-    console.log(lg, 'nuevos:', n, '· tramos sin respuesta:', R.filter(x => !x).length);
+    const tj = await get(`${API}${code}/teams`);
+    const teams = ((tj && tj.sports && tj.sports[0] && tj.sports[0].leagues && tj.sports[0].leagues[0] && tj.sports[0].leagues[0].teams) || []).map(t => t.team && t.team.id).filter(Boolean);
+    let n = 0, fail = 0;
+    for (let i = 0; i < teams.length; i += 6) {
+      const R = await Promise.all(teams.slice(i, i + 6).map(id => get(`${API}${code}/teams/${id}/schedule`)));
+      R.forEach(j => { if (!j) { fail++; return; } (j.events || []).forEach(e => { if (!done(e) || Date.parse(e.date) < lim || S.ev[e.id] || seen.has(e.id)) return; seen.add(e.id); todo.push([lg, code, e]); n++; }); });
+    }
+    console.log(lg, 'equipos:', teams.length, '· nuevos:', n, '· sin respuesta:', fail);
   }));
   console.log('Búsqueda de partidos:', Math.round((Date.now() - T0) / 1000), 's · por pedir:', todo.length);
   // 2) estadísticas de cada partido nuevo (8 a la vez)
   let ok = 0, sinStats = 0;
   const one = async ([lg, code, e]) => {
     const c = e.competitions && e.competitions[0]; if (!c) return;
+    const sc = x => { const v = x.score; return v == null ? 0 : typeof v === 'object' ? (+(v.value ?? v.displayValue) || 0) : (+v || 0); };
     const H = c.competitors.find(x => x.homeAway === 'home'), A = c.competitors.find(x => x.homeAway === 'away'); if (!H || !A) return;
     const j = await get(`${API}${code}/summary?event=${e.id}`); if (!j) return;
     const bt = (j.boxscore && j.boxscore.teams) || [];
@@ -47,7 +53,7 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
       const t = bt.find(x => x.team && String(x.team.id) === String(cmp.id)), st = (t && t.statistics) || [];
       st.forEach(s => names.add(s.name));
       return KEYS.map((k, i) => {
-        if (!i) return +cmp.score || 0;
+        if (!i) return sc(cmp);
         const s = st.find(x => k.includes(x.name)); if (!s) return null;
         const v = parseFloat(s.displayValue ?? s.value); return isNaN(v) ? null : v;
       });
