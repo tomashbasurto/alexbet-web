@@ -14,7 +14,7 @@ function tnSurface(name, iso) {
   const n = String(name || '').toLowerCase(), mo = iso ? new Date(iso).getUTCMonth() + 1 : 0;
   if (/stuttgart/.test(n)) return mo >= 6 && mo <= 7 ? 'g' : 'c';
   if (/wimbledon|halle|queen|hertogenbosch|libema|mallorca|eastbourne|newport|berlin|nottingham|birmingham|bad homburg|grass/.test(n)) return 'g';
-  if (/roland|french open|madrid|rome|italian|internazionali|monte|barcelona|hamburg|gstaad|kitzb|umag|bastad|nordea|buenos aires|rio |rio open|santiago|chile|estoril|geneva|lyon|bucharest|houston|marrakech|munich|bmw open|charleston|bogota|rabat|strasbourg|palermo|prague|budapest|lausanne|iasi|cluj|parma|clay|cordoba|morocco|tiriac/.test(n)) return 'c';
+  if (/roland|french open|madrid|rome|italian|internazionali|monte|barcelona|hamburg|gstaad|kitzb|umag|bastad|nordea|buenos aires|rio |rio open|santiago|chile|estoril|geneva|lyon|bucharest|houston|marrakech|munich|bmw open|charleston|bogota|rabat|strasbourg|palermo|prague|budapest|lausanne|iasi|cluj|parma|clay|cordoba|morocco|tiriac|altesse|lalla|hassan|generali|plava laguna|parc|mutua|bnl|swedish open|cagliari|oeiras|braga|sardegna|bad gastein|iasi|hamburg european/.test(n)) return 'c';
   return 'h';
 }
 (async()=>{
