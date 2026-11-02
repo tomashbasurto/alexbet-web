@@ -92,6 +92,17 @@ async function tnLoad(force) {
   }
 }
 
+// cara a cara: cada enfrentamiento del último año con fecha, torneo, superficie y marcador (desde el jugador A)
+function tnH2HHTML(m, A, B) {
+  if (!m.h2h) return '';
+  const SF = {h: 'dura', c: 'arcilla', g: 'césped'}, L = m.h2hList || [];
+  const rows = L.map(x => `<div class="h2h-r"><span class="h2h-w ${x.winA ? 'a' : 'b'}">${x.winA ? escA(A.short) : escA(B.short)}</span><div><b>${escA(x.score || '-')}</b><small>${x.d.split('-').reverse().join('/')} · ${escA(x.ev)}${x.rd ? ' · ' + escA(x.rd) : ''} · ${SF[x.s] || ''}</small></div></div>`).join('');
+  const sf = tnSurface(m.ev, m.d), same = L.filter(x => x.s === sf), wa = same.filter(x => x.winA).length;
+  return `<div class="prob-card"><h3><span class="dot"></span>Cara a cara (último año)</h3>
+    <div class="h2h-top"><div><b>${m.h2h[0]}</b><small>${escA(A.short)}</small></div><span>vs</span><div><b>${m.h2h[1]}</b><small>${escA(B.short)}</small></div></div>
+    ${same.length && same.length < L.length ? `<div class="lv-stats" style="justify-content:center;margin-top:0">En ${SF[sf]}: ${escA(A.short)} ${wa} - ${same.length - wa} ${escA(B.short)}</div>` : ''}
+    ${rows}<div class="lv-stats" style="margin-top:4px">El cara a cara mueve la probabilidad hasta 5 puntos; pesa más la forma y el nivel actual (Elo).</div></div>`;
+}
 function tnDetail(t) { const m = String(t).match(/^(\d)(st|nd|rd|th)/i); return m ? 'Set ' + m[1] : t; }
 
 // ---------- Modelo ----------
@@ -169,7 +180,7 @@ function tnModelCalc(m) {
     pMatch = 1 / (1 + Math.pow(10, (rb - ra) / 400)); A.elo = Math.round(ra); B.elo = Math.round(rb); m.surf = sf;
     // cara a cara (2+ partidos en el último año): hasta ±5 puntos
     const H2 = TN.elo.h2h || {}, ia = String(m.p[0].id), ib = String(m.p[1].id), hk = ia < ib ? ia + '|' + ib : ib + '|' + ia, h = H2[hk];
-    if (h) { const wa = ia < ib ? h[0] : h[1], wb = ia < ib ? h[1] : h[0]; pMatch += Math.max(-0.05, Math.min(0.05, 0.02 * (wa - wb))); m.h2h = [wa, wb]; }
+    if (h) { const wa = ia < ib ? h[0] : h[1], wb = ia < ib ? h[1] : h[0]; pMatch += Math.max(-0.05, Math.min(0.05, 0.02 * (wa - wb))); m.h2h = [wa, wb]; m.h2hList = (h[2] || []).map(x => ({d: x[0], ev: x[1], s: x[2], winA: (x[3] === 0) === (ia < ib), score: ia < ib ? x[4] : x[4].split(' ').map(q => q.split('-').reverse().join('-')).join(' '), rd: x[5] || ''})); }
     pMatch = Math.max(0.05, Math.min(0.95, pMatch));
   }
   else pMatch = 0.5 + (pMatch - 0.5) * 0.7;
@@ -407,8 +418,9 @@ function tnOpen(id, keep) {
     <div class="prob-card"><h3><span class="dot"></span>Gana al menos un set</h3><div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">${tile(tnPc(M.oneA), escA(A.short))}${tile(tnPc(M.oneB), escA(B.short))}</div></div>
     <div class="prob-card"><h3><span class="dot"></span>Total de juegos (esperados ${M.exp.toFixed(1)})</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${M.lines.map(Lx => tile(tnPc(M.over(Lx)), 'Más de ' + Lx)).join('')}</div>
       <div class="lv-stats" style="justify-content:center;">Estimación según el saque típico del circuito: tómalo como referencia.</div></div>
+    ${tnH2HHTML(m, A, B)}
     <div class="prob-card"><h3><span class="dot"></span>Jugadores</h3>${info(A, M.A)}${info(B, M.B)}</div>
-    <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo: puntos del ranking ${TN_TOURS[m.tour].name} y forma en los torneos recientes (ESPN), sets y juegos simulados con el saque típico del circuito. No considera superficie, lesiones ni cuotas. No garantiza el resultado.</div>`;
+    <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo: rating Elo general y por superficie (resultados de ESPN; si no hay, ranking ${TN_TOURS[m.tour].name}) más el cara a cara; sets y juegos simulados con el saque típico del circuito. No considera lesiones ni cuotas. No garantiza el resultado.</div>`;
   document.getElementById('detailContent').innerHTML = html;
   if (!keep) {
     document.getElementById('home').classList.add('hide');

@@ -27,7 +27,8 @@ function tnSurface(name, iso) {
       if(/retired|walkover/i.test((st.name||'')+' '+(st.description||''))) return;
       const cs = (c.competitors||[]).slice().sort((p,q)=>(p.order||0)-(q.order||0)); if(cs.length!==2) return;
       const w = cs.findIndex(x=>x.winner===true); if(w<0) return;
-      M[c.id] = {d:c.date, a:String(cs[0].id), b:String(cs[1].id), w, s:tnSurface(e.name || e.shortName, c.date)};
+      const sets = cs.map(x => (x.linescores || []).map(q => Math.round(q.value || 0)));
+      M[c.id] = {d:c.date, a:String(cs[0].id), b:String(cs[1].id), w, s:tnSurface(e.name || e.shortName, c.date), ev:(e.name || e.shortName || '').slice(0, 40), rd:((c.round && c.round.displayName) || '').slice(0, 20), sets};
     }))));
   }
   const L = Object.values(M).sort((x,y)=>x.d.localeCompare(y.d)), E = {}, N = {}, ES = {}, NS = {}, H2H = {};
@@ -38,10 +39,13 @@ function tnSurface(name, iso) {
     const ka = m.a+'|'+m.s, kb = m.b+'|'+m.s, sa = ES[ka]??(E[m.a]-32*(s-pA)), sb = ES[kb]??(E[m.b]-32*((1-s)-(1-pA))), qA = 1/(1+Math.pow(10,(sb-sa)/400));
     ES[ka] = sa+32*(s-qA); ES[kb] = sb+32*((1-s)-(1-qA)); NS[ka]=(NS[ka]||0)+1; NS[kb]=(NS[kb]||0)+1;
     // cara a cara
-    const [x, y] = m.a < m.b ? [m.a, m.b] : [m.b, m.a], winner = m.w===0 ? m.a : m.b, h = H2H[x+'|'+y] = H2H[x+'|'+y] || [0,0]; h[winner===x?0:1]++;
+    const [x, y] = m.a < m.b ? [m.a, m.b] : [m.b, m.a], winner = m.w===0 ? m.a : m.b, h = H2H[x+'|'+y] = H2H[x+'|'+y] || [0,0,[]]; h[winner===x?0:1]++;
+    // detalle de cada enfrentamiento (marcador visto desde el jugador "x")
+    const sx = m.a===x ? m.sets[0] : m.sets[1], sy = m.a===x ? m.sets[1] : m.sets[0];
+    h[2].push([m.d.slice(0,10), m.ev, m.s, winner===x ? 0 : 1, sx.map((v,i)=>v+'-'+(sy[i]??0)).join(' '), m.rd]);
   }
   const r = {}; Object.keys(E).forEach(id=>{ if(N[id]>=8){ const sf = {}; ['h','c','g'].forEach(k=>{ if((NS[id+'|'+k]||0)>=5) sf[k] = [Math.round(ES[id+'|'+k]), NS[id+'|'+k]]; }); r[id] = [Math.round(E[id]), N[id], sf]; } });
-  const h2h = {}; Object.entries(H2H).forEach(([k,v])=>{ if(v[0]+v[1]>=2) h2h[k] = v; });
+  const h2h = {}; Object.entries(H2H).forEach(([k,v])=>{ if(v[0]+v[1]>=2) h2h[k] = [v[0], v[1], v[2].slice(-6).reverse()]; });
   if(Object.keys(r).length < 100){ console.log('muy pocos jugadores, no se guarda', Object.keys(r).length); return; }
   fs.writeFileSync('elo-tenis.json', JSON.stringify({t:now, partidos:L.length, r, h2h}));
   console.log('elo-tenis.json', L.length, 'partidos', Object.keys(r).length, 'jugadores');
