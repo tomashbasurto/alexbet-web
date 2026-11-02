@@ -406,7 +406,7 @@
   .dt-tabs button.on{ border-color:var(--accent); color:var(--accent); }
   #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a){ display:none !important; }
   .cd-tb{ margin-top:10px; font-size:13px; }
-  .cd-r{ display:grid; grid-template-columns:1fr 62px 46px 46px; gap:6px; align-items:center; padding:7px 0; border-top:1px solid var(--line); }
+  .cd-r{ display:grid; grid-template-columns:1fr 60px 52px 46px; gap:6px; align-items:center; padding:7px 0; border-top:1px solid var(--line); }
   .cd-r > span{ text-align:right; } .cd-r b{ font-size:14px; } .cd-r small{ display:block; font-size:10.5px; color:var(--ink-dim); }
   .cd-hd{ border-top:none; padding:0 0 2px; } .cd-hd span{ font-size:10px; line-height:1.2; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.3px; }
   .cd-mo{ font-weight:700; font-size:14px; } .cd-bd{ display:table; margin-top:3px; font-size:10.5px; padding:0 7px; border-radius:999px; border:1px solid #f5b942; color:#f5b942; }
@@ -3644,24 +3644,34 @@ function pbTeamId(lid, name){
     if(sameTeam(r[4], name)){ id = String(r[2]); break; } if(sameTeam(r[5], name)){ id = String(r[3]); break; } } if(id) break; }
   return PBI[k] = id;
 }
+const H2X = {};
+function h2xLoad(lid){ if(H2X[lid]) return; H2X[lid] = {loading:1}; mirrorGet('h2h-'+lid+'.json').then(j=>{ H2X[lid] = j||{ev:{}}; if(sport==='futbol' && viewMode==='matches') renderMatches(); }).catch(()=>{ H2X[lid] = {ev:{}}; }); }
+// cada partido se normaliza a {g1,g2,cor,car}: goles de cada lado, córners y tarjetas del partido
 const CD_M = [
-  {k:'Más de 2.5 goles', p:'over25', f:(a,b)=>a[0]+b[0]>2.5},
-  {k:'Ambos anotan', p:'btts', f:(a,b)=>a[0]>0&&b[0]>0},
-  {k:'Más de 3.5 tarjetas', p:'over35cards', f:(a,b)=>a[4]==null||b[4]==null?null:a[4]+(a[5]||0)+b[4]+(b[5]||0)>3.5},
-  {k:'Más de 8.5 córners', p:'over85corners', f:(a,b)=>a[1]==null||b[1]==null?null:a[1]+b[1]>8.5}];
+  {k:'Más de 1.5 goles', p:'over15', f:x=>x.g1+x.g2>1.5},
+  {k:'Más de 2.5 goles', p:'over25', f:x=>x.g1+x.g2>2.5},
+  {k:'Ambos anotan', p:'btts', f:x=>x.g1>0&&x.g2>0},
+  {k:'Más de 3.5 tarjetas', p:'over35cards', f:x=>x.car==null?null:x.car>3.5},
+  {k:'Más de 8.5 córners', p:'over85corners', f:x=>x.cor==null?null:x.cor>8.5}];
+const cdN = g => ({id:g.id, ts:g.ts, g1:g.us[0], g2:g.them[0], cor:g.us[1]==null||g.them[1]==null?null:g.us[1]+g.them[1], car:g.us[4]==null||g.them[4]==null?null:g.us[4]+(g.us[5]||0)+g.them[4]+(g.them[5]||0)});
+function cdH2H(lid, hid, aid, gh){
+  h2xLoad(lid); const m = {};
+  gh.filter(g=>g.oppId===aid).forEach(g=>{ m[g.id] = cdN(g); });
+  Object.entries((H2X[lid]&&H2X[lid].ev)||{}).forEach(([id,r])=>{ if(m[id]) return; if(!((r[1]===hid&&r[2]===aid)||(r[1]===aid&&r[2]===hid))) return; m[id] = {id, ts:r[0], g1:r[3], g2:r[4], cor:r[5], car:r[6]}; });
+  return Object.values(m).sort((x,y)=>y.ts-x.ts).slice(0,5);
+}
 function cdTable(L, hn, an, p){
   if(!PB.S){ pbLoad(); return ''; }
-  const hid = pbTeamId(L.id, hn), aid = pbTeamId(L.id, an);
-  const G = id => id ? pbGames(id) : [], gh = G(hid), ga = G(aid), hh = gh.filter(g=>g.oppId===aid);
-  const cnt = (list, m) => { const v = list.map(g=>m.f(g.us, g.them)).filter(x=>x!=null); return {y:v.filter(Boolean).length, n:v.length}; };
+  const hid = pbTeamId(L.id, hn), aid = pbTeamId(L.id, an); if(!hid && !aid) return '';
+  const G = id => id ? pbGames(id).map(cdN) : [], gh = G(hid), ga = G(aid), hh = hid&&aid ? cdH2H(L.id, hid, aid, pbGames(hid)) : [];
+  const cnt = (list, m) => { const v = list.map(m.f).filter(x=>x!=null); return {y:v.filter(Boolean).length, n:v.length}; };
   const rows = CD_M.map(m=>{
-    const a = cnt(gh.filter(g=>m.f(g.us,g.them)!=null).slice(0,10), m), b = cnt(ga.filter(g=>m.f(g.us,g.them)!=null).slice(0,10), m), h = cnt(hh, m);
+    const a = cnt(gh.filter(x=>m.f(x)!=null).slice(0,10), m), b = cnt(ga.filter(x=>m.f(x)!=null).slice(0,10), m), h = cnt(hh, m);
     const y = a.y+b.y, n = a.n+b.n, pr = n ? Math.round(y/n*100) : null, mo = p[m.p];
     const bad = pr!=null && n>=10 && Math.abs(pr-mo)>15;
     return `<div class="cd-r"><div>${m.k}${bad?'<span class="cd-bd">no coinciden</span>':''}</div><span>${n?`<b>${y}/${n}</b><small>${pr}%</small>`:'—'}</span><span>${h.n?`<b>${h.y}/${h.n}</b>`:'—'}</span><span class="cd-mo">${mo}%</span></div>`; }).join('');
-  if(!hid && !aid) return '';
   const ts = p.topScore ? `<div class="cd-ts">Marcador más probable (modelo): <b>${p.topScore.h}-${p.topScore.a}</b></div>` : '';
-  return `<div class="cd-tb"><div class="cd-r cd-hd"><div></div><span>Pasó<br>últ. 10+10</span><span>Entre<br>ellos</span><span>Modelo</span></div>${rows}${ts}</div>`;
+  return `<div class="cd-tb"><div class="cd-r cd-hd"><div></div><span>Pasó<br>últ. 10+10</span><span>Últimos ${hh.length||5}<br>entre ellos</span><span>Modelo</span></div>${rows}${ts}</div>`;
 }
 function renderMatches(){
   if(sport==='tenis' && ['matches','picks','live','value'].includes(viewMode)){ tnRender(); return; }
@@ -4078,7 +4088,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v37.2 · tarjeta: pasó, entre ellos y modelo';
+const APP_VERSION = 'v37.3 · últimos 5 entre ellos y +1.5 goles';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

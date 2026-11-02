@@ -27,7 +27,8 @@ jobs:
         run: |
           git config user.name "alexbet-bot"
           git config user.email "alexbet-bot@users.noreply.github.com"
-          git add stats-futbol.json 2>/dev/null || exit 0
+          git add stats-futbol.json 2>/dev/null || true
+          git add h2h-*.json 2>/dev/null || true
           git diff --staged --quiet && exit 0
           git commit -m "Estadisticas futbol"
           for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
