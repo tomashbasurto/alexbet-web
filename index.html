@@ -420,6 +420,9 @@
   .pb-per{ display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:10px; } .pb-per button{ padding:6px 2px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 11px var(--font-body); cursor:pointer; }
   .pb-per button b{ display:block; font-size:14px; color:var(--ink); } .pb-per button.on{ border-color:var(--accent); }
   .pb-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; font-size:13.5px; }
+  .pb-ctl{ display:flex; flex-direction:column; align-items:stretch; gap:6px; }
+  .pb-ctl input{ width:78px; height:34px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:700 15px var(--font-body); text-align:center; padding:0 4px; }
+  .pb-ctl input:focus{ outline:none; border-color:var(--accent); }
   .pb-line button{ width:36px; height:32px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:700 16px var(--font-body); cursor:pointer; }
   /* ---------- Cuentas y Premium ---------- */
   #abGate{ position:fixed; inset:0; z-index:80; display:none; overflow:auto; background:var(--bg); background-image:var(--bg-img); }
@@ -3806,7 +3809,7 @@ function pbGames(id){
 }
 const pbAvg = a => a.length ? a.reduce((t,x)=>t+x,0)/a.length : null;
 function pbPois(lam, ln){ let c = 0, t = Math.exp(-lam); for(let k=0;k<=Math.floor(ln);k++){ c += t; t *= lam/(k+1); } return 1-c; }
-function pbPick(kind, v){ if(kind==='m'){ PB.m = v; PB.ln = null; } else if(kind==='t'){ PB.t = v; PB.ln = null; } else if(kind==='p') PB.per = v; else if(kind==='l') PB.ln = Math.max(0.5, PB.ln + v); pbRender(); }
+function pbPick(kind, v){ if(kind==='m'){ PB.m = v; PB.ln = null; } else if(kind==='t'){ PB.t = v; PB.ln = null; } else if(kind==='p') PB.per = v; else if(kind==='l') PB.ln = Math.max(0.5, PB.ln + v); else if(kind==='v'){ const x = parseFloat(String(v).replace(',','.')); if(!isNaN(x) && x>=0) PB.ln = x; } pbRender(); }
 function pbNorm(x){ const t = 1/(1+0.2316419*Math.abs(x)), d = 0.3989423*Math.exp(-x*x/2), q = d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274)))); return x>0 ? 1-q : q; }
 function pbSd(a){ if(a.length<3) return null; const m = pbAvg(a); return Math.sqrt(a.reduce((t,x)=>t+(x-m)*(x-m),0)/(a.length-1)); }
 // datos del gráfico: lista de partidos (del más reciente al más viejo) con su valor, y el promedio esperado
@@ -3863,7 +3866,7 @@ function pbRender0(){
   const hgt = v => Math.max(3, (v-mn)/(mx-mn)*108);
   const avgShow = pbAvg(G.slice(0,10).map(g=>g.v));
   b += `<div class="mh-grid" style="margin-top:4px"><div><b style="color:${pr>=55?'var(--over)':'var(--under)'}">${pr}%</b><small>Probabilidad estimada</small></div><div><b>${avgShow.toFixed(1)}</b><small>Promedio ${PB.t===2?'del partido':'de '+escA(nm)} (L10)</small></div></div>
-    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${R.label} ${PB.t===2?'en el partido':'de '+escA(nm)}</span><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pbPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pbPick('l',1)">+</button></span></div>`;
+    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${R.label} ${PB.t===2?'en el partido':'de '+escA(nm)}</span><span class="pb-ctl"><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="pbPick('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pbPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pbPick('l',1)">+</button></span></span></div>`;
   if(!shown.length) b += `<div class="pl-none">No se enfrentaron en los últimos meses.</div>`;
   else {
     b += `<div class="pb-bars">${shown.map(g=>{ const ix = mhReg(g.ctx); return `<div class="pb-b" onclick="mhOpen(${ix})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--under)'}"></i></div>`; }).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"></div></div>
@@ -3952,6 +3955,7 @@ function pjPick(kind, v){
   else if(kind==='m'){ PJ.m = v; PJ.mn = null; PJ.ln = null; }
   else if(kind==='p') PJ.per = v;
   else if(kind==='l') PJ.ln = Math.max(0.5, PJ.ln + v);
+  else if(kind==='v'){ const x = parseFloat(String(v).replace(',','.')); if(!isNaN(x) && x>=0) PJ.ln = x; }
   pjRender();
 }
 function pjRender(){ try{ pbKeep('pjBox', pjRender0); }catch(e){ const el = document.getElementById('pjBox'); if(el) el.innerHTML = `<h3><span class="dot"></span>Estadísticas por jugador</h3><div class="pl-none">No pude mostrar las estadísticas de jugadores (${escA(e.message||String(e))}).</div>`; } }
@@ -3995,7 +3999,7 @@ function pjRender0(){
   const shown = (sets[PJ.per]||sets.L10).slice(0,20).slice().reverse(), mx = Math.max(ln+1, ...shown.map(g=>g.v)), mn = lam>=15 ? Math.max(0, Math.min(ln, ...shown.map(g=>g.v)) - 6) : 0;
   const hgt = v => Math.max(3, (v-mn)/(mx-mn)*108);
   b += `<div class="mh-grid" style="margin-top:4px"><div><b style="color:${pr>=55?'var(--over)':'var(--under)'}">${pr}%</b><small>Probabilidad estimada</small></div><div><b>${lam.toFixed(1)}</b><small>Promedio de ${escA(plShort(cur.name))} (L10)</small></div></div>
-    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${mName.toLowerCase()} de ${escA(plShort(cur.name))}</span><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pjPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pjPick('l',1)">+</button></span></div>`;
+    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${mName.toLowerCase()} de ${escA(plShort(cur.name))}</span><span class="pb-ctl"><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="pjPick('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pjPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pjPick('l',1)">+</button></span></span></div>`;
   if(!shown.length) b += `<div class="pl-none">No se enfrentó a este rival en los partidos cargados.</div>`;
   else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b" onclick="mhOpen(${mhReg(g.ctx)})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--under)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"></div></div>
       <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3); return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}<br>${escA(String(g.opp||'').slice(0,5))}</div>`; }).join('')}</div>`;
@@ -4270,7 +4274,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.2 · el mercado se mantiene al cambiar de jugador';
+const APP_VERSION = 'v38.3 · cuadro para escribir la línea';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
