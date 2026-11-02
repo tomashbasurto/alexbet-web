@@ -59,7 +59,7 @@ function guardar(file, data) {
 
 (async () => {
   const t = Date.now();
-  for (const [sp, path, q, d2] of [['nba', 'basketball/nba', '', 7], ['mlb', 'baseball/mlb', '', 7], ['nhl', 'hockey/nhl', '', 7], ['ncaa', 'basketball/mens-college-basketball', '&groups=50&limit=400', 2]]) {
+  for (const [sp, path, q, d2] of [['nba', 'basketball/nba', '', 7], ['mlb', 'baseball/mlb', '', 7], ['nhl', 'hockey/nhl', '', 7], ['ncaa', 'basketball/mens-college-basketball', '&groups=50&limit=400', 1]]) {
     const boards = (await Promise.all(days(-1, d2).map(k => get(`${API}/site/v2/sports/${path}/scoreboard?dates=${k}${q}`))))
       .filter(Boolean).map(b => prune({events: b.events || []}));
     const standings = await get(`${API}/v2/sports/${path}/standings`);

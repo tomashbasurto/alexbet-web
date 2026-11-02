@@ -1862,6 +1862,8 @@ function usPre(g){
 // ---- mercados sugeridos
 function usPicks(g, m){
   const hn = g.h.name, an = g.a.name, c = [], C = US[g.sp];
+  // NCAA: sin sugerencias hasta que ambos equipos tengan 4+ partidos (al inicio de temporada no hay datos reales)
+  if(g.sp==='ncaa' && ((m.H.gp||0)<4 || (m.A.gp||0)<4)) return [];
   const add = (cat,label,prob,why) => { const q = Math.round(prob*100); if(q>=60 && q<=97) c.push({cat,label,prob:q,why}); };
   const fav = m.pH>=m.pA ? 'h' : 'a', favN = fav==='h'?hn:an, dogN = fav==='h'?an:hn, pF = Math.max(m.pH,m.pA);
   add('ml', `Gana ${favN}`, pF, `${Math.round(pF*100)}% según el modelo`);
@@ -3878,7 +3880,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v36 · NCAA, NHL y ligas por país';
+const APP_VERSION = 'v36.1 · NCAA sin sugerencias hasta tener datos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
