@@ -405,6 +405,12 @@
   .dt-tabs button{ flex:0 0 auto; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
   .dt-tabs button.on{ border-color:var(--accent); color:var(--accent); }
   #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a){ display:none !important; }
+  .cd-tb{ margin-top:10px; font-size:13px; }
+  .cd-r{ display:grid; grid-template-columns:1fr 62px 46px 46px; gap:6px; align-items:center; padding:7px 0; border-top:1px solid var(--line); }
+  .cd-r > span{ text-align:right; } .cd-r b{ font-size:14px; } .cd-r small{ display:block; font-size:10.5px; color:var(--ink-dim); }
+  .cd-hd{ border-top:none; padding:0 0 2px; } .cd-hd span{ font-size:10px; line-height:1.2; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.3px; }
+  .cd-mo{ font-weight:700; font-size:14px; } .cd-bd{ display:table; margin-top:3px; font-size:10.5px; padding:0 7px; border-radius:999px; border:1px solid #f5b942; color:#f5b942; }
+  .cd-ts{ border-top:1px solid var(--line); padding-top:7px; color:var(--ink-dim); } .cd-ts b{ color:var(--ink); }
   .pk-sec{ overflow-x:auto; scrollbar-width:none; margin:2px 0 10px; } .pk-sec button{ flex:0 0 auto; }
   .pb-bars{ position:relative; display:flex; gap:3px; align-items:flex-end; height:130px; border-bottom:1px solid var(--line); margin-top:6px; }
   .pb-b{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; cursor:pointer; }
@@ -3629,6 +3635,34 @@ function selectDate(key){
   renderMatches();
 }
 
+// v37.2 · Tarjeta del partido: lo que pasó (últimos 10 de cada uno y entre ellos) frente al modelo
+let PBI = {};
+function pbTeamId(lid, name){
+  const k = lid+'|'+name; if(k in PBI) return PBI[k];
+  let id = null; const E = (PB.S && PB.S.ev) || {};
+  for(const pass of [1,2]){ for(const r of Object.values(E)){ if(pass===1 && r[1]!==lid) continue;
+    if(sameTeam(r[4], name)){ id = String(r[2]); break; } if(sameTeam(r[5], name)){ id = String(r[3]); break; } } if(id) break; }
+  return PBI[k] = id;
+}
+const CD_M = [
+  {k:'Más de 2.5 goles', p:'over25', f:(a,b)=>a[0]+b[0]>2.5},
+  {k:'Ambos anotan', p:'btts', f:(a,b)=>a[0]>0&&b[0]>0},
+  {k:'Más de 3.5 tarjetas', p:'over35cards', f:(a,b)=>a[4]==null||b[4]==null?null:a[4]+(a[5]||0)+b[4]+(b[5]||0)>3.5},
+  {k:'Más de 8.5 córners', p:'over85corners', f:(a,b)=>a[1]==null||b[1]==null?null:a[1]+b[1]>8.5}];
+function cdTable(L, hn, an, p){
+  if(!PB.S){ pbLoad(); return ''; }
+  const hid = pbTeamId(L.id, hn), aid = pbTeamId(L.id, an);
+  const G = id => id ? pbGames(id) : [], gh = G(hid), ga = G(aid), hh = gh.filter(g=>g.oppId===aid);
+  const cnt = (list, m) => { const v = list.map(g=>m.f(g.us, g.them)).filter(x=>x!=null); return {y:v.filter(Boolean).length, n:v.length}; };
+  const rows = CD_M.map(m=>{
+    const a = cnt(gh.filter(g=>m.f(g.us,g.them)!=null).slice(0,10), m), b = cnt(ga.filter(g=>m.f(g.us,g.them)!=null).slice(0,10), m), h = cnt(hh, m);
+    const y = a.y+b.y, n = a.n+b.n, pr = n ? Math.round(y/n*100) : null, mo = p[m.p];
+    const bad = pr!=null && n>=10 && Math.abs(pr-mo)>15;
+    return `<div class="cd-r"><div>${m.k}${bad?'<span class="cd-bd">no coinciden</span>':''}</div><span>${n?`<b>${y}/${n}</b><small>${pr}%</small>`:'—'}</span><span>${h.n?`<b>${h.y}/${h.n}</b>`:'—'}</span><span class="cd-mo">${mo}%</span></div>`; }).join('');
+  if(!hid && !aid) return '';
+  const ts = p.topScore ? `<div class="cd-ts">Marcador más probable (modelo): <b>${p.topScore.h}-${p.topScore.a}</b></div>` : '';
+  return `<div class="cd-tb"><div class="cd-r cd-hd"><div></div><span>Pasó<br>últ. 10+10</span><span>Entre<br>ellos</span><span>Modelo</span></div>${rows}${ts}</div>`;
+}
 function renderMatches(){
   if(sport==='tenis' && ['matches','picks','live','value'].includes(viewMode)){ tnRender(); return; }
   if(viewMode==='value'){ vaRender(); return; }
@@ -3686,12 +3720,12 @@ function renderMatches(){
         <span>Emp. ${p.drawPct}%</span>
         <span>${awayName} ${p.lossPct}%</span>
       </div>
-      ${PREM() ? `<div class="quick-probs">
+      ${PREM() ? (cdTable(league, homeName, awayName, p) || `<div class="quick-probs">
         <div class="ring-item">${ringHTML(p.over25, p.over25>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+2.5 goles</div></div>
         <div class="ring-item">${ringHTML(p.btts, p.btts>=60?'var(--over)':'var(--accent)', 54)}<div class="l">Ambos anotan</div></div>
         <div class="ring-item">${ringHTML(p.over35cards, p.over35cards>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+3.5 tarj.</div></div>
         <div class="ring-item">${ringHTML(p.over85corners, p.over85corners>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+8.5 córn.</div></div>
-      </div>` : abLockBtn('Goles, ambos anotan, tarjetas y córners · Premium')}
+      </div>`) : abLockBtn('Goles, ambos anotan, tarjetas y córners · Premium')}
     </div>`;
   }).join('');
 }
@@ -3741,7 +3775,7 @@ async function h2hFutInit(league, h, a, when){
 // v37 · Estadísticas por partido: barras de los últimos partidos con línea ajustable (datos reales de ESPN, stats-futbol.json)
 const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Tiros al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Tiros', f:r=>r[3]}];
 let PB = {S:null, loading:false, err:0, m:0, t:0, per:'L10', ln:null, hid:null, aid:null, h:'', a:''};
-async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); }
+async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; PBI = {}; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); if(PB.S && sport==='futbol' && viewMode==='matches') renderMatches(); }
 function pbSet(hid, aid, h, a){ Object.assign(PB, {hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); pbLoad(); pbRender(); }
 function pbGames(id){
   const E = (PB.S && PB.S.ev) || {}, out = [];
@@ -4044,7 +4078,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v37.1 · ficha del partido por secciones';
+const APP_VERSION = 'v37.2 · tarjeta: pasó, entre ellos y modelo';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
