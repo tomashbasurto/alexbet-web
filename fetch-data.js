@@ -12,7 +12,6 @@ const MAX_SUMMARIES = parseInt(process.env.MAX_SUMMARIES || '250', 10);
 
 const LEAGUES = [
   {id:'ecuador', name:'LigaPro Ecuador', espn:'ecu.1', primary:'espn'},
-  {id:'ecu2', name:'Serie B (Ecuador)', espn:'ecu.2', primary:'espn'},
   {id:'bra2', name:'Série B (Brasil)', espn:'bra.2', primary:'espn'},
   {id:'ucl', name:'Champions League', fd:'CL', espn:'uefa.champions', primary:'espn'},
   {id:'uel', name:'Europa League', espn:'uefa.europa', primary:'espn'},
@@ -52,7 +51,7 @@ let lastFd = 0, fdDead = !FD_KEY;
 
 function seasonYear(id){
   const now = new Date(), y = now.getUTCFullYear();
-  return ['bra','bra2','ecuador','ecu2','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
+  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
 }
 async function getJson(url, headers){
   const r = await fetch(url, {headers: headers || {}});

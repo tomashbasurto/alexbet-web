@@ -983,9 +983,6 @@ const STATIC_LEAGUES = [
     id:'bra2', name:'Série B (Brasil)', color:'#86efac', utcOffset:-3, teams:{}, fixtures:[],
   },
   {
-    id:'ecu2', name:'Serie B (Ecuador)', color:'#fde68a', utcOffset:-5, teams:{}, fixtures:[],
-  },
-  {
     id:'greece', name:'Super League (Grecia)', color:'#38bdf8', utcOffset:2, teams:{}, fixtures:[],
   },
   {
@@ -3562,7 +3559,7 @@ function ldModelHTML(m, D){
 
 // v36: ligas agrupadas por país (los países con varias ligas tienen la opción "Todas")
 const LG_GROUPS = [
-  ['🇪🇨 Ecuador', ['ecuador','ecu2'], 'ecu'],
+  ['🇪🇨 Ecuador', ['ecuador'], 'ecu'],
   ['🏆 Copas de Sudamérica', ['lib','sud'], 'csa'],
   ['🇧🇷 Brasil', ['bra','bra2'], 'bra'],
   ['🇦🇷 Argentina', ['arg'], 'arg'],
@@ -4238,7 +4235,6 @@ const DEFAULT_KEY = '';
 // csv = football-data.co.uk (tarjetas y córners reales). primary = fuente principal de partidos.
 const SRC = {
   ecuador:    {             espn:'ecu.1',            primary:'espn'},
-  ecu2:       {             espn:'ecu.2',            primary:'espn'},
   bra2:       {             espn:'bra.2',            primary:'espn'},
   ucl:        {fd:'CL',  espn:'uefa.champions',      primary:'espn'},
   uel:        {             espn:'uefa.europa',         primary:'espn'},
@@ -4281,7 +4277,7 @@ function seasonYear(id){
   const o = parseInt(LS.get('ab_season',''),10);
   if(o) return o;
   const now = new Date(), y = now.getFullYear();
-  return ['bra','bra2','ecuador','ecu2','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
+  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
 }
 function friendlyErr(e){
   const m = String(e && e.message || e);
