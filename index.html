@@ -3946,9 +3946,10 @@ function pjPlayers(G){
   return Object.values(M).sort((x,y)=>ord.indexOf(x.kind)-ord.indexOf(y.kind) || y.sum-x.sum || y.n-x.n);
 }
 function pjPick(kind, v){
-  if(kind==='t'){ PJ.t = v; PJ.pid = null; PJ.m = 0; PJ.ln = null; }
-  else if(kind==='j'){ PJ.pid = v; PJ.m = 0; PJ.ln = null; }
-  else if(kind==='m'){ PJ.m = v; PJ.ln = null; }
+  // v38.2: al cambiar de jugador o de equipo se mantiene el mercado elegido (por nombre) si el nuevo jugador lo tiene
+  if(kind==='t'){ PJ.t = v; PJ.pid = null; PJ.ln = null; }
+  else if(kind==='j'){ PJ.pid = v; PJ.ln = null; }
+  else if(kind==='m'){ PJ.m = v; PJ.mn = null; PJ.ln = null; }
   else if(kind==='p') PJ.per = v;
   else if(kind==='l') PJ.ln = Math.max(0.5, PJ.ln + v);
   pjRender();
@@ -3975,8 +3976,10 @@ function pjRender0(){
   b += `<select onchange="pjPick('j',this.value)" style="width:100%;min-height:40px;margin:2px 0 8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--font-body);padding:0 10px">${kinds.map(k=>{
     const opts = P.filter(p=>p.kind===k).map(p=>`<option value="${escA(p.key)}" ${p.key===cur.key?'selected':''}>${escA(p.name)}${p.pos?' · '+escA(p.pos):''} (${p.n} PJ)</option>`).join('');
     return kinds.length>1 ? `<optgroup label="${PJ_GRP[k]}">${opts}</optgroup>` : opts; }).join('')}</select>`;
-  const MK = PJ_M[cur.kind]; if(PJ.m>=MK.length) PJ.m = 0;
+  const MK = PJ_M[cur.kind];
+  if(PJ.mn){ const i = MK.findIndex(x=>x[0]===PJ.mn); PJ.m = i>=0 ? i : 0; } if(PJ.m>=MK.length) PJ.m = 0;
   const comps = MK[PJ.m][1], mName = MK[PJ.m][0];
+  if(PJ.mn==null) PJ.mn = mName;
   const op = PJ.t ? PB.hid : PB.aid, pid = cur.key;
   const S = [];
   L.forEach(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); if(!p) return; const v = pjVal(p.S, comps); if(v==null) return; S.push({id:g.id, ts:g.ts, v, opp:g.opp, h2:g.oppId===String(op), ctx:g.ctx}); });
@@ -4267,7 +4270,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.1 · los botones de mercado ya no vuelven al inicio';
+const APP_VERSION = 'v38.2 · el mercado se mantiene al cambiar de jugador';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
