@@ -404,7 +404,7 @@
   .dt-tabs{ position:sticky; top:var(--hdrH,64px); z-index:15; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding:8px 0; margin:0 0 6px; background:var(--bg); }
   .dt-tabs button{ flex:0 0 auto; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
   .dt-tabs button.on{ border-color:var(--accent); color:var(--accent); }
-  #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a){ display:none !important; }
+  #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a), #detailContent[data-sec="j"] .sec:not(.sec-j){ display:none !important; }
   .cd-tb{ margin-top:10px; font-size:13px; }
   .cd-r{ display:grid; grid-template-columns:1fr 60px 52px 46px; gap:6px; align-items:center; padding:7px 0; border-top:1px solid var(--line); }
   .cd-r > span{ text-align:right; } .cd-r b{ font-size:14px; } .cd-r small{ display:block; font-size:10.5px; color:var(--ink-dim); }
@@ -2652,6 +2652,7 @@ function usOpen(sp, id, keep){
     </div>
     <div class="sec sec-a"><div id="usxBox"><div class="prob-card"><h3><span class="dot"></span>Lesionados</h3><div class="pl-none">Cargando…</div></div></div></div>
     <div class="prob-card sec sec-e" id="pbBox"></div>
+    <div class="prob-card sec sec-j" id="pjBox"></div>
     <div class="sec sec-h">${h2hUsSection(sp,g)}</div>
     <div class="sec sec-f"><div class="prob-card" id="posBox" style="display:none"></div>
     ${rcSection(sp,g)}
@@ -3797,7 +3798,7 @@ function pbSetUS(sp, g){ const same = PB.kind==='us' && PB.gid===g.id; Object.as
 function pbGames(id){
   const E = (PB.S && PB.S.ev) || {}, out = [];
   for(const [eid, r] of Object.entries(E)){ const home = String(r[2])===id; if(!home && String(r[3])!==id) continue;
-    out.push({id:eid, ts:r[0], lid:r[1], opp:home?r[5]:r[4], oppId:String(home?r[3]:r[2]), us:home?r[6]:r[7], them:home?r[7]:r[6], hn:r[4], an:r[5], gh:r[6][0], ga:r[7][0]}); }
+    out.push({id:eid, ts:r[0], lid:r[1], home, opp:home?r[5]:r[4], oppId:String(home?r[3]:r[2]), us:home?r[6]:r[7], them:home?r[7]:r[6], hn:r[4], an:r[5], gh:r[6][0], ga:r[7][0]}); }
   return out.sort((x,y)=>y.ts-x.ts);
 }
 const pbAvg = a => a.length ? a.reduce((t,x)=>t+x,0)/a.length : null;
@@ -3839,7 +3840,8 @@ function pbSrc(){
   }
   return {G, lam, label:M.k.toLowerCase(), markets:PB_M, prob: ln => pbPois(lam, ln)};
 }
-function pbRender(){
+function pbRender(){ pbRender0(); pjRender(); }
+function pbRender0(){
   const el = document.getElementById('pbBox'); if(!el) return;
   let b = `<h3><span class="dot"></span>Estadísticas por partido</h3>`;
   if(PB.kind==='f' && (!PB.hid || !H2F.key || PB.h!==H2F.h)){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando el partido en ESPN…':'ESPN no tiene este partido: no hay estadísticas por partido.'}</div>`; return; }
@@ -3864,6 +3866,133 @@ function pbRender(){
   }
   b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PB.per===k?'on':''}" onclick="pbPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
     <div class="lv-stats">El % de cada botón es cuántas veces superó la línea. ${PB.t===2?'"Ambos" suma lo de los dos equipos en cada partido (últimos partidos de cada uno).':`La probabilidad estimada combina lo que hace ${escA(nm)} con lo que le hacen a ${oname} (últimos 10).`} Toca una barra para ver la estadística completa de ese partido.</div>`;
+  el.innerHTML = b;
+}
+// v38 · Estadísticas por jugador: mismo modelo que "Estadísticas por partido", con las estadísticas reales de ESPN de cada jugador en los últimos partidos de su equipo
+// Cada mercado suma una o más estadísticas; "K|SO" = usa la primera que exista.
+const PJ_M = {
+  futbol:[['Goles',['Goles']],['Tiros',['Tiros']],['Tiros a puerta',['Tiros a puerta']],['Asistencias',['Asistencias']],['Goles + asist.',['Goles','Asistencias']],['Faltas cometidas',['Faltas cometidas']],['Faltas recibidas',['Faltas recibidas']],['Tarjetas',['Amarillas','Rojas']],['Paradas',['Paradas']],['Fueras de juego',['Fueras de juego']]],
+  bask:[['Puntos',['PTS']],['Rebotes',['REB']],['Asistencias',['AST']],['Triples',['3PT']],['Pts+Reb+Ast',['PTS','REB','AST']],['Pts+Reb',['PTS','REB']],['Pts+Ast',['PTS','AST']],['Reb+Ast',['REB','AST']],['Robos',['STL']],['Tapones',['BLK']],['Pérdidas',['TO']]],
+  mlbB:[['Hits',['H']],['Carreras',['R']],['Impulsadas',['RBI']],['Jonrones',['HR']],['Hits+Carreras+Impulsadas',['H','R','RBI']],['Bases por bola',['BB']],['Ponches',['K|SO']]],
+  mlbP:[['Ponches',['K|SO']],['Outs',['IP']],['Hits permitidos',['H']],['Carreras limpias',['ER']],['Bases por bola',['BB']]],
+  nhlS:[['Puntos',['G','A']],['Goles',['G']],['Asistencias',['A']],['Tiros a puerta',['SOG|S']],['Tiros bloqueados',['BS']],['Golpes',['HT']]],
+  nhlG:[['Atajadas',['SV']],['Goles recibidos',['GA']],['Tiros recibidos',['SA']]],
+};
+const PJ_GRP = {futbol:'Jugadores', bask:'Jugadores', mlbB:'Bateadores', mlbP:'Lanzadores', nhlS:'Jugadores', nhlG:'Porteros'};
+const PJE = {};
+let PJ = {key:'', t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
+function pjNum(v, lab){
+  if(v==null || v==='') return null; const s = String(v).trim(); if(s==='--' || s==='-') return null;
+  if(lab==='IP'){ const f = parseFloat(s); if(isNaN(f)) return null; const w = Math.floor(f); return w*3 + Math.round((f-w)*10); }
+  const m = s.match(/^-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null;
+}
+function pjVal(S, comps){
+  let tot = 0, any = false;
+  comps.forEach(c=>{ const lab = c.split('|').find(l=>pjNum(S[l], l)!=null); if(lab!=null){ tot += pjNum(S[lab], lab); any = true; } });
+  return any ? tot : null;
+}
+function pjKind(sp, p){
+  if(sp==='futbol') return 'futbol'; if(sp==='nba' || sp==='ncaa') return 'bask';
+  if(sp==='mlb') return /pitch/i.test(p.grp||'') ? 'mlbP' : 'mlbB';
+  return /goal/i.test(p.grp||'') ? 'nhlG' : 'nhlS';
+}
+function pjParse(sp, j){
+  const o = mhParse(sp, j, {}), out = {h:[], a:[]};
+  ['h','a'].forEach(s=>(o.lineup[s]||[]).forEach(p=>{
+    if(!p.id) return;
+    if(sp==='futbol' ? !(p.starter || p.subIn) : (p.dnp || pjNum(p.S.MIN)===0)) return;
+    out[s].push({id:p.id, name:p.name, pos:p.pos, k:pjKind(sp, p), S:p.S});
+  }));
+  return out;
+}
+const pjSp = () => PB.kind==='us' ? PB.sp : 'futbol';
+const pjCtxKey = () => [PB.kind, PB.sp||'', PB.hid, PB.aid].join('|');
+// últimos 20 partidos jugados del equipo elegido (del más reciente al más viejo)
+function pjGamesOf(ti){
+  const id = ti ? PB.aid : PB.hid, me = ti ? PB.a : PB.h;
+  if(PB.kind==='us'){
+    const sp = PB.sp, C = RC.sched[sp+'|'+id]; if(!C) return null;
+    return (C.all||[]).slice().reverse().slice(0,20).map(m=>({id:m.id, ts:Date.parse(m.date), side:m.home?'h':'a', opp:m.opp, oppId:String(m.oppId),
+      url:`${US_API}/site/v2/sports/${US[sp].path}/summary?event=${m.id}`,
+      ctx:{sp, id:m.id, date:m.date, h:m.home?me:m.opp, a:m.home?m.opp:me, score:m.home?`${m.us}-${m.them}`:`${m.them}-${m.us}`, lname:US[sp].name, from:{kind:'us', sp, id:PB.gid}}}));
+  }
+  if(!PB.S) return null;
+  return pbGames(id).slice(0,20).map(g=>{ const slug = (SRC[g.lid]||{}).espn; return {id:g.id, ts:g.ts, side:g.home?'h':'a', opp:g.opp, oppId:g.oppId,
+    url: slug ? `${ESPN_BASE}/${slug}/summary?event=${g.id}` : null,
+    ctx:{sp:'futbol', lid:g.lid, slug, fid:'e'+g.id, date:new Date(g.ts).toISOString().slice(0,10), h:g.hn, a:g.an, score:`${g.gh}-${g.ga}`, lname:'', from:curFixture?{kind:'f', lid:curFixture.lid, idx:curFixture.idx}:null}}; }).filter(g=>g.url);
+}
+async function pjLoad(G){
+  const sp = pjSp(), key = pjCtxKey()+'|'+PJ.t;
+  if(PJ.loadKey===key) return; PJ.loadKey = key; PJ.fail = 0;
+  const todo = G.filter(g=>!PJE[g.id]);
+  for(let i=0;i<todo.length;i+=5){
+    if(PJ.loadKey!==key) return;
+    PJ.prog = `Cargando partidos ${i}/${todo.length}…`; pjRender();
+    await Promise.all(todo.slice(i,i+5).map(async g=>{ try{ PJE[g.id] = pjParse(sp, await webGet(g.url)); }catch(e){ PJ.fail++; } }));
+  }
+  if(PJ.loadKey===key){ PJ.prog = ''; pjRender(); }
+}
+function pjPlayers(G){
+  const M = {};
+  G.forEach(g=>{ const E = PJE[g.id]; if(!E) return; (E[g.side]||[]).forEach(p=>{
+    const k = p.id+'|'+p.k, x = M[k] || (M[k] = {key:k, name:p.name, pos:p.pos, kind:p.k, n:0, sum:0});
+    x.n++; x.sum += pjVal(p.S, PJ_M[p.k][0][1]) || 0; }); });
+  const ord = Object.keys(PJ_M);
+  return Object.values(M).sort((x,y)=>ord.indexOf(x.kind)-ord.indexOf(y.kind) || y.sum-x.sum || y.n-x.n);
+}
+function pjPick(kind, v){
+  if(kind==='t'){ PJ.t = v; PJ.pid = null; PJ.m = 0; PJ.ln = null; }
+  else if(kind==='j'){ PJ.pid = v; PJ.m = 0; PJ.ln = null; }
+  else if(kind==='m'){ PJ.m = v; PJ.ln = null; }
+  else if(kind==='p') PJ.per = v;
+  else if(kind==='l') PJ.ln = Math.max(0.5, PJ.ln + v);
+  pjRender();
+}
+function pjRender(){ try{ pjRender0(); }catch(e){ const el = document.getElementById('pjBox'); if(el) el.innerHTML = `<h3><span class="dot"></span>Estadísticas por jugador</h3><div class="pl-none">No pude mostrar las estadísticas de jugadores (${escA(e.message||String(e))}).</div>`; } }
+function pjRender0(){
+  const el = document.getElementById('pjBox'); if(!el) return;
+  if(PJ.key!==pjCtxKey()) PJ = {key:pjCtxKey(), t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
+  let b = `<h3><span class="dot"></span>Estadísticas por jugador</h3>`;
+  if(PB.kind==='f' && (!PB.hid || !H2F.key || PB.h!==H2F.h)){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando el partido en ESPN…':'ESPN no tiene este partido: no hay estadísticas de jugadores.'}</div>`; return; }
+  if(!PB.hid){ el.innerHTML = b + `<div class="pl-none">Cargando…</div>`; return; }
+  b += `<div class="tn-chips" style="display:grid;grid-template-columns:1fr 1fr">${[PB.h,PB.a].map((n,i)=>`<button type="button" class="${i===PJ.t?'on':''}" onclick="pjPick('t',${i})" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escA(n)}</button>`).join('')}</div>`;
+  const dc = document.getElementById('detailContent'), visible = dc && dc.dataset.sec==='j';
+  const G = pjGamesOf(PJ.t);
+  if(!G){ el.innerHTML = b + `<div class="pl-none">${PB.kind==='f' && PB.err ? 'No pude cargar los partidos. <a href="#" onclick="PB.err=0;pbLoad();return false;" style="color:var(--accent)">Reintentar</a>' : 'Cargando partidos…'}</div>`; return; }
+  if(!G.length){ el.innerHTML = b + `<div class="pl-none">ESPN no tiene partidos jugados de ${escA(PJ.t?PB.a:PB.h)} en los últimos meses.</div>`; return; }
+  if(visible && PJ.loadKey!==pjCtxKey()+'|'+PJ.t) pjLoad(G);
+  const L = G.filter(g=>PJE[g.id]);
+  if(!L.length){ el.innerHTML = b + `<div class="pl-none">${PJ.prog || (PJ.loadKey ? 'ESPN no publicó estadísticas de jugadores de estos partidos.' : 'Cargando partidos…')}</div>`; return; }
+  const P = pjPlayers(L);
+  if(!P.length){ el.innerHTML = b + `<div class="pl-none">${PJ.prog || 'ESPN no publicó estadísticas individuales de los partidos de este equipo.'}</div>`; return; }
+  let cur = P.find(p=>p.key===PJ.pid); if(!cur){ cur = P[0]; PJ.pid = cur.key; }
+  const kinds = [...new Set(P.map(p=>p.kind))];
+  b += `<select onchange="pjPick('j',this.value)" style="width:100%;min-height:40px;margin:2px 0 8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--font-body);padding:0 10px">${kinds.map(k=>{
+    const opts = P.filter(p=>p.kind===k).map(p=>`<option value="${escA(p.key)}" ${p.key===cur.key?'selected':''}>${escA(p.name)}${p.pos?' · '+escA(p.pos):''} (${p.n} PJ)</option>`).join('');
+    return kinds.length>1 ? `<optgroup label="${PJ_GRP[k]}">${opts}</optgroup>` : opts; }).join('')}</select>`;
+  const MK = PJ_M[cur.kind]; if(PJ.m>=MK.length) PJ.m = 0;
+  const comps = MK[PJ.m][1], mName = MK[PJ.m][0];
+  const op = PJ.t ? PB.hid : PB.aid, pid = cur.key;
+  const S = [];
+  L.forEach(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); if(!p) return; const v = pjVal(p.S, comps); if(v==null) return; S.push({id:g.id, ts:g.ts, v, opp:g.opp, h2:g.oppId===String(op), ctx:g.ctx}); });
+  const avail = MK.map((x,i)=>i).filter(i=>L.some(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); return p && pjVal(p.S, MK[i][1])!=null; }));
+  b += `<div class="tn-chips pk-sec">${MK.map((x,i)=>avail.includes(i)||i===PJ.m?`<button type="button" class="${i===PJ.m?'on':''}" onclick="pjPick('m',${i})">${x[0]}</button>`:'').join('')}</div>`;
+  if(!S.length){ el.innerHTML = b + `<div class="pl-none">ESPN no tiene ${mName.toLowerCase()} de ${escA(cur.name)} en estos partidos.</div>${PJ.prog?`<div class="lv-stats">${PJ.prog}</div>`:''}`; return; }
+  const lam = pbAvg(S.slice(0,10).map(x=>x.v)), big = lam>=8, sd = big ? Math.max(pbSd(S.slice(0,20).map(x=>x.v))||0, Math.sqrt(lam)) : 0;
+  const prob = ln => big ? 1-pbNorm((ln-lam)/sd) : pbPois(lam, ln);
+  if(PJ.ln==null) PJ.ln = Math.max(0.5, Math.floor(lam)-0.5);
+  const ln = PJ.ln, over = x => x>ln, pr = Math.round((0.5 + (Math.min(0.99, Math.max(0.01, prob(ln)))-0.5)*0.9)*100);
+  const sets = {L5:S.slice(0,5), L10:S.slice(0,10), L20:S.slice(0,20), H2H:S.filter(g=>g.h2), Todos:S};
+  const pct = a => a.length ? Math.round(a.filter(g=>over(g.v)).length/a.length*100)+'%' : '-';
+  const shown = (sets[PJ.per]||sets.L10).slice(0,20).slice().reverse(), mx = Math.max(ln+1, ...shown.map(g=>g.v)), mn = lam>=15 ? Math.max(0, Math.min(ln, ...shown.map(g=>g.v)) - 6) : 0;
+  const hgt = v => Math.max(3, (v-mn)/(mx-mn)*108);
+  b += `<div class="mh-grid" style="margin-top:4px"><div><b style="color:${pr>=55?'var(--over)':'var(--under)'}">${pr}%</b><small>Probabilidad estimada</small></div><div><b>${lam.toFixed(1)}</b><small>Promedio de ${escA(plShort(cur.name))} (L10)</small></div></div>
+    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${mName.toLowerCase()} de ${escA(plShort(cur.name))}</span><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pjPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pjPick('l',1)">+</button></span></div>`;
+  if(!shown.length) b += `<div class="pl-none">No se enfrentó a este rival en los partidos cargados.</div>`;
+  else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b" onclick="mhOpen(${mhReg(g.ctx)})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--under)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"></div></div>
+      <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3); return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}<br>${escA(String(g.opp||'').slice(0,5))}</div>`; }).join('')}</div>`;
+  b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PJ.per===k?'on':''}" onclick="pjPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
+    <div class="lv-stats">${PJ.prog?PJ.prog+' ':''}El % de cada botón es cuántas veces superó la línea en los partidos que jugó. La probabilidad estimada usa su promedio de los últimos 10 (no considera lesiones, minutos ni el rival). Datos reales de ESPN${PJ.fail?` · ${PJ.fail} partidos sin respuesta`:''}. Toca una barra para ver ese partido.</div>`;
   el.innerHTML = b;
 }
 function h2hFutRender(){
@@ -3947,7 +4076,7 @@ function playersHTML(league, homeName, awayName, home, away, p){
 }
 
 // v37.1 · Ficha del partido por secciones (pestañas fijas arriba)
-const DT_TABS = [['p','Pronóstico'],['e','Estadísticas'],['h','Cara a cara'],['f','Forma'],['a','Alineaciones']];
+const DT_TABS = [['p','Pronóstico'],['e','Estadísticas'],['j','Jugadores'],['h','Cara a cara'],['f','Forma'],['a','Alineaciones']];
 function dtTabsHTML(last){ const cur = LS.get('ab_dtsec','p'); return `<div class="dt-tabs" id="dtTabs">${DT_TABS.map(([k,t])=>[k, k==='a'&&last?last:t]).map(([k,t])=>`<button type="button" data-k="${k}" class="${k===cur?'on':''}" onclick="dtSec('${k}')">${t}</button>`).join('')}</div>`; }
 function dtSec(k, keep){
   const dc = document.getElementById('detailContent'); if(!dc) return;
@@ -3955,6 +4084,7 @@ function dtSec(k, keep){
   dc.dataset.sec = k; LS.set('ab_dtsec', k);
   document.querySelectorAll('#dtTabs button').forEach(b=>b.classList.toggle('on', b.dataset.k===k));
   const hd = document.querySelector('header.top'); if(hd) document.documentElement.style.setProperty('--hdrH', hd.offsetHeight+'px');
+  if(k==='j') pjRender();
   if(!keep){ const t = document.getElementById('dtTabs'); if(t && t.getBoundingClientRect().top < (hd?hd.offsetHeight:0)+2) window.scrollTo(0, t.offsetTop - (hd?hd.offsetHeight:0)); }
 }
 function openMatch(leagueId, idx){
@@ -4041,6 +4171,7 @@ function openMatch(leagueId, idx){
     <div class="prob-card sec sec-a" id="ulBox"></div>
     <div class="prob-card sec sec-h" id="h2hBox"></div>
     <div class="prob-card sec sec-e" id="pbBox"></div>
+    <div class="prob-card sec sec-j" id="pjBox"></div>
     <div class="sec sec-f"><div class="prob-card" id="posBox" style="display:none"></div></div>
 
     <div class="prob-card sec sec-f">
@@ -4130,7 +4261,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v37.4 · estadísticas con Ambos y pestañas en NBA, NCAA, MLB y NHL';
+const APP_VERSION = 'v38 · estadísticas por jugador en fútbol, NBA, NCAA, MLB y NHL';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
