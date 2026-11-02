@@ -401,6 +401,16 @@
   .tn-chips{ display:flex; gap:6px; margin:4px 0 8px; }
   .tn-chips button{ min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
   .tn-chips button.on{ border-color:var(--accent); color:var(--accent); }
+  .pk-sec{ overflow-x:auto; scrollbar-width:none; margin:2px 0 10px; } .pk-sec button{ flex:0 0 auto; }
+  .pb-bars{ position:relative; display:flex; gap:3px; align-items:flex-end; height:130px; border-bottom:1px solid var(--line); margin-top:6px; }
+  .pb-b{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; cursor:pointer; }
+  .pb-b i{ display:block; width:100%; border-radius:3px 3px 0 0; } .pb-b span{ font-size:10.5px; color:var(--ink-dim); }
+  .pb-ln{ position:absolute; left:0; right:0; border-top:1.5px dashed var(--ink); pointer-events:none; }
+  .pb-lab{ display:flex; gap:3px; margin-top:3px; } .pb-lab div{ flex:1; min-width:0; font-size:9.5px; line-height:1.2; color:var(--ink-dim); text-align:center; overflow:hidden; white-space:nowrap; }
+  .pb-per{ display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-top:10px; } .pb-per button{ padding:6px 2px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 11px var(--font-body); cursor:pointer; }
+  .pb-per button b{ display:block; font-size:14px; color:var(--ink); } .pb-per button.on{ border-color:var(--accent); }
+  .pb-line{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; font-size:13.5px; }
+  .pb-line button{ width:36px; height:32px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:700 16px var(--font-body); cursor:pointer; }
   /* ---------- Cuentas y Premium ---------- */
   #abGate{ position:fixed; inset:0; z-index:80; display:none; overflow:auto; background:var(--bg); background-image:var(--bg-img); }
   #abGate.show{ display:block; }
@@ -1384,6 +1394,20 @@ function confBadge(x){
        : x.conf==='baja' ? '<span class="badge-c est">Confianza baja</span>'
        : '<span class="badge-c est">Dato estimado</span>';
 }
+// v37 · Sugerencias por secciones (para no tener todo hacia abajo)
+let PKSEC = null;
+function pkSecSet(k){ PKSEC = k; LS.set('ab_pksec', k); renderMatches(); }
+function pkSecHTML(P){
+  const T = [['mejores','Mejores'],['combinadas','Combinadas'],['partidos','Partidos'],['resultados','Resultados'],['todo','Todo']];
+  if(PKSEC==null) PKSEC = LS.get('ab_pksec','mejores'); const cur = T.some(t=>t[0]===PKSEC) ? PKSEC : 'mejores';
+  const bar = `<div class="tn-chips pk-sec">${T.map(([k,t])=>`<button type="button" class="${cur===k?'on':''}" onclick="pkSecSet('${k}')">${t}</button>`).join('')}</div>`;
+  const none = t => `<div class="empty-state" style="padding:18px">${t}</div>`;
+  if(cur==='todo') return bar + P.of + P.cb + P.day + P.top + P.items + P.done;
+  if(cur==='mejores') return bar + (P.top || none('Hoy ningún mercado pasa el filtro de confianza. Mira la sección Partidos para ver el análisis de cada uno.'));
+  if(cur==='combinadas') return bar + (P.cb || none('Todavía no hay combinadas para esta fecha.'));
+  if(cur==='partidos') return bar + (P.items || none('No hay partidos para esta fecha.'));
+  return bar + ((P.of + P.day + P.done) || none('Todavía no hay resultados de sugerencias.'));
+}
 function renderPicks(){
   const list = document.getElementById('matchList'); pmPrime();
   vaPrime(); if(VA.t && VA.sp===sport) pkLogAll(); if(Date.now()-PK.last>10*60e3 && !PK.busy && Object.values(LS.get('ab_preds',{})).some(p=>p.res==null && p.ts<Date.now()-3*3600e3)) pkSweep();
@@ -1409,7 +1433,8 @@ function renderPicks(){
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  let html = ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), ofCardHTML('futbol') + cbHTML('futbol')) : '') + pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid}));
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol')):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS};
+  let html = '';
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
       const k = x.pk.picks[0], ri = pkReg('futbol', x.l.id, x.f[0], x.f[1], x.f[2], pkTs(x.f[2], x.l.utcOffset), null, k);
@@ -1419,6 +1444,7 @@ function renderPicks(){
       </div>`;
     }).join('') + `</div>`;
   }
+  P.top = html; html = '';
   html += items.map(x=>{
     const [hn, an, when] = x.f;
     const body = x.pk.picks.length ? x.pk.picks.map(k=>`
@@ -1434,7 +1460,7 @@ function renderPicks(){
       ${x.pk.notes&&x.pk.notes.length?`<div class="lv-stats" style="color:#f5b942;margin:-2px 0 6px">⚠ ${escA(x.pk.notes.join(' · '))} (ya incluido)</div>`:''}${mkSummary('futbol',hn,an)}${body}
     </div>`;
   }).join('');
-  html += doneS;
+  P.items = html; html = pkSecHTML(P);
   html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app, ya recortados por sobreconfianza y contrastados con la cuota del mercado cuando ESPN la publica (se descartan los que el mercado contradice). Ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
@@ -2524,11 +2550,13 @@ function usRenderPicks(){
   }
   if(!items.length){ list.innerHTML = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), ofCardHTML(sp) + cbHTML(sp)) : '') + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
-  let html = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), ofCardHTML(sp) + cbHTML(sp)) : '') + pkDayHTML(p=>p.sp===sp);
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML(sp):'', cb:isT?(cbPrime(), cbHTML(sp)):'', day:pkDayHTML(p=>p.sp===sp), top:'', items:'', done:doneS};
+  let html = '';
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
     const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
     return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')"><div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}</div>`;
   }).join('') + `</div>`;
+  P.top = html; html = '';
   html += items.map(x=>{
     const f = fmtParts(x.g.d,0);
     const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
@@ -2536,7 +2564,7 @@ function usRenderPicks(){
     return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador${fmStar(x.g.h.name,x.g.a.name,isoDateOnlyEcuador(x.g.d,0))}</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${x.m.notes&&x.m.notes.length?`<div class="lv-stats" style="color:#f5b942;margin:-2px 0 6px">⚠ ${escA(x.m.notes.join(' · '))} (ya incluido en el pronóstico)</div>`:''}${mkSummary(sp,x.g.h.name,x.g.a.name)}${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
   }).join('');
-  html += doneS;
+  P.items = html; html = usStatusLine(sp) + pkSecHTML(P);
   html += `<div class="foot-note">Las sugerencias son los mercados más probables según el modelo (promedios reales de cada equipo), recortados por sobreconfianza y contrastados con la cuota del mercado cuando existe. No consideran lesiones${sp==='mlb'?' ni lanzadores':''} y ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = pocos partidos jugados o pretemporada. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
@@ -3694,6 +3722,7 @@ async function h2hFutInit(league, h, a, when){
         const hc = C.find(c=>c.homeAway==='home') || C[0], ac = C.find(c=>c!==hc);
         if(hc && ac && hc.team && ac.team){
           const hid = String(hc.team.id), aid = String(ac.team.id), hn0 = hc.team.displayName, an0 = ac.team.displayName;
+          if(H2F.key===k) pbSet(hid, aid, h, a);
           const base = `${ESPN_BASE}/${slug}/teams/${hid}/schedule`, y = new Date().getUTCFullYear();
           const res = await Promise.allSettled([webGet(base), webGet(`${base}?season=${y-1}`), webGet(`${base}?season=${y-2}`)]);
           res.forEach(r=>{ if(r.status!=='fulfilled') return; rcParseSched(r.value, hid).forEach(m=>{ if(m.oppId!==aid || H2F.list.some(x=>x.date===m.date)) return;
@@ -3702,7 +3731,50 @@ async function h2hFutInit(league, h, a, when){
       }
     }
   }catch(e){}
-  if(H2F.key!==k) return; H2F.loading = false; h2hFutRender();
+  if(H2F.key!==k) return; H2F.loading = false; h2hFutRender(); pbRender();
+}
+
+// v37 · Estadísticas por partido: barras de los últimos partidos con línea ajustable (datos reales de ESPN, stats-futbol.json)
+const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Tiros al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Tiros', f:r=>r[3]}];
+let PB = {S:null, loading:false, err:0, m:0, t:0, per:'L10', ln:null, hid:null, aid:null, h:'', a:''};
+async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); }
+function pbSet(hid, aid, h, a){ Object.assign(PB, {hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); pbLoad(); pbRender(); }
+function pbGames(id){
+  const E = (PB.S && PB.S.ev) || {}, out = [];
+  for(const [eid, r] of Object.entries(E)){ const home = String(r[2])===id; if(!home && String(r[3])!==id) continue;
+    out.push({id:eid, ts:r[0], lid:r[1], opp:home?r[5]:r[4], oppId:String(home?r[3]:r[2]), us:home?r[6]:r[7], them:home?r[7]:r[6], hn:r[4], an:r[5], gh:r[6][0], ga:r[7][0]}); }
+  return out.sort((x,y)=>y.ts-x.ts);
+}
+const pbAvg = a => a.length ? a.reduce((t,x)=>t+x,0)/a.length : null;
+function pbPois(lam, ln){ let c = 0, t = Math.exp(-lam); for(let k=0;k<=Math.floor(ln);k++){ c += t; t *= lam/(k+1); } return 1-c; }
+function pbPick(kind, v){ if(kind==='m'){ PB.m = v; PB.ln = null; } else if(kind==='t'){ PB.t = v; PB.ln = null; } else if(kind==='p') PB.per = v; else if(kind==='l') PB.ln = Math.max(0.5, PB.ln + v); pbRender(); }
+function pbRender(){
+  const el = document.getElementById('pbBox'); if(!el) return;
+  let b = `<h3><span class="dot"></span>Estadísticas por partido</h3>`;
+  if(!PB.hid || !H2F.key || PB.h!==H2F.h){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando el partido en ESPN…':'ESPN no tiene este partido: no hay estadísticas por partido.'}</div>`; return; }
+  if(!PB.S){ el.innerHTML = b + `<div class="pl-none">${PB.err?'No pude cargar las estadísticas. <a href="#" onclick="PB.err=0;pbLoad();return false;" style="color:var(--accent)">Reintentar</a>':'Cargando estadísticas…'}</div>`; return; }
+  const M = PB_M[PB.m], me = PB.t?PB.aid:PB.hid, op = PB.t?PB.hid:PB.aid, name = PB.t?PB.a:PB.h, oname = PB.t?PB.h:PB.a;
+  b += `<div class="tn-chips pk-sec">${PB_M.map((x,i)=>`<button type="button" class="${i===PB.m?'on':''}" onclick="pbPick('m',${i})">${x.k}</button>`).join('')}</div>
+    <div class="tn-chips" style="display:grid;grid-template-columns:1fr 1fr">${[PB.h,PB.a].map((n,i)=>`<button type="button" class="${i===PB.t?'on':''}" onclick="pbPick('t',${i})">${escA(n)}</button>`).join('')}</div>`;
+  const val = g => M.f(g.us), G = pbGames(me).filter(g=>val(g)!=null), O = pbGames(op).filter(g=>M.f(g.them)!=null);
+  if(!G.length){ el.innerHTML = b + `<div class="pl-none">ESPN no tiene ${M.k.toLowerCase()} de los partidos de ${escA(name)} en los últimos meses.</div>`; return; }
+  const mine = pbAvg(G.slice(0,10).map(val)), conc = O.length>=3 ? pbAvg(O.slice(0,10).map(g=>M.f(g.them))) : mine, lam = (mine+conc)/2;
+  if(PB.ln==null) PB.ln = Math.max(0.5, Math.floor(lam)-0.5);
+  const ln = PB.ln, over = x => x>ln, pr = Math.round((0.5 + (pbPois(lam, ln)-0.5)*0.9)*100);
+  const sets = {L5:G.slice(0,5), L10:G.slice(0,10), L20:G.slice(0,20), H2H:G.filter(g=>g.oppId===op), Todos:G};
+  const pct = a => a.length ? Math.round(a.filter(g=>over(val(g))).length/a.length*100)+'%' : '-';
+  const shown = (sets[PB.per]||sets.L10).slice(0,20).slice().reverse(), mx = Math.max(ln+1, ...shown.map(val));
+  b += `<div class="mh-grid" style="margin-top:4px"><div><b style="color:${pr>=55?'var(--over)':'var(--under)'}">${pr}%</b><small>Probabilidad estimada</small></div><div><b>${mine.toFixed(1)}</b><small>Promedio de ${escA(name)} (L10)</small></div></div>
+    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${M.k.toLowerCase()} de ${escA(name)}</span><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pbPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pbPick('l',1)">+</button></span></div>`;
+  if(!shown.length) b += `<div class="pl-none">No se enfrentaron en los últimos meses.</div>`;
+  else {
+    b += `<div class="pb-bars">${shown.map(g=>{ const v = val(g), ix = mhReg({sp:'futbol', lid:g.lid, slug:(SRC[g.lid]||{}).espn, fid:'e'+g.id, date:new Date(g.ts).toISOString().slice(0,10), h:g.hn, a:g.an, score:`${g.gh}-${g.ga}`, lname:''});
+      return `<div class="pb-b" onclick="mhOpen(${ix})"><span>${v}</span><i style="height:${Math.max(3, v/mx*108)}px;background:${over(v)?'var(--over)':'var(--under)'}"></i></div>`; }).join('')}<div class="pb-ln" style="bottom:${ln/mx*108}px"></div></div>
+      <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3); return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}<br>${escA(String(g.opp).slice(0,5))}</div>`; }).join('')}</div>`;
+  }
+  b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PB.per===k?'on':''}" onclick="pbPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
+    <div class="lv-stats">El % de cada botón es cuántas veces superó la línea. La probabilidad estimada combina lo que hace ${escA(name)} con lo que le hacen a ${escA(oname)} (últimos 10). Toca una barra para ver la estadística completa de ese partido.</div>`;
+  el.innerHTML = b;
 }
 function h2hFutRender(){
   const el = document.getElementById('h2hBox'); if(!el) return;
@@ -3865,6 +3937,7 @@ function openMatch(leagueId, idx){
 
     <div class="prob-card" id="ulBox"></div>
     <div class="prob-card" id="h2hBox"></div>
+    <div class="prob-card" id="pbBox"></div>
     <div class="prob-card" id="posBox" style="display:none"></div>
 
     <div class="prob-card">
@@ -3889,7 +3962,7 @@ function openMatch(leagueId, idx){
   document.getElementById('detail').classList.add('show');
   window.scrollTo(0,0);
   ulInit(league, homeName, awayName, when);
-  h2hFutInit(league, homeName, awayName, when);
+  PB.hid = null; h2hFutInit(league, homeName, awayName, when); pbRender();
   oddBoxInit('futbol', leagueId, homeName, awayName, (lb,row)=>{ if(lb==='Gana '+row.h) return p.winPct/100; if(lb==='Gana '+row.a) return p.lossPct/100; if(lb==='Empate') return p.drawPct/100; const t = lb.match(/^(Más|Menos) de ([\d.]+)/); if(t){ const o = poissonOverHalf(parseFloat(t[2]), p.lambdaTotal); return t[1]==='Más'?o:1-o; } return null; });
   { const sl = (SRC[league.id]||{}).espn; if(sl) posInit('posBox', 'soccer/'+sl, homeName, awayName, true); }
 }
@@ -3953,7 +4026,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v36.9 · arreglo de carga de partidos en iPhone';
+const APP_VERSION = 'v37 · estadísticas por partido y sugerencias por secciones';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
