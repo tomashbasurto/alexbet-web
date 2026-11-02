@@ -27,15 +27,15 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
   try { S = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) {}
   const lim = Date.now() - DAYS * 864e5, names = new Set();
   // 1) partidos terminados de cada liga (por tramos de 30 días)
-  const todo = [];
-  for (const [lg, code] of Object.entries(LG)) {
-    let n = 0;
-    for (let a = lim; a < Date.now(); a += 30 * 864e5) {
-      const j = await get(`${API}${code}/scoreboard?limit=400&dates=${ymd(new Date(a))}-${ymd(new Date(Math.min(Date.now(), a + 29 * 864e5)))}`);
-      (j && j.events || []).forEach(e => { if (e.status && e.status.type && e.status.type.completed && !S.ev[e.id]) { todo.push([lg, code, e]); n++; } });
-    }
-    console.log(lg, 'nuevos:', n);
-  }
+  const todo = [], T0 = Date.now();
+  await Promise.all(Object.entries(LG).map(async ([lg, code]) => {
+    let n = 0; const W = [];
+    for (let a = lim; a < Date.now(); a += 30 * 864e5) W.push(`${API}${code}/scoreboard?limit=400&dates=${ymd(new Date(a))}-${ymd(new Date(Math.min(Date.now(), a + 29 * 864e5)))}`);
+    const R = await Promise.all(W.map(get));
+    R.forEach(j => (j && j.events || []).forEach(e => { if (e.status && e.status.type && e.status.type.completed && !S.ev[e.id]) { todo.push([lg, code, e]); n++; } }));
+    console.log(lg, 'nuevos:', n, '· tramos sin respuesta:', R.filter(x => !x).length);
+  }));
+  console.log('Búsqueda de partidos:', Math.round((Date.now() - T0) / 1000), 's · por pedir:', todo.length);
   // 2) estadísticas de cada partido nuevo (8 a la vez)
   let ok = 0, sinStats = 0;
   const one = async ([lg, code, e]) => {
@@ -60,7 +60,7 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
   // límite de 25 minutos por vuelta: lo que falte se completa en la siguiente (cada 6 horas)
   const t0 = Date.now(); todo.sort((x, y) => Date.parse(y[2].date) - Date.parse(x[2].date));
   for (let i = 0; i < todo.length; i += 8) {
-    if (Date.now() - t0 > 25 * 60e3) { console.log('Tiempo agotado: faltan', todo.length - i, 'para la próxima vuelta'); break; }
+    if (Date.now() - T0 > 22 * 60e3) { console.log('Tiempo agotado: faltan', todo.length - i, 'para la próxima vuelta'); break; }
     await Promise.all(todo.slice(i, i + 8).map(one));
   }
   // 3) limpiar y guardar
