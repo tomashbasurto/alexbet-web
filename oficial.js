@@ -36,10 +36,19 @@ const OF_CAT = {goles: 'Goles', btts: 'Ambos anotan', res: 'Resultado', tarj: 'T
 function ofLegs(c) {
   return c.legs.map(l => `<div class="of-leg"><span>${l.res === 1 ? '✅' : l.res === 0 ? '❌' : l.res === 'v' ? '➖' : '⏳'}</span><div><b>${escA(l.label)}</b><small>${escA(l.h)} vs ${escA(l.a)}${l.where ? ' · ' + escA(l.where) : ''}</small></div><em>${l.prob}%${l.odds ? '<small>' + (+l.odds).toFixed(2) + '</small>' : ''}</em></div>`).join('');
 }
-function ofToggle(id) { OF.open[id] = !OF.open[id]; ofOpen(OF.sp); }
+// abrir/cerrar una combinada sin volver a dibujar la hoja (así no salta hacia arriba)
+function ofToggle(id, el) {
+  OF.open[id] = !OF.open[id];
+  const box = el && el.nextElementSibling, sm = el && el.querySelector('small .of-tg');
+  if (box && box.classList.contains('of-legs')) { box.style.display = OF.open[id] ? '' : 'none'; if (sm) sm.textContent = OF.open[id] ? 'ocultar ▲' : 'ver selecciones ▼'; return; }
+  const card = document.querySelector('#ofSheet .mh-card'), y = card ? card.scrollTop : 0; ofOpen(OF.sp);
+  const c2 = document.querySelector('#ofSheet .mh-card'); if (c2) c2.scrollTop = y;
+}
 function ofOpen(sp) {
+  const same = !sp || sp === OF.sp, prevCard = document.querySelector('#ofSheet .mh-card'), keepY = same && prevCard ? prevCard.scrollTop : 0;
   sp = sp || OF.sp; OF.sp = sp;
   let el = document.getElementById('ofSheet'); if (!el) { el = document.createElement('div'); el.id = 'ofSheet'; document.body.appendChild(el); }
+  setTimeout(() => { const c = document.querySelector('#ofSheet .mh-card'); if (c && keepY) c.scrollTop = keepY; }, 0);
   ofLoad();
   const {H, P, C} = ofSets(sp), n = OF_SP[sp] || '', chip = (d, t) => `<button type="button" class="tn-chip ${OF.days === d ? 'on' : ''}" onclick="OF.days=${d};ofOpen();if(viewMode==='picks')renderMatches()">${t}</button>`;
   const bar = v => `<span class="of-bar"><i style="width:${v || 0}%"></i></span>`;
@@ -49,7 +58,7 @@ function ofOpen(sp) {
   const units = ofUnits(P);
   const cats = {}; P.forEach(p => { const k = OF_CAT[p.cat] || 'Otros'; (cats[k] = cats[k] || []).push(p); });
   const comboItem = c => { const id = String(c.id || (c.day + c.tier + c.odds)).replace(/'/g, ''), open = !!OF.open[id], ok = c.legs.filter(l => l.res === 1).length;
-    return `<div class="of-row of-it of-cb" onclick="ofToggle('${id}')"><div>${c.status === 'w' ? '✅' : c.status === 'l' ? '❌' : '⏳'} ${OF_TIER[c.tier] ? OF_TIER[c.tier].replace('Combinadas ', 'Combinada ') : 'Combinada'} · cuota ${(+c.odds).toFixed(2)}<small>${ok}/${c.legs.length} acertadas · publicada ${ofWhen(c.pub)} · ${open ? 'ocultar ▲' : 'ver selecciones ▼'}</small></div><span>${c.prob}%</span></div>` + (open ? `<div class="of-legs">${ofLegs(c)}</div>` : ''); };
+    return `<div class="of-row of-it of-cb" onclick="ofToggle('${id}', this)"><div>${c.status === 'w' ? '✅' : c.status === 'l' ? '❌' : '⏳'} ${OF_TIER[c.tier] ? OF_TIER[c.tier].replace('Combinadas ', 'Combinada ') : 'Combinada'} · cuota ${(+c.odds).toFixed(2)}<small>${ok}/${c.legs.length} acertadas · publicada ${ofWhen(c.pub)} · <span class="of-tg">${open ? 'ocultar ▲' : 'ver selecciones ▼'}</span></small></div><span>${c.prob}%</span></div><div class="of-legs" style="${open ? '' : 'display:none'}">${ofLegs(c)}</div>`; };
   const last = [...(H.picks || []).filter(p => p.sp === sp && (p.res === 0 || p.res === 1)).map(p => ({t: p.rt || p.ts, html: `<div class="of-row of-it"><div>${p.res ? '✅' : '❌'} ${escA(p.label)}<small>${escA(p.h)} vs ${escA(p.a)}${p.where ? ' · ' + escA(p.where) : ''} · publicada ${ofWhen(p.pub)}</small></div><span>${p.prob}%</span></div>`})),
     ...(H.combos || []).filter(c => c.sp === sp && (c.status === 'w' || c.status === 'l')).map(c => ({t: c.rt || c.ts, html: comboItem(c)}))]
     .sort((a, b) => b.t - a.t).slice(0, 30);
