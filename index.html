@@ -2010,7 +2010,7 @@ async function plLoad2(sp){
   D.loading = false;
   if(sport===sp && !document.getElementById('detail').classList.contains('show')) renderMatches();
 }
-function plTeam(sp, side){ return PL[sp].byTeam[String(side.id)] || []; }
+function plTeam(sp, side){ return (PL[sp] && PL[sp].byTeam[String(side.id)]) || []; }
 function plShort(n){ const p = String(n).split(' '); return p.length>1 ? p[0][0]+'. '+p.slice(1).join(' ') : n; }
 // ---- proyecciones (estimaciones)
 function plNba(p, m, isHome){
@@ -2248,7 +2248,7 @@ function mhClose(){ mh.player = null; mhRefresh(); }
 const MH_STATS = [['possessionPct','Posesión %'],['totalShots','Tiros'],['shotsOnTarget','Tiros a puerta'],['blockedShots','Tiros bloqueados'],['wonCorners','Córners'],['foulsCommitted','Faltas'],['yellowCards','Amarillas'],['redCards','Rojas'],['offsides','Fueras de juego'],['saves','Paradas'],['accuratePasses','Pases precisos'],['totalPasses','Pases'],['passPct','Precisión de pases'],['totalTackles','Entradas'],['interceptions','Intercepciones'],['totalClearance','Despejes']];
 function mhSeason(sp, id){
   if(!id || sp==='futbol') return '';
-  const D = PL[sp]; let p = null; Object.keys(D.byTeam||{}).some(t=>{ p = D.byTeam[t].find(x=>x.id===id); return !!p; });
+  const D = PL[sp] || {byTeam:{}}; let p = null; Object.keys(D.byTeam||{}).some(t=>{ p = D.byTeam[t].find(x=>x.id===id); return !!p; });
   if(!p) return '';
   const cells = sp==='nba' ? [[p.ppg.toFixed(1),'Pts'],[p.rpg.toFixed(1),'Reb'],[p.apg.toFixed(1),'Ast'],[p.mpg.toFixed(0),'Min'],[p.gp,'Partidos']] : [[p.avg.toFixed(3).replace(/^0/,''),'Avg'],[p.hr,'HR'],[p.rbi,'RBI'],[p.ops.toFixed(3).replace(/^0/,''),'OPS'],[p.gp,'Juegos']];
   return `<div class="lv-h" style="margin-top:12px;">Promedio de temporada${D.season?' '+D.season:''}</div><div class="mh-grid">${cells.map(([v,l])=>`<div><b>${v}</b><small>${l}</small></div>`).join('')}</div>`;
@@ -2594,7 +2594,7 @@ function usOpen(sp, id, keep){
   usxInit(sp, g);
   document.getElementById('home').classList.add('hide');
   document.getElementById('detail').classList.add('show');
-  if(!keep){ window.scrollTo(0,0); usOpenCur = {sp,id}; rcLoad(sp,g).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); if(!PL[sp].t && !PL[sp].err) plLoad(sp).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); }
+  if(!keep){ window.scrollTo(0,0); usOpenCur = {sp,id}; rcLoad(sp,g).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); if(PL[sp] && !PL[sp].t && !PL[sp].err) plLoad(sp).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); }
 }
 let usOpenCur = null;
 function updateChrome(){
@@ -3880,7 +3880,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v36.4 · tenis: sets solo en partidos parejos';
+const APP_VERSION = 'v36.5 · arreglo NCAA y NHL';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
