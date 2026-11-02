@@ -2145,10 +2145,12 @@ async function rcTeam(sp, side){
   try{
     const base = `${US_API}/site/v2/sports/${US[sp].path}/teams/${id}/schedule`;
     const j = await webGet(base); list = rcParseSched(j, id);
-    if(list.length<5){ const y = (j.season && j.season.year) || (j.requestedSeason && j.requestedSeason.year); if(y){ try{ const j2 = await webGet(`${base}?season=${y-1}`); list = rcParseSched(j2, id).concat(list); }catch(e){} } }
+    // v36.8: siempre también la temporada pasada (para el cara a cara)
+    const y = (j.season && j.season.year) || (j.requestedSeason && j.requestedSeason.year); if(y){ try{ const j2 = await webGet(`${base}?season=${y-1}`); list = rcParseSched(j2, id).concat(list); }catch(e){} }
   }catch(e){ err = e.message||String(e); }
+  const seen = new Set(); list = list.filter(m=>!seen.has(m.id) && seen.add(m.id));
   const last = list.slice(-5).reverse();
-  return RC.sched[key] = {t:Date.now(), last, err};
+  return RC.sched[key] = {t:Date.now(), last, all:list, err};
 }
 async function rcLoad(sp, g){
   const k = sp+'|'+g.id; if(RC.loading[k]) return RC.loading[k];
@@ -2167,6 +2169,22 @@ function rcRows(sp, side, gid){
       <div style="font-family:var(--font-head);font-weight:700;font-size:15px;">${m.us}-${m.them}</div><span class="mh-go">›</span></div>`;
   }).join('');
   return `<div style="display:flex;gap:5px;margin:2px 0 4px;">${dots}</div>${rows}`;
+}
+// cara a cara (NBA, NCAA, MLB, NHL): partidos entre los dos equipos esta temporada y la pasada; al tocar, sus estadísticas
+function h2hUsSection(sp, g){
+  const c = RC.sched[sp+'|'+String(g.h.id)];
+  let body;
+  if(!c) body = `<div class="pl-none" style="padding:8px 0;">Cargando enfrentamientos…</div>`;
+  else {
+    const L = (c.all||[]).filter(m=>m.oppId===String(g.a.id)).slice(-8).reverse();
+    if(!L.length) body = `<div class="pl-none" style="padding:8px 0;">No se enfrentaron esta temporada ni la pasada.</div>`;
+    else { const wh = L.filter(m=>m.us>m.them).length;
+      body = `<div class="h2h-top"><div><b>${wh}</b><small>${escA(g.h.name)}</small></div><span>vs</span><div><b>${L.length-wh}</b><small>${escA(g.a.name)}</small></div></div>` + L.map(m=>{
+        const dd = m.date.split('-').reverse().join('/'), hn = m.home?g.h.name:g.a.name, an = m.home?g.a.name:g.h.name, sc = m.home?`${m.us}-${m.them}`:`${m.them}-${m.us}`;
+        const ix = mhReg({sp, id:m.id, date:m.date, h:hn, a:an, score:sc, lname:US[sp].name, from:{kind:'us', sp, id:g.id}});
+        return `<div class="h2h-r" onclick="mhOpen(${ix})" style="cursor:pointer"><span class="h2h-w ${m.us>m.them?'a':'b'}">${escA(m.us>m.them?g.h.name:g.a.name).slice(0,14)}</span><div style="flex:1"><b>${escA(hn)} ${sc} ${escA(an)}</b><small>${dd} · ver estadísticas</small></div><span class="mh-go">›</span></div>`; }).join(''); }
+  }
+  return `<div class="prob-card"><h3><span class="dot"></span>Enfrentamientos directos</h3>${body}</div>`;
 }
 function rcSection(sp, g){
   return `<div class="prob-card"><h3><span class="dot"></span>Últimos 5 partidos</h3>
@@ -2593,6 +2611,7 @@ function usOpen(sp, id, keep){
     ${plSection(sp,g,m)}
     <div id="usxBox"></div>
     <div class="prob-card" id="posBox" style="display:none"></div>
+    ${h2hUsSection(sp,g)}
     ${rcSection(sp,g)}
     <div class="prob-card"><h3><span class="dot"></span>Forma de los equipos</h3>${teamInfo(g.h, m.H)}${teamInfo(g.a, m.A)}</div>
     <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo basado en los promedios reales de la temporada de cada equipo (ESPN)${sp==='nba'?', con ventaja de local de 2.5 puntos (supuesto)':', con ligera ventaja de local (supuesto)'}. No considera lesiones${sp==='mlb'?' ni lanzadores':''}${g.stype===1?'. Pretemporada: los titulares suelen jugar poco, así que el pronóstico es menos fiable':''}. Es una estimación estadística, no garantiza el resultado.</div>`;
@@ -3654,6 +3673,52 @@ function barRow(label, value){
   </div>`;
 }
 
+// v36.8 · Fútbol: enfrentamientos directos (partidos guardados de esta temporada + los que ESPN tiene de años anteriores)
+let H2F = {key:'', list:[], loading:false};
+function h2hFutLocal(h, a){
+  const out = [];
+  STATIC_LEAGUES.forEach(sl=>{ const d = LS.get('ab_fx_'+sl.id, null); if(!d || !d.fx) return;
+    d.fx.forEach(f=>{ if(!(FINISHED.includes(f.s) && f.g && f.g[0]!=null)) return;
+      if((sameTeam(f.h,h) && sameTeam(f.a,a)) || (sameTeam(f.h,a) && sameTeam(f.a,h))) out.push({fid:f.i, date:String(f.d).slice(0,10), h:f.h, a:f.a, gh:f.g[0], ga:f.g[1], lid:sl.id, lname:sl.name}); }); });
+  return out;
+}
+async function h2hFutInit(league, h, a, when){
+  const k = league.id+'|'+h+'|'+a; H2F = {key:k, list:h2hFutLocal(h, a), loading:true, h, a, lid:league.id}; h2hFutRender();
+  const slug = (SRC[league.id]||{}).espn;
+  try{
+    if(slug){
+      const id = await mhResolve({sp:'futbol', lid:league.id, slug, fid:'u|'+when+'|'+h, date:when, h, a});
+      if(id){ const j = await webGet(`${ESPN_BASE}/${slug}/summary?event=${id}`);
+        // ESPN no trae el cara a cara de años anteriores en el resumen: se busca en el calendario del local (esta temporada y las 2 anteriores)
+        const C = ((j.header && j.header.competitions && j.header.competitions[0] && j.header.competitions[0].competitors) || []);
+        const hc = C.find(c=>c.homeAway==='home') || C[0], ac = C.find(c=>c!==hc);
+        if(hc && ac && hc.team && ac.team){
+          const hid = String(hc.team.id), aid = String(ac.team.id), hn0 = hc.team.displayName, an0 = ac.team.displayName;
+          const base = `${ESPN_BASE}/${slug}/teams/${hid}/schedule`, y = new Date().getUTCFullYear();
+          const res = await Promise.allSettled([webGet(base), webGet(`${base}?season=${y-1}`), webGet(`${base}?season=${y-2}`)]);
+          res.forEach(r=>{ if(r.status!=='fulfilled') return; rcParseSched(r.value, hid).forEach(m=>{ if(m.oppId!==aid || H2F.list.some(x=>x.date===m.date)) return;
+            H2F.list.push({fid:'e'+m.id, date:m.date, h:m.home?hn0:an0, a:m.home?an0:hn0, gh:m.home?m.us:m.them, ga:m.home?m.them:m.us, lid:league.id, lname:'', slug}); }); });
+        }
+      }
+    }
+  }catch(e){}
+  if(H2F.key!==k) return; H2F.loading = false; h2hFutRender();
+}
+function h2hFutRender(){
+  const el = document.getElementById('h2hBox'); if(!el) return;
+  const L = H2F.list.slice().sort((x,y)=>y.date.localeCompare(x.date)).slice(0,8);
+  let b = `<h3><span class="dot"></span>Enfrentamientos directos</h3>`;
+  if(!L.length){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando enfrentamientos…':'No hay enfrentamientos guardados entre estos equipos.'}</div>`; return; }
+  const won = n => L.filter(x=>(sameTeam(x.h,n)&&x.gh>x.ga)||(sameTeam(x.a,n)&&x.ga>x.gh)).length, wh = won(H2F.h), wa = won(H2F.a), dr = L.length-wh-wa;
+  const goals = L.reduce((t,x)=>t+x.gh+x.ga,0)/L.length, btts = L.filter(x=>x.gh>0&&x.ga>0).length;
+  b += `<div class="h2h-top"><div><b>${wh}</b><small>${escA(H2F.h)}</small></div><div><b>${dr}</b><small>Empates</small></div><div><b>${wa}</b><small>${escA(H2F.a)}</small></div></div>
+    <div class="lv-stats" style="justify-content:center;margin-top:0">Goles por partido: <b>${goals.toFixed(1)}</b> · Ambos anotaron: <b>${btts}/${L.length}</b></div>`;
+  b += L.map(x=>{ const ix = mhReg({sp:'futbol', lid:x.lid, slug:x.slug||(SRC[x.lid]||{}).espn, fid:x.fid, date:x.date, h:x.h, a:x.a, score:`${x.gh}-${x.ga}`, lname:x.lname||''});
+    const wn = x.gh>x.ga ? x.h : x.ga>x.gh ? x.a : '';
+    return `<div class="h2h-r" onclick="mhOpen(${ix})" style="cursor:pointer"><span class="h2h-w ${wn? (sameTeam(wn,H2F.h)?'a':'b') : 'b'}">${wn?escA(wn).slice(0,14):'Empate'}</span><div style="flex:1"><b>${escA(x.h)} ${x.gh}-${x.ga} ${escA(x.a)}</b><small>${x.date.split('-').reverse().join('/')}${x.lname?' · '+escA(x.lname):''} · ver estadísticas</small></div><span class="mh-go">›</span></div>`; }).join('');
+  if(H2F.loading) b += `<div class="lv-stats">Buscando más en ESPN…</div>`;
+  el.innerHTML = b;
+}
 function lastMatchHTML(teamName, team, lid){
   if(team.lastMatches){
     if(!team.lastMatches.length) return `<div class="empty-state" style="padding:16px;">Aún no hay partidos jugados de ${teamName} esta temporada.</div>`;
@@ -3799,6 +3864,7 @@ function openMatch(leagueId, idx){
     ${playersHTML(league, homeName, awayName, home, away, p)}` : abLockCard('Goles, ambos anotan, tarjetas, córners y jugadores')}
 
     <div class="prob-card" id="ulBox"></div>
+    <div class="prob-card" id="h2hBox"></div>
     <div class="prob-card" id="posBox" style="display:none"></div>
 
     <div class="prob-card">
@@ -3823,6 +3889,7 @@ function openMatch(leagueId, idx){
   document.getElementById('detail').classList.add('show');
   window.scrollTo(0,0);
   ulInit(league, homeName, awayName, when);
+  h2hFutInit(league, homeName, awayName, when);
   oddBoxInit('futbol', leagueId, homeName, awayName, (lb,row)=>{ if(lb==='Gana '+row.h) return p.winPct/100; if(lb==='Gana '+row.a) return p.lossPct/100; if(lb==='Empate') return p.drawPct/100; const t = lb.match(/^(Más|Menos) de ([\d.]+)/); if(t){ const o = poissonOverHalf(parseFloat(t[2]), p.lambdaTotal); return t[1]==='Más'?o:1-o; } return null; });
   { const sl = (SRC[league.id]||{}).espn; if(sl) posInit('posBox', 'soccer/'+sl, homeName, awayName, true); }
 }
@@ -3886,7 +3953,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v36.7 · tenis: cara a cara con resultados';
+const APP_VERSION = 'v36.8 · enfrentamientos directos en todos los deportes';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
