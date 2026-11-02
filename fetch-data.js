@@ -32,6 +32,16 @@ const LEAGUES = [
   {id:'col', name:'Liga Colombia', espn:'col.1', primary:'espn'},
   {id:'mex', name:'Liga MX', espn:'mex.1', primary:'espn'},
   {id:'mls', name:'MLS', espn:'usa.1', primary:'espn'},
+  {id:'laliga2', name:'LaLiga 2', espn:'esp.2', csv:'SP2', primary:'espn'},
+  {id:'serieb', name:'Serie B (Italia)', espn:'ita.2', csv:'I2', primary:'espn'},
+  {id:'ligue2', name:'Ligue 2', espn:'fra.2', csv:'F2', primary:'espn'},
+  {id:'league1', name:'League One (Inglaterra 3)', espn:'eng.3', csv:'E2', primary:'espn'},
+  {id:'league2', name:'League Two (Inglaterra 4)', espn:'eng.4', csv:'E3', primary:'espn'},
+  {id:'natleague', name:'National League (Inglaterra 5)', espn:'eng.5', csv:'EC', primary:'espn'},
+  {id:'scotprem', name:'Premiership (Escocia)', espn:'sco.1', csv:'SC0', primary:'espn'},
+  {id:'scotchamp', name:'Championship (Escocia)', espn:'sco.2', csv:'SC1', primary:'espn'},
+  {id:'belgium', name:'Pro League (Bélgica)', espn:'bel.1', csv:'B1', primary:'espn'},
+  {id:'greece', name:'Super League (Grecia)', espn:'gre.1', csv:'G1', primary:'espn'},
 ];
 const FINISHED = ['FT','AET','PEN'];
 const log = [];

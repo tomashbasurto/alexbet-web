@@ -1,4 +1,4 @@
-// AlexBet · espejo de ESPN (NBA, MLB y tenis).
+// AlexBet · espejo de ESPN (NBA, NCAA, MLB, NHL y tenis).
 // Corre en GitHub Actions cada 10 minutos y guarda los datos en espn-*.json.
 // La app los usa cuando no puede conectarse directamente con ESPN desde el celular.
 const fs = require('fs');
@@ -59,8 +59,8 @@ function guardar(file, data) {
 
 (async () => {
   const t = Date.now();
-  for (const [sp, path] of [['nba', 'basketball/nba'], ['mlb', 'baseball/mlb']]) {
-    const boards = (await Promise.all(days(-1, 7).map(k => get(`${API}/site/v2/sports/${path}/scoreboard?dates=${k}`))))
+  for (const [sp, path, q, d2] of [['nba', 'basketball/nba', '', 7], ['mlb', 'baseball/mlb', '', 7], ['nhl', 'hockey/nhl', '', 7], ['ncaa', 'basketball/mens-college-basketball', '&groups=50&limit=400', 2]]) {
+    const boards = (await Promise.all(days(-1, d2).map(k => get(`${API}/site/v2/sports/${path}/scoreboard?dates=${k}${q}`))))
       .filter(Boolean).map(b => prune({events: b.events || []}));
     const standings = await get(`${API}/v2/sports/${path}/standings`);
     const inj = sp === 'nba' ? await get(`${API}/site/v2/sports/${path}/injuries`) : null; // lesionados (NBA)

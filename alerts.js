@@ -6,7 +6,7 @@ const TOPIC = (process.env.NTFY_TOPIC || '').trim();
 const NTFY = (process.env.NTFY_URL || 'https://ntfy.sh').replace(/\/$/, '');
 const API = process.env.ESPN_API || 'https://site.api.espn.com/apis/site/v2/sports';
 const SEEN_FILE = process.env.SEEN_FILE || 'alerts-seen.json';
-const SLUGS = ['ecu.1','eng.2','ger.2','uefa.champions','uefa.europa','uefa.europa.conf','bra.1','esp.1','eng.1','ita.1','ger.1','fra.1','por.1','tur.1','ned.1','conmebol.libertadores','conmebol.sudamericana','arg.1','col.1','mex.1','usa.1'];
+const SLUGS = ['ecu.1','eng.2','ger.2','uefa.champions','uefa.europa','uefa.europa.conf','bra.1','esp.1','eng.1','ita.1','ger.1','fra.1','por.1','tur.1','ned.1','conmebol.libertadores','conmebol.sudamericana','arg.1','col.1','mex.1','usa.1','esp.2','ita.2','fra.2','eng.3','eng.4','eng.5','sco.1','sco.2','bel.1','gre.1'];
 const FAVS = (process.env.FAVORITOS || '').split(',').map(x=>x.trim()).filter(Boolean);
 const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
 const isFav = n => { const x = norm(n); return !!x && FAVS.some(f=>{ const y = norm(f); return y && (x===y || x.includes(y) || y.includes(x)); }); };

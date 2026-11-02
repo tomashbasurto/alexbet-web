@@ -10,7 +10,7 @@ async function ofLoad(force) {
   if (viewMode === 'picks') renderMatches();
   if (document.getElementById('ofSheet') && document.getElementById('ofSheet').innerHTML) ofOpen();
 }
-const OF_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
+const OF_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
 const OF_TIER = {seg: 'Combinadas opción 1 (riesgo bajo)', med: 'Combinadas opción 2 (riesgo medio)', alt: 'Combinadas opción 3 (riesgo alto)'};
 function ofSets() {
   const H = OF.H || {picks: [], combos: []}, lim = OF.days ? Date.now() - OF.days * 864e5 : 0;
@@ -51,7 +51,7 @@ function ofOpen() {
     <div class="tn-chips" style="margin:0 0 10px">${chip(7, '7 días')}${chip(30, '30 días')}${chip(0, 'Todo')}</div>
     ${!OF.H ? '<div class="pl-none">Cargando historial…</div>' : !P.length && !C.length ? `<div class="pl-none">Todavía no hay resultados en este período. Las sugerencias de hoy ya están publicadas (${pend} pendientes) y se revisan solas cuando terminan los partidos.</div>` : `
     <div class="mh-grid"><div><b>${ofPct(P) ?? '-'}%</b><small>Sugerencias (${P.length})</small></div><div><b style="color:${units >= 0 ? 'var(--over)' : '#ff6b6b'}">${units >= 0 ? '+' : ''}${units.toFixed(1)} u</b><small>Ganancia a 1 u*</small></div></div>
-    ${['futbol', 'nba', 'mlb', 'tenis'].map(sp => row(OF_SP[sp], P.filter(p => p.sp === sp))).join('')}
+    ${['futbol', 'nba', 'ncaa', 'mlb', 'nhl', 'tenis'].map(sp => row(OF_SP[sp], P.filter(p => p.sp === sp))).join('')}
     ${['seg', 'med', 'alt'].map(k => crow(OF_TIER[k], C.filter(c => c.tier === k))).join('')}
     ${bin(55, 65)}${bin(65, 75)}${bin(75, 86)}
     <div class="lv-h" style="margin-top:10px">Últimas resueltas</div>

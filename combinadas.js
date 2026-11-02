@@ -18,7 +18,7 @@ const cbDay = () => ymd(todayDate);
 // Sin cuota real, la cuota que se muestra es la estimada de la casa: cuota justa x 0.93.
 const CB_MARGIN = 0.93, CB_CV = 5;
 const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
-const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis'};
+const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
 // historial: {día: {deporte: {t, combos, lock}}}
 function cbAll() {
   let all = LS.get('ab_cb2', null);
@@ -57,7 +57,7 @@ function cbLegs(want) {
         out.push({sp: 'tenis', lid: m.tour, h, a, when: m.d, ts, gid: m.id, label: k.label, cat: c, prob: q, raw: k.prob, odds: +cbEst(100 / q).toFixed(2), fair: +(100 / q).toFixed(2), real: false, mkt: {t: 'tn'}, where: TN_TOURS[m.tour].name + ' ' + m.ev, res: null}); });
     });
   } catch (e) {}
-  ['nba', 'mlb'].filter(sp => sp === want).forEach(sp => {
+  ['nba', 'mlb', 'ncaa', 'nhl'].filter(sp => sp === want).forEach(sp => {
     try {
       (usData[sp].games || []).forEach(g => {
         if (g.state !== 'pre' || g.postponed || isoDateOnlyEcuador(g.d, 0) !== day) return;
@@ -118,7 +118,7 @@ function cbToday(sp) {
   const cur = D[sp];
   if (cur && (cur.lock || cbFull(cur.combos))) return cur;
   if (cur && cur.combos.some(c => c.first <= Date.now())) { cur.lock = true; LS.set('ab_cb2', all); return cur; }
-  if ((sp === 'nba' || sp === 'mlb') && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
+  if (US[sp] && !usData[sp].t) return cur || {combos: [], lock: false}; // espera a que carguen los partidos
   if (sp === 'tenis' && !TN.t) return cur || {combos: [], lock: false};
   const M = (CB.memo = CB.memo || {})[sp]; if (M && Date.now() - M.t < 90e3) return M.D; // no recalcular en cada toque
   // espera las cuotas reales de ESPN de este deporte para usarlas en las combinadas

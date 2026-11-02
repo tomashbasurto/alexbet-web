@@ -15,6 +15,7 @@
       "historial.js",
       "push-send.js",
       "push-prueba.js",
+      "equipos.js",
       "node_modules/**"
     ],
     "headers": [
