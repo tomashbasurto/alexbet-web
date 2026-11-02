@@ -3840,7 +3840,9 @@ function pbSrc(){
   }
   return {G, lam, label:M.k.toLowerCase(), markets:PB_M, prob: ln => pbPois(lam, ln)};
 }
-function pbRender(){ pbRender0(); pjRender(); }
+// v38.1 · al tocar un mercado la fila de botones se queda donde estaba (no vuelve al inicio)
+function pbKeep(id, fn){ const el = document.getElementById(id), q = el && el.querySelector('.pk-sec'), sl = q ? q.scrollLeft : 0; fn(); const q2 = el && el.querySelector('.pk-sec'); if(q2) q2.scrollLeft = sl; }
+function pbRender(){ pbKeep('pbBox', pbRender0); pjRender(); }
 function pbRender0(){
   const el = document.getElementById('pbBox'); if(!el) return;
   let b = `<h3><span class="dot"></span>Estadísticas por partido</h3>`;
@@ -3948,7 +3950,7 @@ function pjPick(kind, v){
   else if(kind==='l') PJ.ln = Math.max(0.5, PJ.ln + v);
   pjRender();
 }
-function pjRender(){ try{ pjRender0(); }catch(e){ const el = document.getElementById('pjBox'); if(el) el.innerHTML = `<h3><span class="dot"></span>Estadísticas por jugador</h3><div class="pl-none">No pude mostrar las estadísticas de jugadores (${escA(e.message||String(e))}).</div>`; } }
+function pjRender(){ try{ pbKeep('pjBox', pjRender0); }catch(e){ const el = document.getElementById('pjBox'); if(el) el.innerHTML = `<h3><span class="dot"></span>Estadísticas por jugador</h3><div class="pl-none">No pude mostrar las estadísticas de jugadores (${escA(e.message||String(e))}).</div>`; } }
 function pjRender0(){
   const el = document.getElementById('pjBox'); if(!el) return;
   if(PJ.key!==pjCtxKey()) PJ = {key:pjCtxKey(), t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
@@ -4261,7 +4263,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38 · estadísticas por jugador en fútbol, NBA, NCAA, MLB y NHL';
+const APP_VERSION = 'v38.1 · los botones de mercado ya no vuelven al inicio';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
