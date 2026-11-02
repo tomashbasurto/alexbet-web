@@ -1229,7 +1229,7 @@ function calLearn(cat){
   return CAL_C.v[cat]||0;
 }
 // v34: factores por deporte según la prueba con partidos pasados (NBA y MLB ya salen bien calibrados con los modelos nuevos)
-const CAL_SP = {nba:{ml:.97, line:.95, tot:.95}, mlb:{ml:.9, line:.95, tot:.95}, ncaa:{ml:1, line:1, tot:.8}, nhl:{ml:.9, line:.95, tot:1}};
+const CAL_SP = {nba:{ml:.97, line:.95, tot:.95}, mlb:{ml:.9, line:.95, tot:.95}, ncaa:{ml:1, line:.95, tot:.9}, nhl:{ml:.9, line:.95, tot:1}};
 function calP(cat, raw, est, sp){
   const f = ((CAL_SP[sp]&&CAL_SP[sp][cat]) || CAL_F[cat] || .85)*(est?.8:1); let p = 50+(raw-50)*f; const g = calLearn(cat); if(g<0) p = Math.min(p, raw+g);
   return Math.max(1, Math.min(85, Math.round(p)));
@@ -1688,7 +1688,7 @@ const US = {
   nba:{name:'NBA', path:'basketball/nba', color:'#f97316', avg:{pf:114, pa:114}, k:4,  unit:'puntos', kind:'pts', len:48, per:12, nper:4, hfa:2.5, sdm:10.5, sdl:14, sdt:20, totRef:228},
   mlb:{name:'MLB', path:'baseball/mlb',   color:'#60a5fa', avg:{pf:4.5, pa:4.5},  k:40, unit:'carreras', kind:'runs'},
   // v36 · probados con 6.195 partidos (NCAA) y 1.312 (NHL): ver backtest/report-ncaa-nhl.json
-  ncaa:{name:'NCAA', path:'basketball/mens-college-basketball', q:'&groups=50&limit=400', color:'#e879f9', avg:{pf:72, pa:72}, k:4, unit:'puntos', kind:'pts', len:40, per:20, nper:2, hfa:3.5, sdm:10.5, sdl:12, sdt:17, totRef:142},
+  ncaa:{name:'NCAA', path:'basketball/mens-college-basketball', q:'&groups=50&limit=400', color:'#e879f9', avg:{pf:72, pa:72}, k:5, unit:'puntos', kind:'pts', len:40, per:20, nper:2, hfa:3.5, sdm:11.5, sdl:13, sdt:17, totRef:142},
   nhl:{name:'NHL', path:'hockey/nhl', color:'#22d3ee', avg:{pf:3.0, pa:3.0}, k:40, unit:'goles', kind:'goals', len:60, per:20, nper:3},
 };
 const usPts = sp => !!(US[sp] && US[sp].kind==='pts');
@@ -1780,7 +1780,7 @@ async function usLoad(sp, force){
     }catch(e){}
   }
   if(sp==='nba' && D.src!=='espejo'){ try{ const j = await webGet(`${US_API}/site/v2/sports/basketball/nba/injuries`); D.inj = nbaInjParse(j); }catch(e){ try{ const M = await mirrorGet('espn-nba.json'); if(M.inj) D.inj = M.inj; }catch(e2){} } }
-  if((sp==='ncaa' || sp==='nhl') && !Object.values(D.teams||{}).some(t=>t && t.pf!=null)){ try{ const E = await mirrorGet('equipos-'+sp+'.json'); D.teams = {}; Object.values(E.teams||{}).forEach(t=>{ D.teams[t.id] = t; D.teams['n:'+normName(t.name)] = t; }); }catch(e){} }
+  if((sp==='ncaa' || sp==='nhl') && (sp==='ncaa' || !Object.values(D.teams||{}).some(t=>t && t.pf!=null))){ try{ const E = await mirrorGet('equipos-'+sp+'.json'); if(E.prev) D.prev = E.prev; if(Object.keys(E.teams||{}).length || !Object.values(D.teams||{}).some(t=>t && t.pf!=null)){ D.teams = {}; Object.values(E.teams||{}).forEach(t=>{ D.teams[t.id] = t; D.teams['n:'+normName(t.name)] = t; }); } }catch(e){} }
   if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); D.retry = 0; }
   else {
     D.err = lastErr || 'sin respuesta de ESPN';
@@ -1815,6 +1815,11 @@ function nbaB2B(g, side){
 function usTeam(sp, side){
   const D = usData[sp], T = D.teams[side.id] || D.teams['n:'+normName(side.name)] || null;
   const A = US[sp].avg;
+  if(sp==='ncaa'){ // v36.6: inicio de temporada con la temporada pasada (70% de ella + 30% promedio; equipos nuevos un poco por debajo)
+    const P = (D.prev||{})[side.id], base = P ? {pf:.7*P[0]+.3*A.pf, pa:.7*P[1]+.3*A.pa} : {pf:A.pf-5, pa:A.pa+5};
+    const gp = (T && T.pf!=null) ? T.gp : 0, w = gp/(gp+US.ncaa.k);
+    return {pf: w*(gp?T.pf:A.pf)+(1-w)*base.pf, pa: w*(gp?T.pa:A.pa)+(1-w)*base.pa, gp, est: !P && gp<4, prev: !!P, T};
+  }
   if(!T || T.pf==null || T.pa==null) return {pf:A.pf, pa:A.pa, gp:0, est:true, T};
   const w = T.gp/(T.gp+US[sp].k);
   const r = {pf:w*T.pf+(1-w)*A.pf, pa:w*T.pa+(1-w)*A.pa, gp:T.gp, est:T.gp<5, T};
@@ -1862,8 +1867,9 @@ function usPre(g){
 // ---- mercados sugeridos
 function usPicks(g, m){
   const hn = g.h.name, an = g.a.name, c = [], C = US[g.sp];
-  // NCAA: sin sugerencias hasta que ambos equipos tengan 4+ partidos (al inicio de temporada no hay datos reales)
-  if(g.sp==='ncaa' && ((m.H.gp||0)<4 || (m.A.gp||0)<4)) return [];
+  // NCAA al inicio de temporada (menos de 4 partidos): ganador y total sí (en la prueba se cumplieron), hándicap no (prometía de más).
+  const early = g.sp==='ncaa' && ((m.H.gp||0)<4 || (m.A.gp||0)<4);
+  if(g.sp==='ncaa' && (m.H.est || m.A.est)) return [];
   const add = (cat,label,prob,why) => { const q = Math.round(prob*100); if(q>=60 && q<=97) c.push({cat,label,prob:q,why}); };
   const fav = m.pH>=m.pA ? 'h' : 'a', favN = fav==='h'?hn:an, dogN = fav==='h'?an:hn, pF = Math.max(m.pH,m.pA);
   add('ml', `Gana ${favN}`, pF, `${Math.round(pF*100)}% según el modelo`);
@@ -1888,7 +1894,7 @@ function usPicks(g, m){
     const favRL = fav==='h' ? m.homeM15 : m.awayM15;
     add('line', `${dogN} +1.5`, 1-favRL, C.kind==='goals' ? 'Hándicap de goles (+1.5)' : 'Línea de carreras (+1.5)');
   }
-  const cc = calAll(c, g.sp, hn, an, ()=>!!m.est).filter(x=>x.prob>=62);
+  const cc = calAll(early ? c.filter(x=>x.cat!=='line') : c, g.sp, hn, an, ()=>!!m.est).filter(x=>x.prob>=62);
   const best = {}; cc.forEach(x=>{ x.score = pkScore(x, m.est); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
   return Object.values(best).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({...x, conf:m.est?'est':(x.prob>=75?'alta':(x.prob>=65?'media':'baja'))}));
 }
@@ -3880,7 +3886,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v36.5 · arreglo NCAA y NHL';
+const APP_VERSION = 'v36.6 · NCAA con datos de la temporada pasada';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

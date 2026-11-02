@@ -14,6 +14,17 @@ function seasonStart(sp){ const now = new Date(), y = now.getUTCFullYear(), m = 
   for(const [sp, path, q] of [['nhl','hockey/nhl',''], ['ncaa','basketball/mens-college-basketball','&groups=50&limit=400']]){
     const dates = []; for(let t = seasonStart(sp); t <= Date.now(); t += 864e5) dates.push(ymd(t));
     const B = await pool(dates, 6, d => get(`${API}/${path}/scoreboard?dates=${d}${q}`));
+    // NCAA: también la temporada pasada (base para el inicio de temporada; la prueba con 2.746 partidos lo respaldó)
+    let prev = null;
+    if(sp === 'ncaa'){
+      const s0 = seasonStart(sp), pd = []; for(let t = s0 - 365*864e5; t <= s0 - 225*864e5; t += 864e5) pd.push(ymd(t));
+      const PB = await pool(pd, 6, d => get(`${API}/${path}/scoreboard?dates=${d}${q}`)), PT = {}, ps = new Set();
+      PB.forEach(b => (b && b.events || []).forEach(ev => { const c = ev.competitions && ev.competitions[0]; if(!c || ps.has(ev.id)) return; const st = c.status && c.status.type; if(!st || !st.completed) return; ps.add(ev.id);
+        c.competitors.forEach(x => { const o = c.competitors.find(y => y !== x), f = parseInt(x.score,10), a = parseInt(o.score,10); if(isNaN(f)||isNaN(a)) return;
+          const t = PT[x.team.id] = PT[x.team.id] || {pf:0, pa:0, gp:0}; t.gp++; t.pf += f; t.pa += a; }); }));
+      prev = {}; Object.entries(PT).forEach(([id,t]) => { if(t.gp >= 10) prev[id] = [+(t.pf/t.gp).toFixed(1), +(t.pa/t.gp).toFixed(1), t.gp]; });
+      console.log('ncaa temporada pasada:', ps.size, 'partidos ·', Object.keys(prev).length, 'equipos');
+    }
     const T = {}, seen = new Set();
     B.forEach(b => (b && b.events || []).forEach(ev => { const c = ev.competitions && ev.competitions[0]; if(!c || seen.has(ev.id)) return; const st = c.status && c.status.type; if(!st || !st.completed) return;
       seen.add(ev.id);
@@ -21,8 +32,8 @@ function seasonStart(sp){ const now = new Date(), y = now.getUTCFullYear(), m = 
         const t = T[x.team.id] = T[x.team.id] || {id:String(x.team.id), name:x.team.displayName||x.team.name, abbr:x.team.abbreviation, gp:0, pfs:0, pas:0, w:0, l:0};
         t.gp++; t.pfs += f; t.pas += a; if(x.winner===true) t.w++; else t.l++; }); }));
     const teams = {}; Object.values(T).forEach(t => { if(t.gp) teams[t.id] = {id:t.id, name:t.name, abbr:t.abbr, gp:t.gp, w:t.w, l:t.l, pf:+(t.pfs/t.gp).toFixed(2), pa:+(t.pas/t.gp).toFixed(2)}; });
-    if(Object.keys(teams).length < 10){ console.log(sp, 'pocos equipos, no se guarda'); continue; }
-    fs.writeFileSync(`equipos-${sp}.json`, JSON.stringify({t:Date.now(), partidos:seen.size, teams}));
+    if(Object.keys(teams).length < 10 && !(prev && Object.keys(prev).length > 100)){ console.log(sp, 'pocos equipos, no se guarda'); continue; }
+    fs.writeFileSync(`equipos-${sp}.json`, JSON.stringify({t:Date.now(), partidos:seen.size, teams, prev}));
     console.log(sp, seen.size, 'partidos ·', Object.keys(teams).length, 'equipos');
   }
 })();
