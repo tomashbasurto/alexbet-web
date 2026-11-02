@@ -286,9 +286,14 @@ function tnCands(m, M) {
   const c = [], add = (label, p, why) => { const q = tnPc(p); if (q >= 60 && q <= 97) c.push({label, prob: q, why}); };
   const A = m.p[0].name, B = m.p[1].name, need = M.need;
   add(`Gana ${A}`, M.pA, 'ganador del partido'); add(`Gana ${B}`, M.pB, 'ganador del partido');
-  // v34: "gana al menos un set" prometía de más (decía 70%, salía 62%): se acerca al 50%
-  const st = x => 0.5 + (x - 0.5) * 0.65;
-  if (M.pA < 0.5) add(`${A} gana al menos un set`, st(M.oneA), `no pierde ${need}-0`); else add(`${B} gana al menos un set`, st(M.oneB), `no pierde ${need}-0`);
+  // v36.4: "el que no es favorito gana al menos un set" (prueba con 3.965 partidos con Elo):
+  // el modelo prometía ~7 puntos de más en todos los niveles; se resta eso. Solo se sugiere en partidos parejos
+  // (favorito con 60% o menos): ahí se cumplió 62-67%. Con un favorito claro se cumplía 40-54%: no se sugiere.
+  const fav = Math.max(M.pA, M.pB);
+  if (fav <= 0.60) {
+    if (M.pA < 0.5) add(`${A} gana al menos un set`, M.oneA - 0.07, `partido parejo: ${B} favorito con ${tnPc(fav)}%`);
+    else add(`${B} gana al menos un set`, M.oneB - 0.07, `partido parejo: ${A} favorito con ${tnPc(fav)}%`);
+  }
   M.lines.forEach(L => { add(`Más de ${L} juegos`, M.over(L), `esperados ${M.exp.toFixed(1)}`); add(`Menos de ${L} juegos`, 1 - M.over(L), `esperados ${M.exp.toFixed(1)}`); });
   return c.sort((x, y) => y.prob - x.prob);
 }
