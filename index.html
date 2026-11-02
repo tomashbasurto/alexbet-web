@@ -401,6 +401,10 @@
   .tn-chips{ display:flex; gap:6px; margin:4px 0 8px; }
   .tn-chips button{ min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
   .tn-chips button.on{ border-color:var(--accent); color:var(--accent); }
+  .dt-tabs{ position:sticky; top:var(--hdrH,64px); z-index:15; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding:8px 0; margin:0 0 6px; background:var(--bg); }
+  .dt-tabs button{ flex:0 0 auto; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
+  .dt-tabs button.on{ border-color:var(--accent); color:var(--accent); }
+  #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a){ display:none !important; }
   .pk-sec{ overflow-x:auto; scrollbar-width:none; margin:2px 0 10px; } .pk-sec button{ flex:0 0 auto; }
   .pb-bars{ position:relative; display:flex; gap:3px; align-items:flex-end; height:130px; border-bottom:1px solid var(--line); margin-top:6px; }
   .pb-b{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; cursor:pointer; }
@@ -3856,6 +3860,17 @@ function playersHTML(league, homeName, awayName, home, away, p){
   </div>`;
 }
 
+// v37.1 · Ficha del partido por secciones (pestañas fijas arriba)
+const DT_TABS = [['p','Pronóstico'],['e','Estadísticas'],['h','Cara a cara'],['f','Forma'],['a','Alineaciones']];
+function dtTabsHTML(){ const cur = LS.get('ab_dtsec','p'); return `<div class="dt-tabs" id="dtTabs">${DT_TABS.map(([k,t])=>`<button type="button" data-k="${k}" class="${k===cur?'on':''}" onclick="dtSec('${k}')">${t}</button>`).join('')}</div>`; }
+function dtSec(k, keep){
+  const dc = document.getElementById('detailContent'); if(!dc) return;
+  if(!DT_TABS.some(t=>t[0]===k)) k = 'p';
+  dc.dataset.sec = k; LS.set('ab_dtsec', k);
+  document.querySelectorAll('#dtTabs button').forEach(b=>b.classList.toggle('on', b.dataset.k===k));
+  const hd = document.querySelector('header.top'); if(hd) document.documentElement.style.setProperty('--hdrH', hd.offsetHeight+'px');
+  if(!keep){ const t = document.getElementById('dtTabs'); if(t && t.getBoundingClientRect().top < (hd?hd.offsetHeight:0)+2) window.scrollTo(0, t.offsetTop - (hd?hd.offsetHeight:0)); }
+}
 function openMatch(leagueId, idx){
   curFixture = {lid:leagueId, idx};
   const league = LEAGUES.find(l=>l.id===leagueId);
@@ -3865,7 +3880,7 @@ function openMatch(leagueId, idx){
 
   const liveIdx = (liveData.list||[]).findIndex(m=>m.lid===leagueId && sameTeam(m.h,homeName) && sameTeam(m.a,awayName));
   const html = `
-    ${liveIdx>=0?`<div class="prob-card" style="border-color:var(--over);cursor:pointer" onclick="ldOpen('f',${liveIdx})"><h3><span class="dot" style="background:var(--over)"></span>Partido en vivo ahora</h3><div class="pl-none" style="padding:0">${liveData.list[liveIdx].gh} - ${liveData.list[liveIdx].ga} · ${liveData.list[liveIdx].label||''}. Toca para ver estadísticas, eventos y alineación en vivo ›</div></div>`:''}
+    ${liveIdx>=0?`<div class="prob-card sec sec-p" style="border-color:var(--over);cursor:pointer" onclick="ldOpen('f',${liveIdx})"><h3><span class="dot" style="background:var(--over)"></span>Partido en vivo ahora</h3><div class="pl-none" style="padding:0">${liveData.list[liveIdx].gh} - ${liveData.list[liveIdx].ga} · ${liveData.list[liveIdx].label||''}. Toca para ver estadísticas, eventos y alineación en vivo ›</div></div>`:''}
     <div class="matchup-hero">
       <div class="meta">${league.name.toUpperCase()}</div>
       <div class="row">
@@ -3880,7 +3895,8 @@ function openMatch(leagueId, idx){
         </div>
       </div>
     </div>
-
+    ${dtTabsHTML()}
+    <div class="sec sec-p">
     <div class="prob-card" id="oddBox"></div>
     <div class="prob-card">
       <h3><span class="dot"></span>Resultado 1X2</h3>
@@ -3935,12 +3951,13 @@ function openMatch(leagueId, idx){
 
     ${playersHTML(league, homeName, awayName, home, away, p)}` : abLockCard('Goles, ambos anotan, tarjetas, córners y jugadores')}
 
-    <div class="prob-card" id="ulBox"></div>
-    <div class="prob-card" id="h2hBox"></div>
-    <div class="prob-card" id="pbBox"></div>
-    <div class="prob-card" id="posBox" style="display:none"></div>
+    </div>
+    <div class="prob-card sec sec-a" id="ulBox"></div>
+    <div class="prob-card sec sec-h" id="h2hBox"></div>
+    <div class="prob-card sec sec-e" id="pbBox"></div>
+    <div class="sec sec-f"><div class="prob-card" id="posBox" style="display:none"></div></div>
 
-    <div class="prob-card">
+    <div class="prob-card sec sec-f">
       <h3><span class="dot"></span>Últimos partidos</h3>
       <div class="last-matches">
         <div class="team-h">${homeName}</div>
@@ -3958,6 +3975,7 @@ function openMatch(leagueId, idx){
     </div>
   `;
   document.getElementById('detailContent').innerHTML = html;
+  dtSec(LS.get('ab_dtsec','p'), true);
   document.getElementById('home').classList.add('hide');
   document.getElementById('detail').classList.add('show');
   window.scrollTo(0,0);
@@ -4026,7 +4044,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v37 · estadísticas por partido y sugerencias por secciones';
+const APP_VERSION = 'v37.1 · ficha del partido por secciones';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
