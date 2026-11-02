@@ -2593,7 +2593,7 @@ function usOpen(sp, id, keep){
     const ls = (sp==='nhl' ? [4.5,5.5,6.5,7.5,8.5] : [6.5,7.5,8.5,9.5,10.5]).map(L=>({L,p:pc(m.over(L))}));
     markets += `<div class="prob-card"><h3><span class="dot"></span>Total de ${US[sp].unit} (esperado ${m.tot.toFixed(1)})</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${ls.slice(1,4).map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Más de ${x.L}</div></div>`).join('')}</div>` + ls.map(x=>`<div class="pk-line"><div class="t">Menos de ${x.L}</div><div class="bar-track"><div class="bar-fill ${100-x.p>=70?'strong':''}" style="width:${100-x.p}%"></div></div><div class="v">${100-x.p}%</div></div>`).join('') + `</div>`;
     markets += `<div class="prob-card"><h3><span class="dot"></span>${sp==='nhl'?'Hándicap de goles':'Línea de carreras'} (1.5)</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-tile">${ringHTML(pc(m.homeM15), ringC(pc(m.homeM15)), 72)}<div class="l">${g.h.name} -1.5</div></div><div class="stat-tile">${ringHTML(pc(1-m.homeM15), ringC(pc(1-m.homeM15)), 72)}<div class="l">${g.a.name} +1.5</div></div><div class="stat-tile">${ringHTML(pc(m.awayM15), ringC(pc(m.awayM15)), 72)}<div class="l">${g.a.name} -1.5</div></div></div></div>`;
-    if(g.h.sp || g.a.sp) markets += `<div class="prob-card"><h3><span class="dot"></span>Abridores probables</h3><div class="lv-stats" style="margin-top:0;"><span>${g.h.name}: <b>${g.h.sp?g.h.sp.name+' '+g.h.sp.rec:'por confirmar'}</b></span><span>${g.a.name}: <b>${g.a.sp?g.a.sp.name+' '+g.a.sp.rec:'por confirmar'}</b></span></div><div class="lv-stats">El modelo no ajusta por el lanzador: úsalo como dato extra.</div></div>`;
+    if(g.h.sp || g.a.sp) markets += `<div class="prob-card"><h3><span class="dot"></span>${sp==='nhl'?'Porteros probables':'Abridores probables'}</h3><div class="lv-stats" style="margin-top:0;"><span>${g.h.name}: <b>${g.h.sp?g.h.sp.name+' '+g.h.sp.rec:'por confirmar'}</b></span><span>${g.a.name}: <b>${g.a.sp?g.a.sp.name+' '+g.a.sp.rec:'por confirmar'}</b></span></div>${sp==='mlb'?'<div class="lv-stats">El modelo ya ajusta las carreras por el ERA de cada abridor.</div>':''}</div>`;
   }
   const html = `
     <div class="matchup-hero"><div class="meta">${US[sp].name.toUpperCase()}${tag?' · '+tag.toUpperCase():''}</div>
@@ -3953,7 +3953,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v36.8 · enfrentamientos directos en todos los deportes';
+const APP_VERSION = 'v36.9 · arreglo de carga de partidos en iPhone';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -3987,9 +3987,21 @@ async function fdGet(path){
   throw new Error('Límite de consultas por minuto, intenta otra vez en un minuto.');
 }
 const CORS_PROXIES = [u=>'https://corsproxy.io/?url='+encodeURIComponent(u), u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
+// v36.9: a veces el iPhone no puede leer site.api.espn.com ("Load failed"); se reintenta en el servidor alterno de ESPN
+const ESPN_ALT = u => u.replace('://site.api.espn.com/', '://site.web.api.espn.com/');
+async function espnGet(url){
+  const tries = [url, ESPN_ALT(url), url]; let last;
+  for(let i=0;i<tries.length;i++){
+    try{ const r = await fetch(tries[i]); if(r.ok || r.status===404) return r; last = r; }
+    catch(e){ last = e; }
+    if(i===1) await new Promise(ok=>setTimeout(ok,800));
+  }
+  if(last instanceof Response) return last;
+  throw last;
+}
 async function webGet(url, asText){
   let r;
-  try{ r = await fetch(url); }
+  try{ r = /:\/\/site\.api\.espn\.com\//.test(url) ? await espnGet(url) : await fetch(url); }
   catch(e){
     // En el navegador (iPhone/web) football-data.co.uk no permite CORS: se intenta con un proxy público.
     if(!/football-data\.co\.uk/.test(url)) throw e;
