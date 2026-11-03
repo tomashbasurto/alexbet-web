@@ -1,0 +1,33 @@
+name: Euroliga
+on:
+  schedule:
+    - cron: '13,43 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'euroliga.js'
+      - '.github/workflows/euroliga.yml'
+permissions:
+  contents: write
+concurrency:
+  group: euroliga
+  cancel-in-progress: false
+jobs:
+  eul:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node euroliga.js
+      - name: Guardar
+        run: |
+          git config user.name "alexbet-bot"
+          git config user.email "alexbet-bot@users.noreply.github.com"
+          git add eul 2>/dev/null || exit 0
+          git diff --staged --quiet && exit 0
+          git commit -m "Euroliga"
+          for i in 1 2 3; do git pull --rebase -q && git push && break; sleep 5; done
