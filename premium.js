@@ -5,6 +5,8 @@
 const PAGO = {
   whatsapp: '593990175893', // tu número con código de país, solo dígitos. Ej: '593991234567'
   deuna: 'Código Deuna: 7701122749', // número o alias para Deuna
+  deunaQR: 'deuna-qr.png',  // imagen del QR de cobro de Deuna
+  deunaLink: 'https://pagar.deuna.app/H92p/person/payment?id=ce785890dc7cfd5a3a67dd2d79df3a32bd58052d', // el mismo QR como enlace (abre la app Deuna)
   payphone: '',            // link o número de PayPhone
   transferencia: ''        // banco, tipo y número de cuenta, nombre y cédula
 };
@@ -276,6 +278,9 @@ window.abPayOpen = () => {
     <label>1. ${mets.length > 1 ? 'Elige cómo pagar' : 'Paga por ' + esc(metodo)}</label>
     ${mets.length > 1 ? `<div class="ab-met">${mets.map(([m]) => `<button type="button" class="${m === metodo ? 'on' : ''}" aria-pressed="${m === metodo}" onclick="abMetodo('${m}')">${m}</button>`).join('')}</div>` : ''}
     <div class="set-box">${pago ? esc(pago).replace(/\n/g, '<br>') : 'Datos de pago: [PENDIENTE DE CONFIGURAR]'}</div>
+    ${metodo === 'Deuna' && PAGO.deunaQR ? `<div class="ab-qr"><img src="${PAGO.deunaQR}" alt="Código QR de Deuna para pagar AlexBet">
+      ${PAGO.deunaLink ? `<a class="btn primary" href="${esc(PAGO.deunaLink)}" target="_blank" rel="noopener">Pagar con Deuna</a>` : ''}
+      <div class="sub">Desde otro celular, escanea el QR con Deuna. Desde este celular, toca "Pagar con Deuna" o mantén presionado el QR para guardarlo.</div></div>` : ''}
     <label>2. Envía el comprobante</label>
     <button type="button" class="btn primary" onclick="abComprobante()">Enviar comprobante por WhatsApp</button>
     <div class="sub" style="margin-top:8px">El mensaje sale con tu correo (${esc(AB.user ? AB.user.email : '')}) para activarte rápido. Premium se activa en esta cuenta, en el celular y en la web.</div>

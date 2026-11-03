@@ -390,6 +390,7 @@
   .btn.ghost{ background:transparent; color:var(--ink-dim); font-weight:500; }
   .btn:disabled{ opacity:.5; }
   .set-box{ background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin-top:10px; }
+  .ab-qr{ text-align:center; margin:10px 0 4px; } .ab-qr img{ display:block; width:220px; max-width:70%; margin:0 auto 10px; background:#fff; border-radius:14px; padding:10px; } .ab-qr .btn{ display:block; text-align:center; text-decoration:none; }
   .set-box .row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
   .set-box .ok{ color:var(--over); } .set-box .bad{ color:var(--under); }
 
@@ -4278,7 +4279,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.5 · escudos por liga también desde el servidor';
+const APP_VERSION = 'v38.6 · QR de Deuna para pagar';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
