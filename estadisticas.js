@@ -76,8 +76,7 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
     await Promise.all(todo.slice(i, i + 8).map(one));
   }
   // 2b) últimos 5 enfrentamientos de cada pareja de la liga (6 temporadas). Archivo pequeño por liga: h2h-<liga>.json
-  //     fila: [fecha, idLocal, idVisita, golesLocal, golesVisita, córnersTotal, tarjetasTotal]
-  const tot = (h, a, i, j) => h[i] == null || a[i] == null ? null : h[i] + a[i] + (j ? (h[j] || 0) + (a[j] || 0) : 0);
+  //     fila (v38.9): [fecha, idLocal, idVisita, filaLocal, filaVisita] con las 8 estadísticas de cada equipo (mismo orden que KEYS)
   const h2todo = [];
   for (const [lg, {code, set, all}] of Object.entries(LGT)) {
     const f = `h2h-${lg}.json`; let O = {ev: {}}; try { O = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) {}
@@ -87,16 +86,16 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
     const ev = {};
     Object.values(pairs).forEach(L => L.sort((p, q) => Date.parse(q.date) - Date.parse(p.date)).slice(0, 5).forEach(e => {
       const [H, A] = sides(e), r = S.ev[e.id], old = O.ev[e.id];
-      if (r) ev[e.id] = [r[0], String(r[2]), String(r[3]), r[6][0], r[7][0], tot(r[6], r[7], 1), tot(r[6], r[7], 4, 5)];
-      else if (old && old[5] != null) ev[e.id] = old;
-      else { ev[e.id] = [Date.parse(e.date), String(H.team.id), String(A.team.id), sc(H), sc(A), null, null]; h2todo.push([code, e, H, A, ev, e.id]); }
+      if (r) ev[e.id] = [r[0], String(r[2]), String(r[3]), r[6], r[7]];
+      else if (old && Array.isArray(old[3]) && old[3][1] != null) ev[e.id] = old;
+      else { ev[e.id] = [Date.parse(e.date), String(H.team.id), String(A.team.id), [sc(H), null, null, null, null, null, null, null], [sc(A), null, null, null, null, null, null, null]]; h2todo.push([code, e, H, A, ev, e.id]); }
     }));
     LGT[lg].out = {f, ev};
   }
   let h2ok = 0;
   for (let i = 0; i < h2todo.length; i += 8) {
     if (Date.now() - T0 > 24 * 60e3) { console.log('Enfrentamientos: faltan', h2todo.length - i, 'para la próxima vuelta'); break; }
-    await Promise.all(h2todo.slice(i, i + 8).map(async ([code, e, H, A, ev, id]) => { const b = await boxOf(code, e, H, A); if (!b) return; ev[id][5] = tot(b[0], b[1], 1); ev[id][6] = tot(b[0], b[1], 4, 5); h2ok++; }));
+    await Promise.all(h2todo.slice(i, i + 8).map(async ([code, e, H, A, ev, id]) => { const b = await boxOf(code, e, H, A); if (!b) return; ev[id][3] = b[0]; ev[id][4] = b[1]; h2ok++; }));
   }
   for (const {out} of Object.values(LGT)) if (out && Object.keys(out.ev).length) fs.writeFileSync(out.f, JSON.stringify({t: Date.now(), ev: out.ev}));
   console.log('Enfrentamientos: partidos', h2todo.length, 'por completar · completados', h2ok);
