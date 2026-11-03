@@ -1486,7 +1486,7 @@ function sgHTML(items){
 let OP_WANT = null;
 const OP_M = [ // m = índice en PB_M (0 córners, 1 tiros al arco, 2 tarjetas, 3 goles)
   {k:'córners', m:0, f:r=>r[1], team:true, tot:true},
-  {k:'tiros al arco', m:1, f:r=>r[2], team:true, tot:false},
+  {k:'remates al arco', m:1, f:r=>r[2], team:true, tot:false},
   {k:'tarjetas', m:2, f:r=>r[4]==null?null:r[4]+(r[5]||0), team:false, tot:true},
   {k:'goles', m:3, f:r=>r[0], team:false, tot:true}];
 function opFind(vals, lam){
@@ -1561,14 +1561,16 @@ function opCard(o){
   return `<div class="op-c" onclick="opGo(${i})">
     <div class="op-top"><div style="min-width:0"><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>${escA(o.lname)} · ${f.date} ${f.time}</small>
       <b>${escA(title)}</b><small>${sub}</small></div><div class="op-p"><b>${o.p}%</b><small>modelo</small></div></div>
-    <div class="op-mk">Más de ${(+o.ln).toFixed(1)} ${escA(String(o.mk).toLowerCase())}</div>
+    <div class="op-mk">Más de ${(+o.ln).toFixed(1)} ${escA(String(opMk(o)).toLowerCase())}</div>
     <div class="op-bars">${vals.map(v=>`<i style="height:${Math.max(3, v/mx*44)}px;background:${v>o.ln?'var(--over)':'var(--under)'}"></i>`).join('')}<span style="bottom:${o.ln/mx*44}px"></span></div>
     <div class="op-ft">Se cumplió ${o.hit} de ${o.n} · promedio ${(+o.avg).toFixed(1)} <em>Ver ›</em></div></div>`;
 }
+const OP_REN = {'Tiros':'Remates totales', 'Tiros a puerta':'Remates al arco', 'tiros al arco':'remates al arco'};
+const opMk = (o) => o.sp==='futbol' ? (OP_REN[o.mk] || o.mk) : o.mk;
 function opGo(i){
   const o = OP_LIST[i]; if(!o) return;
   const pl = o.kind==='player';
-  if(pl) PJ_WANT = {h:o.h, t:o.t, pid:o.pid, mn:o.mk, ln:+o.ln};
+  if(pl) PJ_WANT = {h:o.h, t:o.t, pid:o.pid, mn:opMk(o), ln:+o.ln};
   else OP_WANT = o.sp==='futbol' ? {h:o.h, m:o.m||0, t:o.t, ln:+o.ln} : {gid:o.gid, t:o.t, ln:+o.ln};
   LS.set('ab_dtsec', pl ? 'j' : 'e');
   if(o.sp==='futbol'){ const L = LEAGUES.find(l=>l.id===o.lid), idx = L ? L.fixtures.findIndex(f=>f[0]===o.h && f[1]===o.a) : -1; if(idx>=0) openMatch(o.lid, idx); }
@@ -3675,7 +3677,7 @@ function ldRender(){
           <div class="lv-stats" style="margin-top:6px;">${IC('goal',13,'color:var(--over)')} gol · ${IC('card',13,'color:#facc15')} amarilla · ${IC('card',13,'color:#ff4d4d')} roja · ${IC('sub',13,'color:var(--accent)')} cambio. ESPN no publica el gráfico de presión de ataque, por eso solo se muestran los eventos reales.</div></div>`;
         const shots = ldNum(S.h.totalShots)!=null || ldNum(S.a.totalShots)!=null;
         html += `<div class="prob-card"><div class="ld-rings">
-          <div class="ld-rt">Posesión</div><div class="ld-rt">Tiros</div><div class="ld-rt">A puerta</div>
+          <div class="ld-rt">Posesión</div><div class="ld-rt">Remates</div><div class="ld-rt">Al arco</div>
           ${ldSplitRing(S.h.possessionPct, S.a.possessionPct, 'pie', v=>Math.round(v))}
           ${ldSplitRing(S.h.totalShots, S.a.totalShots, 'shots')}
           ${ldSplitRing(S.h.shotsOnTarget, S.a.shotsOnTarget, 'target')}
@@ -3971,7 +3973,7 @@ async function h2hFutInit(league, h, a, when){
 }
 
 // v37 · Estadísticas por partido: barras de los últimos partidos con línea ajustable (datos reales de ESPN, stats-futbol.json)
-const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Tiros al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Tiros', f:r=>r[3]}];
+const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Remates al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Remates totales', f:r=>r[3]}];
 let PB = {S:null, loading:false, err:0, m:0, t:0, per:'L10', ln:null, hid:null, aid:null, h:'', a:'', kind:'f', sp:null, gid:null};
 async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; PBI = {}; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); if(PB.S && sport==='futbol' && (viewMode==='matches'||viewMode==='picks')) renderMatches(); }
 function pbSet(hid, aid, h, a){ Object.assign(PB, {kind:'f', hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); if(OP_WANT && OP_WANT.h===h){ Object.assign(PB, {m:OP_WANT.m, t:OP_WANT.t, ln:OP_WANT.ln}); } OP_WANT = null; pbLoad(); pbRender(); }
@@ -4059,7 +4061,7 @@ function pbRender0(){
 // v38 · Estadísticas por jugador: mismo modelo que "Estadísticas por partido", con las estadísticas reales de ESPN de cada jugador en los últimos partidos de su equipo
 // Cada mercado suma una o más estadísticas; "K|SO" = usa la primera que exista.
 const PJ_M = {
-  futbol:[['Goles',['Goles']],['Tiros',['Tiros']],['Tiros a puerta',['Tiros a puerta']],['Asistencias',['Asistencias']],['Goles + asist.',['Goles','Asistencias']],['Faltas cometidas',['Faltas cometidas']],['Faltas recibidas',['Faltas recibidas']],['Tarjetas',['Amarillas','Rojas']],['Paradas',['Paradas']],['Fueras de juego',['Fueras de juego']]],
+  futbol:[['Goles',['Goles']],['Remates totales',['Tiros']],['Remates al arco',['Tiros a puerta']],['Asistencias',['Asistencias']],['Goles + asist.',['Goles','Asistencias']],['Faltas cometidas',['Faltas cometidas']],['Faltas recibidas',['Faltas recibidas']],['Tarjetas',['Amarillas','Rojas']],['Paradas',['Paradas']],['Fueras de juego',['Fueras de juego']]],
   bask:[['Puntos',['PTS']],['Rebotes',['REB']],['Asistencias',['AST']],['Triples',['3PT']],['Pts+Reb+Ast',['PTS','REB','AST']],['Pts+Reb',['PTS','REB']],['Pts+Ast',['PTS','AST']],['Reb+Ast',['REB','AST']],['Robos',['STL']],['Tapones',['BLK']],['Pérdidas',['TO']]],
   mlbB:[['Hits',['H']],['Carreras',['R']],['Impulsadas',['RBI']],['Jonrones',['HR']],['Hits+Carreras+Impulsadas',['H','R','RBI']],['Bases por bola',['BB']],['Ponches',['K|SO']]],
   mlbP:[['Ponches',['K|SO']],['Outs',['IP']],['Hits permitidos',['H']],['Carreras limpias',['ER']],['Bases por bola',['BB']]],
@@ -4455,7 +4457,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39.3 · Oportunidades de todos los deportes y de jugadores';
+const APP_VERSION = 'v39.4 · remates totales y remates al arco';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4880,7 +4882,7 @@ function stPair(s, home){
 }
 function lmStatsHTML(st){
   if(!st) return '';
-  const L = [['c','Córners'],['y','Amarillas'],['r','Rojas'],['s','Tiros'],['t','A puerta'],['p','Posesión %'],['f','Faltas']];
+  const L = [['c','Córners'],['y','Amarillas'],['r','Rojas'],['s','Remates'],['t','Al arco'],['p','Posesión %'],['f','Faltas']];
   const cells = L.filter(([k])=>st[k]).map(([k,n])=>`<span><b>${st[k][0]}–${st[k][1]}</b>${n}</span>`).join('');
   return cells ? `<div class="lm-st">${cells}</div>` : '';
 }
