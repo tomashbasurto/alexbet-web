@@ -1901,14 +1901,16 @@ const US = {
   // v36 · probados con 6.195 partidos (NCAA) y 1.312 (NHL): ver backtest/report-ncaa-nhl.json
   ncaa:{name:'NCAA', path:'basketball/mens-college-basketball', q:'&groups=50&limit=400', color:'#e879f9', avg:{pf:72, pa:72}, k:5, unit:'puntos', kind:'pts', len:40, per:20, nper:2, hfa:3.5, sdm:11.5, sdl:13, sdt:17, totRef:142},
   nhl:{name:'NHL', path:'hockey/nhl', color:'#22d3ee', avg:{pf:3.0, pa:3.0}, k:40, unit:'goles', kind:'goals', len:60, per:20, nper:3},
+  // v40 · Euroliga: datos de la API oficial traducidos en el servidor (eul/). Parámetros como la NBA, ajustados a 40 minutos y ~82 puntos (sin backtest todavía)
+  eul:{name:'Euroliga', path:'basketball/euroleague', color:'#fb923c', avg:{pf:82, pa:82}, k:5, unit:'puntos', kind:'pts', len:40, per:10, nper:4, hfa:3, sdm:11, sdl:13, sdt:16, totRef:164},
 };
 const usPts = sp => !!(US[sp] && US[sp].kind==='pts');
 const usQ = sp => (US[sp] && US[sp].q) || '';
-const usPerTitle = sp => sp==='ncaa' ? 'Puntos por tiempo' : sp==='nba' ? 'Puntos por cuarto' : sp==='nhl' ? 'Goles por tiempo' : 'Carreras por entrada';
+const usPerTitle = sp => sp==='ncaa' ? 'Puntos por tiempo' : (sp==='nba'||sp==='eul') ? 'Puntos por cuarto' : sp==='nhl' ? 'Goles por tiempo' : 'Carreras por entrada';
 // v34 (prueba con 1.323 partidos): ganador más seguro de sí (10.5), hándicap con más margen de error (14), total con 20.
 const NBA_HFA = 2.5, NBA_SD_M = 10.5, NBA_SD_L = 14, NBA_SD_T = 20, NBA_TOT_REF = 228;
-const usData = {nba:{games:[],teams:{},t:0,err:'',loading:false}, mlb:{games:[],teams:{},t:0,err:'',loading:false}, ncaa:{games:[],teams:{},t:0,err:'',loading:false}, nhl:{games:[],teams:{},t:0,err:'',loading:false}};
-const usLive = {nba:{t:0,list:[],err:''}, mlb:{t:0,list:[],err:''}, ncaa:{t:0,list:[],err:''}, nhl:{t:0,list:[],err:''}};
+const usData = {eul:{games:[],teams:{},t:0,err:'',loading:false}, nba:{games:[],teams:{},t:0,err:'',loading:false}, mlb:{games:[],teams:{},t:0,err:'',loading:false}, ncaa:{games:[],teams:{},t:0,err:'',loading:false}, nhl:{games:[],teams:{},t:0,err:'',loading:false}};
+const usLive = {eul:{t:0,list:[],err:''}, nba:{t:0,list:[],err:''}, mlb:{t:0,list:[],err:''}, ncaa:{t:0,list:[],err:''}, nhl:{t:0,list:[],err:''}};
 let usLiveTimer = null, usLiveBusy = false;
 const US_API = 'https://site.api.espn.com/apis';
 // Espejo en nuestro servidor (GitHub Actions cada 10 min) por si el celular no logra conectar con ESPN.
@@ -2844,15 +2846,15 @@ let usOpenCur = null;
 function updateChrome(){
   const live = viewMode==='live', val = viewMode==='value', fut = sport==='futbol', alt = viewMode==='alerts' || viewMode==='bets';
   const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
-  set('leagueChips', (fut || sport==='nba' || sport==='ncaa') && !live && !val && !alt); set('dateChips', !live && !alt); set('dataStatus', fut && !live && !val && !alt); set('homeNote', fut && !alt);
+  set('leagueChips', (fut || sport==='nba' || sport==='ncaa' || sport==='eul') && !live && !val && !alt); set('dateChips', !live && !alt); set('dataStatus', fut && !live && !val && !alt); set('homeNote', fut && !alt);
   set('favBar', ['matches','picks','live'].includes(viewMode));
 }
 function setSport(sp){
   if(sp===sport) return;
   if(sp!=='futbol' && !PREM()){ abPay(); return; }
   sport = sp; liveStop();
-  if(sp==='nba' || sp==='ncaa') LS.set('ab_bk', sp);
-  ['futbol','nba','mlb','nhl','tenis'].forEach(k=>{ const e = document.getElementById('sp_'+k); if(e) e.classList.toggle('active', k===sp || (k==='nba' && sp==='ncaa')); });
+  if(sp==='nba' || sp==='ncaa' || sp==='eul') LS.set('ab_bk', sp);
+  ['futbol','nba','mlb','nhl','tenis'].forEach(k=>{ const e = document.getElementById('sp_'+k); if(e) e.classList.toggle('active', k===sp || (k==='nba' && (sp==='ncaa' || sp==='eul'))); });
   if(sp==='tenis'){ tnLoad(); if(activeDate==='all'){ activeDate = ymd(todayDate); renderDateChips(); } } else if(sp!=='futbol') usLoad(sp);
   updateChrome(); updateLiveBadge();
   if(viewMode==='live'){ renderLive(); if(sp==='futbol') liveStart(); else if(sp==='tenis') tnLiveStart(); else usLiveStart(); }
@@ -3342,7 +3344,7 @@ function pkLogAll(force){
     const lim = Date.now()+4*86400e3, now = Date.now(), P = LS.get('ab_preds', {}); let ch = false;
     LEAGUES.forEach(l=>l.fixtures.forEach(f=>{ if(!l.teams[f[0]]||!l.teams[f[1]]) return; const ts = pkTs(f[2], l.utcOffset); if(ts>lim || ts<now-30*60e3) return;
       const pk = matchPicks(l,f); if(pk && pk.picks.length && pkLog('futbol', l.id, f[0], f[1], f[2], ts, null, pk.picks, P)) ch = true; }));
-    ['nba','mlb','ncaa','nhl'].forEach(sp=>(usData[sp].games||[]).forEach(g=>{ if(g.state!=='pre'||g.postponed) return; const ts = toEcuador(g.d,0).getTime()+5*3600e3; if(ts>lim) return;
+    ['nba','eul','mlb','ncaa','nhl'].forEach(sp=>(usData[sp].games||[]).forEach(g=>{ if(g.state!=='pre'||g.postponed) return; const ts = toEcuador(g.d,0).getTime()+5*3600e3; if(ts>lim) return;
       const pk = usPicks(g, usPre(g)); if(pk.length && pkLog(sp, sp, g.h.name, g.a.name, g.d, ts, g.id, pk, P)) ch = true; }));
     if(!ch) return;
     const ks = Object.keys(P); if(ks.length>1500){ ks.sort((x,y)=>P[x].ts-P[y].ts).slice(0, ks.length-1400).forEach(k=>delete P[k]); }
@@ -3760,8 +3762,8 @@ function lgCount(l){
 }
 function renderChips(){
   const el = document.getElementById('leagueChips');
-  if(sport==='nba' || sport==='ncaa'){ // Básquet: NBA o NCAA
-    el.innerHTML = `<div class="tn-chips" style="margin:2px 0 6px">${[['nba','NBA'],['ncaa','NCAA (universitario)']].map(([k,t])=>`<button type="button" class="tn-chip ${sport===k?'on':''}" onclick="setSport('${k}')">${t}</button>`).join('')}</div>`;
+  if(sport==='nba' || sport==='ncaa' || sport==='eul'){ // Básquet: NBA o NCAA
+    el.innerHTML = `<div class="tn-chips" style="margin:2px 0 6px">${[['nba','NBA'],['eul','Euroliga'],['ncaa','NCAA (universitario)']].map(([k,t])=>`<button type="button" class="tn-chip ${sport===k?'on':''}" onclick="setSport('${k}')">${t}</button>`).join('')}</div>`;
     return;
   }
   const cur = LEAGUES.find(l=>l.id===activeLeague), grp = String(activeLeague).startsWith('c:') ? LG_GROUPS.find(g=>g[2]===activeLeague.slice(2)) : null;
@@ -4112,7 +4114,7 @@ function pjVal(S, comps){
   return any ? tot : null;
 }
 function pjKind(sp, p){
-  if(sp==='futbol') return 'futbol'; if(sp==='nba' || sp==='ncaa') return 'bask';
+  if(sp==='futbol') return 'futbol'; if(sp==='nba' || sp==='ncaa' || sp==='eul') return 'bask';
   if(sp==='mlb') return /pitch/i.test(p.grp||'') ? 'mlbP' : 'mlbB';
   return /goal/i.test(p.grp||'') ? 'nhlG' : 'nhlS';
 }
@@ -4487,7 +4489,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39.6 · equipos correctos (no se mezclan nombres parecidos)';
+const APP_VERSION = 'v40 · Euroliga';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4533,7 +4535,18 @@ async function espnGet(url){
   if(last instanceof Response) return last;
   throw last;
 }
+// v40 · Euroliga: las direcciones tipo ESPN se leen de la carpeta eul/ del espejo
+function eulMap(url){
+  const m = String(url).match(/\/sports\/basketball\/euroleague\/(.*)$/); if(!m) return null;
+  const r = m[1];
+  if(/^scoreboard/.test(r)) return 'eul/board.json';
+  if(/^standings/.test(r)) return 'eul/standings.json';
+  let x = r.match(/^teams\/([^/]+)\/schedule(\?season=(\d+))?/); if(x) return x[3] && +x[3] < (new Date().getUTCMonth()>=6 ? new Date().getUTCFullYear() : new Date().getUTCFullYear()-1) ? '' : 'eul/sched-'+x[1]+'.json';
+  x = r.match(/^summary\?event=([^&]+)/); if(x) return 'eul/sum-'+x[1]+'.json';
+  return '';
+}
 async function webGet(url, asText){
+  { const em = eulMap(url); if(em!=null){ if(!em) return asText ? '' : {events:[]}; const r = await fetch(MIRROR+em+'?t='+Math.floor(Date.now()/300000)); if(!r.ok){ const e = new Error('Error HTTP '+r.status); e.status = r.status; throw e; } return asText ? r.text() : r.json(); } }
   let r;
   try{ r = /:\/\/site\.api\.espn\.com\//.test(url) ? await espnGet(url) : await fetch(url); }
   catch(e){

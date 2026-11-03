@@ -18,7 +18,7 @@ const cbDay = () => ymd(todayDate);
 // Sin cuota real, la cuota que se muestra es la estimada de la casa: cuota justa x 0.93.
 const CB_MARGIN = 0.93, CB_CV = 5;
 const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
-const CB_SP = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
+const CB_SP = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
 // historial: {día: {deporte: {t, combos, lock}}}
 function cbAll() {
   let all = LS.get('ab_cb2', null);
@@ -57,7 +57,7 @@ function cbLegs(want) {
         out.push({sp: 'tenis', lid: m.tour, h, a, when: m.d, ts, gid: m.id, label: k.label, cat: c, prob: q, raw: k.prob, odds: +cbEst(100 / q).toFixed(2), fair: +(100 / q).toFixed(2), real: false, mkt: {t: 'tn'}, where: TN_TOURS[m.tour].name + ' ' + m.ev, res: null}); });
     });
   } catch (e) {}
-  ['nba', 'mlb', 'ncaa', 'nhl'].filter(sp => sp === want).forEach(sp => {
+  ['nba', 'eul', 'mlb', 'ncaa', 'nhl'].filter(sp => sp === want).forEach(sp => {
     try {
       (usData[sp].games || []).forEach(g => {
         if (g.state !== 'pre' || g.postponed || isoDateOnlyEcuador(g.d, 0) !== day) return;

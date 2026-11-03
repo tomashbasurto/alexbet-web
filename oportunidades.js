@@ -36,7 +36,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
 
   const res = await page.evaluate(async () => {
     const day = ymd(todayDate), now = Date.now(), log = [];
-    await Promise.allSettled([usLoad('nba', true), usLoad('ncaa', true), usLoad('mlb', true), usLoad('nhl', true)]);
+    await Promise.allSettled([usLoad('nba', true), usLoad('eul', true), usLoad('ncaa', true), usLoad('mlb', true), usLoad('nhl', true)]);
     PB.S = null; await pbLoad();
     const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
     const sdOf = a => { const m = avg(a); return Math.sqrt(a.reduce((t, x) => t + (x - m) * (x - m), 0) / Math.max(1, a.length - 1)); };
@@ -103,7 +103,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
       }
     }
     // ---------- NBA, NCAA, MLB, NHL ----------
-    for (const sp of ['nba', 'ncaa', 'mlb', 'nhl']) {
+    for (const sp of ['nba', 'eul', 'ncaa', 'mlb', 'nhl']) {
       const games = (usData[sp].games || []).filter(g => g.state === 'pre' && !g.postponed && isoDateOnlyEcuador(g.d, 0) === day);
       log.push(sp + ' hoy: ' + games.length);
       const list = sp === 'ncaa' ? games.slice(0, 25) : games;

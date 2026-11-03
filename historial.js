@@ -64,14 +64,14 @@ const KEEP_DAYS = 120;
     };
   });
   await page.evaluate(async () => {
-    await Promise.allSettled([usLoad('nba', true), usLoad('mlb', true), usLoad('ncaa', true), usLoad('nhl', true), tnLoad(true), plLoad2('nba')]);
+    await Promise.allSettled([usLoad('nba', true), usLoad('eul', true), usLoad('mlb', true), usLoad('ncaa', true), usLoad('nhl', true), tnLoad(true), plLoad2('nba')]);
     try { const j = await mirrorGet('elo-tenis.json'); TN.elo = {lt: Date.now(), r: j.r || {}, h2h: j.h2h || {}}; TN.cache = {}; } catch (e) {}
   });
 
   // ---------- 1) publicar ----------
   // cuotas reales de ESPN por deporte (las usan las sugerencias y combinadas cuando existen)
   const fresh = {picks: [], combos: {}};
-  for (const sp of ['futbol', 'nba', 'ncaa', 'mlb', 'nhl', 'tenis']) {
+  for (const sp of ['futbol', 'nba', 'eul', 'ncaa', 'mlb', 'nhl', 'tenis']) {
     const part = await page.evaluate(async sp => {
       sport = sp; if (sp !== 'tenis') { try { await vaLoad(true); } catch (e) {} }
       const r = publishPart(sp); r.cuotas = sp !== 'tenis' ? (VA.rows || []).length + ' partidos con cuota' + (VA.err ? ' (' + VA.err + ')' : '') : '-';
@@ -130,7 +130,7 @@ const KEEP_DAYS = 120;
   if (newCombos.length) {
     try {
       const P = await require('./push-send').init();
-      if (P) { const N = {futbol: 'Fútbol', nba: 'NBA', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
+      if (P) { const N = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
         await P.notify('combinadas', 'Combinadas AlexBet de hoy', newCombos.map(x => `${N[x.sp]}: ${[x.seg && x.seg + ' de opción 1', x.med && x.med + ' de opción 2', x.alt && x.alt + ' de opción 3'].filter(Boolean).join(', ')}`).join(' · ') + '. Ábrelas en Sugerencias.', {tag: 'cb|' + fresh.day});
         console.log('push combinadas:', JSON.stringify(P.stats())); }
     } catch (e) { console.log('push:', e.message); }
