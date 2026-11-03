@@ -391,6 +391,11 @@
   .btn:disabled{ opacity:.5; }
   .set-box{ background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin-top:10px; }
   .ab-qr{ text-align:center; margin:10px 0 4px; } .ab-qr img{ display:block; width:220px; max-width:70%; margin:0 auto 10px; background:#fff; border-radius:14px; padding:10px; } .ab-qr .btn{ display:block; text-align:center; text-decoration:none; }
+  .ab-ctas{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .ab-cta{ background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:8px 6px; text-align:center; min-width:0; }
+  .ab-bk{ border-radius:8px; padding:7px 2px; font:700 11.5px var(--font-body); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ab-cta small{ display:block; font-size:11px; color:var(--ink-dim); } .ab-cta b{ display:block; font-size:13px; letter-spacing:.2px; margin:2px 0 6px; }
+  .ab-cta button{ width:100%; min-height:30px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--accent); font:600 12px var(--font-body); cursor:pointer; }
   .set-box .row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
   .set-box .ok{ color:var(--over); } .set-box .bad{ color:var(--under); }
 
@@ -4279,7 +4284,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.6 · QR de Deuna para pagar';
+const APP_VERSION = 'v38.7 · cuentas para transferencia';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

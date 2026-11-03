@@ -7,6 +7,12 @@ const PAGO = {
   deuna: 'Código Deuna: 7701122749', // número o alias para Deuna
   deunaQR: 'deuna-qr.png',  // imagen del QR de cobro de Deuna
   deunaLink: 'https://pagar.deuna.app/H92p/person/payment?id=ce785890dc7cfd5a3a67dd2d79df3a32bd58052d', // el mismo QR como enlace (abre la app Deuna)
+  cuentas: [               // cuentas para transferencia (se muestran debajo del QR, con botón Copiar)
+    {banco: 'Banco Guayaquil', tipo: 'Ahorros', num: '0016954085', bg: '#fde2ef', fg: '#9d174d'},
+    {banco: 'Banco Pichincha', tipo: 'Ahorros', num: '2203442139', bg: '#fef3c7', fg: '#854d0e'},
+    {banco: 'Banco Pacífico', tipo: 'Ahorros', num: '1065365682', bg: '#dbeafe', fg: '#1e40af'}
+  ],
+  titular: 'Alexander Javier Basurto Aguirre',
   payphone: '',            // link o número de PayPhone
   transferencia: ''        // banco, tipo y número de cuenta, nombre y cédula
 };
@@ -281,11 +287,21 @@ window.abPayOpen = () => {
     ${metodo === 'Deuna' && PAGO.deunaQR ? `<div class="ab-qr"><img src="${PAGO.deunaQR}" alt="Código QR de Deuna para pagar AlexBet">
       ${PAGO.deunaLink ? `<a class="btn primary" href="${esc(PAGO.deunaLink)}" target="_blank" rel="noopener">Pagar con Deuna</a>` : ''}
       <div class="sub">Desde otro celular, escanea el QR con Deuna. Desde este celular, toca "Pagar con Deuna" o mantén presionado el QR para guardarlo.</div></div>` : ''}
+    ${PAGO.cuentas && PAGO.cuentas.length ? `<div class="sub" style="margin:10px 0 6px">O transfiere a una de estas cuentas:</div>
+    <div class="ab-ctas">${PAGO.cuentas.map(c => `<div class="ab-cta"><div class="ab-bk" style="background:${c.bg};color:${c.fg}">${esc(c.banco)}</div><small>${esc(c.tipo)}</small><b>${esc(c.num)}</b><button type="button" onclick="abCopiar('${esc(c.num)}', this)">Copiar</button></div>`).join('')}</div>
+    ${PAGO.titular ? `<div class="set-box" style="margin-top:6px">Titular: <b>${esc(PAGO.titular)}</b></div>` : ''}` : ''}
     <label>2. Envía el comprobante</label>
     <button type="button" class="btn primary" onclick="abComprobante()">Enviar comprobante por WhatsApp</button>
     <div class="sub" style="margin-top:8px">El mensaje sale con tu correo (${esc(AB.user ? AB.user.email : '')}) para activarte rápido. Premium se activa en esta cuenta, en el celular y en la web.</div>
     <button type="button" class="btn ghost" onclick="abPayClose()">Cerrar</button>`;
   w.classList.add('show');
+};
+window.abCopiar = async (t, btn) => {
+  let ok = false;
+  try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+    try { const a = document.createElement('textarea'); a.value = t; a.style.position = 'absolute'; a.style.left = '-9999px'; document.body.appendChild(a); a.select(); ok = document.execCommand('copy'); a.remove(); } catch (e2) {}
+  }
+  if (btn) { btn.textContent = ok ? 'Copiado ✓' : t; setTimeout(() => { btn.textContent = 'Copiar'; }, 2000); }
 };
 window.abPayClose = () => { const w = $('abPay'); if (w) w.classList.remove('show'); };
 window.abPlan = id => { planSel = id; window.abPayOpen(); };
