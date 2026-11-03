@@ -1542,7 +1542,7 @@ function opKind(k){ OPK = k; LS.set('ab_opk', k); renderMatches(); }
 function opxHTML(sp, localTeams){
   opxLoad(); if(OPK==null) OPK = LS.get('ab_opk','team');
   const J = OPX.j, day = ymd(todayDate), now = Date.now();
-  const L = J && J.day===day ? (J.items||[]).filter(x=>x.sp===sp && x.ts>now - 5*60e3) : null;
+  const L = J && J.day===day ? (J.items||[]).filter(x=>x.sp===sp && x.ts>now - 5*60e3 && (sp!=='futbol' || lgIn({id:x.lid}))) : null; // v39.5: solo la liga o país elegido
   if(!L && !localTeams) return OPX.busy || !J ? null : '';
   const teams = L ? L.filter(x=>x.kind==='team') : [], pls = L ? L.filter(x=>x.kind==='player') : [];
   const bar = `<div class="tn-chips" style="display:grid;grid-template-columns:1fr 1fr">${[['team','Equipos'],['player','Jugadores']].map(([k,t])=>`<button type="button" class="${OPK===k?'on':''}" onclick="opKind('${k}')">${t}</button>`).join('')}</div>`;
@@ -4457,7 +4457,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39.4 · remates totales y remates al arco';
+const APP_VERSION = 'v39.5 · oportunidades solo de la liga elegida';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
