@@ -3949,8 +3949,9 @@ function pbPick(kind, v){ if(kind==='m'){ PB.m = v; PB.ln = null; } else if(kind
 function pbNorm(x){ const t = 1/(1+0.2316419*Math.abs(x)), d = 0.3989423*Math.exp(-x*x/2), q = d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274)))); return x>0 ? 1-q : q; }
 function pbSd(a){ if(a.length<3) return null; const m = pbAvg(a); return Math.sqrt(a.reduce((t,x)=>t+(x-m)*(x-m),0)/(a.length-1)); }
 // datos del gráfico: lista de partidos (del más reciente al más viejo) con su valor, y el promedio esperado
-function pbH2xItem(g, v, lid){ const hn = g.home?PB.h:PB.a, an = g.home?PB.a:PB.h;
-  return {id:g.id, ts:g.ts, v, opp:(g.home ? an : hn), oppId:'', h2:true, old:true, ctx:{sp:'futbol', lid, slug:(SRC[lid]||{}).espn, fid:'e'+g.id, date:new Date(g.ts).toISOString().slice(0,10), h:hn, a:an, score:`${g.gh}-${g.ga}`, lname:''}}; }
+// v39.2: los nombres salen desde el equipo elegido ("me"): debajo de la fecha va el rival, y cambia al elegir el otro equipo
+function pbH2xItem(g, v, lid, me, both){ const meN = me===PB.aid ? PB.a : PB.h, opN = me===PB.aid ? PB.h : PB.a, hn = g.home ? meN : opN, an = g.home ? opN : meN;
+  return {id:g.id, ts:g.ts, v, opp:both ? hn : opN, oppId:'', h2:true, old:true, ctx:{sp:'futbol', lid, slug:(SRC[lid]||{}).espn, fid:'e'+g.id, date:new Date(g.ts).toISOString().slice(0,10), h:hn, a:an, score:`${g.gh}-${g.ga}`, lname:''}}; }
 function pbSrc(){
   const ti = PB.t, both = ti===2, me = ti===1?PB.aid:PB.hid, op = ti===1?PB.hid:PB.aid;
   if(PB.kind==='us'){
@@ -3975,10 +3976,10 @@ function pbSrc(){
     lam = ((A.length?pbAvg(A.slice(0,10).map(x=>x.v)):pbAvg(B.slice(0,10).map(x=>x.v))) + (B.length?pbAvg(B.slice(0,10).map(x=>x.v)):pbAvg(A.slice(0,10).map(x=>x.v))))/2;
     // los últimos 5 entre ellos (archivo por liga, hasta 6 temporadas)
     const lid = H2F.lid||'';
-    if(lid){ h2xGames(lid, PB.hid, PB.aid).forEach(g=>{ if(f(g.us)==null || f(g.them)==null || G.some(y=>y.id===g.id)) return; G.push(pbH2xItem(g, f(g.us)+f(g.them), lid)); }); G.sort((x,y)=>y.ts-x.ts); }
+    if(lid){ h2xGames(lid, PB.hid, PB.aid).forEach(g=>{ if(f(g.us)==null || f(g.them)==null || G.some(y=>y.id===g.id)) return; G.push(pbH2xItem(g, f(g.us)+f(g.them), lid, PB.hid, true)); }); G.sort((x,y)=>y.ts-x.ts); }
   } else {
     G = pbGames(me).filter(g=>f(g.us)!=null).map(g=>Object.assign(mk(g, f(g.us)), {h2:g.oppId===op}));
-    { const lid = H2F.lid||''; if(lid){ h2xGames(lid, me, op).forEach(g=>{ if(f(g.us)==null || G.some(y=>y.id===g.id)) return; G.push(pbH2xItem(g, f(g.us), lid)); }); G.sort((x,y)=>y.ts-x.ts); } }
+    { const lid = H2F.lid||''; if(lid){ h2xGames(lid, me, op).forEach(g=>{ if(f(g.us)==null || G.some(y=>y.id===g.id)) return; G.push(pbH2xItem(g, f(g.us), lid, me)); }); G.sort((x,y)=>y.ts-x.ts); } }
     if(!G.some(x=>!x.old)) return {wait:`ESPN no tiene ${M.k.toLowerCase()} de los partidos de ${escA(ti?PB.a:PB.h)} en los últimos meses.`};
     const O = pbGames(op).filter(g=>f(g.them)!=null), mine = pbAvg(G.filter(x=>!x.old).slice(0,10).map(x=>x.v));
     lam = (mine + (O.length>=3 ? pbAvg(O.slice(0,10).map(g=>f(g.them))) : mine))/2;
@@ -4009,7 +4010,7 @@ function pbRender0(){
   if(!shown.length) b += `<div class="pl-none">${PB.per==='H2H' ? (PB.kind==='f' && H2F.lid && !(H2X[H2F.lid]&&H2X[H2F.lid].ev) ? 'Cargando enfrentamientos…' : 'No se enfrentaron en las últimas 6 temporadas (o ESPN no tiene esos partidos).') : 'Sin partidos.'}</div>`;
   else {
     b += `<div class="pb-bars">${shown.map(g=>{ const ix = mhReg(g.ctx); return `<div class="pb-b" onclick="mhOpen(${ix})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--under)'}"></i></div>`; }).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"></div></div>
-      <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3); return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}<br>${escA(String(g.opp||'H2H').slice(0,5))}</div>`; }).join('')}</div>`;
+      <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3), yr = Date.now()-g.ts > 300*864e5 ? '/'+String(d.getUTCFullYear()).slice(2) : ''; return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}${yr}<br>${escA(String(g.opp||'H2H').slice(0,5))}</div>`; }).join('')}</div>`;
   }
   b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PB.per===k?'on':''}" onclick="pbPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
     <div class="lv-stats">El % de cada botón es cuántas veces superó la línea. ${PB.t===2?'"Ambos" suma lo de los dos equipos en cada partido (últimos partidos de cada uno).':`La probabilidad estimada combina lo que hace ${escA(nm)} con lo que le hacen a ${oname} (últimos 10).`} Toca una barra para ver la estadística completa de ese partido.</div>`;
@@ -4413,7 +4414,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39.1 · Oportunidades del día';
+const APP_VERSION = 'v39.2 · rival correcto debajo de la fecha';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
