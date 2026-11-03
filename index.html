@@ -3818,13 +3818,43 @@ function selectDate(key){
 
 // v37.2 · Tarjeta del partido: lo que pasó (últimos 10 de cada uno y entre ellos) frente al modelo
 let PBI = {};
+// v39.6 · equipo de la app → id de ESPN. Antes bastaba compartir una palabra ("Madrid", "United", "City") y se mezclaban equipos.
+var TEAMS_LG = null;
+var TM_STOP = new Set(['de','del','la','el','los','las','y','e','do','da','club','the','and']);
+var TM_GEN = new Set(['united','utd','city','town','madrid','real','sporting','athletic','atletico','atl','deportivo','dep','deportes','independiente','ind','universidad','univ','union','racing','santa','san','saint','st','rovers','wanderers','county','albion','nacional','america','junior','central','olympique','borussia','inter','internacional','dynamo','dinamo','sport','sports','esporte','clube','athletico','stade','school','fc','sc','club','cd','ca','afc','cf','north','south','east','west','new','york','bristol','sheffield','manchester','man','river','boca','cordoba','tucuman','plata','fe','cali','medellin','bogota','quito','guayaquil','lima','juniors','old','young','boys','park','hotspur','palace','villa','forest','orient','argyle','wednesday','hall','academy','ii','b','u23','u21']);
+function tmTok(s){ return normName(s).split(' ').filter(w=>w && !TM_STOP.has(w)); }
+// cubre: todas las palabras de "a" aparecen en "b" (permite abreviaturas: "c" ≈ "crystal", "ind" ≈ "independiente")
+// uno a uno: cada palabra de "a" con una palabra distinta de "b" (exacta, o abreviatura: "c" ≈ "crystal", "ind" ≈ "independiente")
+function tmCover(a, b, info){ const used = new Set(); let ex = 0;
+  for(const w of a){ let j = b.findIndex((v,i)=>!used.has(i) && v===w); if(j>=0){ ex++; used.add(j); continue; }
+    j = b.findIndex((v,i)=>!used.has(i) && ((w.length<=4 && w.length<v.length && v.startsWith(w)) || (v.length<=4 && v.length<w.length && w.startsWith(v)))); if(j<0) return false; used.add(j); }
+  if(info) info.ex = ex; return true; }
+function tmScore(app, cand){
+  const x = normName(app), y = normName(cand); if(!x || !y) return 0; if(x===y) return 100;
+  const A = tmTok(app), B = tmTok(cand); if(!A.length || !B.length) return 0;
+  const [S, L] = A.length<=B.length ? [A, B] : [B, A];
+  const inf = {}; if(!tmCover(S, L, inf)) return 0; if(!inf.ex) return 0;  // al menos una palabra exacta
+  const dist = S.filter(w=>!TM_GEN.has(w) && w.length>=3).length; if(!dist && S.length<2) return 0;  // debe compartir algo propio, no solo "Madrid" o "City"
+  return 40 + dist*10 + inf.ex*5 + Math.round(S.length/L.length*10);
+}
 function pbTeamId(lid, name){
   const k = lid+'|'+name; if(k in PBI) return PBI[k];
-  let id = null; const E = (PB.S && PB.S.ev) || {};
-  for(const pass of [1,2]){ for(const r of Object.values(E)){ if(pass===1 && r[1]!==lid) continue;
-    if(sameTeam(r[4], name)){ id = String(r[2]); break; } if(sameTeam(r[5], name)){ id = String(r[3]); break; } } if(id) break; }
-  return PBI[k] = id;
+  if(!TEAMS_LG) TEAMS_LG = LS.get('ab_teamslg', null);
+  const sl = (SRC[lid]||{}).espn, cands = [];
+  ((TEAMS_LG && sl && TEAMS_LG[sl]) || []).forEach(r=>cands.push({id:String(r[0]), names:[r[1], r[2], r[3], r[5]&&r[3]?r[5]+' '+r[3]:'']}));
+  const E = (PB.S && PB.S.ev) || {}, seen = {};
+  Object.values(E).forEach(r=>{ if(r[1]!==lid) return; [[r[2],r[4]],[r[3],r[5]]].forEach(([id,n])=>{ id = String(id); (seen[id] = seen[id] || new Set()).add(n); }); });
+  Object.entries(seen).forEach(([id, ns])=>{ const c = cands.find(c=>c.id===id); if(c) ns.forEach(n=>c.names.push(n)); else cands.push({id, names:[...ns]}); });
+  let best = null, bs = 0, tie = false;
+  cands.forEach(c=>{ const sc = Math.max(0, ...c.names.filter(Boolean).map(n=>tmScore(name, n))); if(sc>bs){ bs = sc; best = c.id; tie = false; } else if(sc && sc===bs && c.id!==best) tie = true; });
+  if(!bs && !pbTeamId.alias){ const al = TM_ALIAS[normName(name)]; if(al){ pbTeamId.alias = 1; const r = pbTeamId(lid, al); pbTeamId.alias = 0; return PBI[k] = r; } }
+  return PBI[k] = (bs && !tie) ? best : null;
 }
+// apodos que salen en los datos de partidos y que ESPN escribe distinto
+var TM_ALIAS = {'atleti':'Atletico Madrid','barca':'Barcelona','hsv':'Hamburg SV','m gladbach':'Borussia Monchengladbach','inter':'Internazionale','psg':'Paris Saint-Germain',
+  'man united':'Manchester United','tottenham':'Tottenham Hotspur','wolverhampton':'Wolverhampton Wanderers','sittard':'Fortuna Sittard','santander':'Racing Santander',
+  'liga de quito':'LDU Quito','1 koln':'FC Cologne','koln':'FC Cologne','kobenhavn':'FC Copenhagen','f c kobenhavn':'FC Copenhagen','heart of midlothian':'Hearts','guayaquil city':'Guayaquil City',
+  'genclerbirligi':'Genclerbirligi','istanbul basaksehir':'Basaksehir','amadora':'Estrela Amadora','america mineiro':'America-MG'};
 const H2X = {};
 // v38.9: filas del archivo h2h → [filaLocal, filaVisita] (formato nuevo: 8 estadísticas por equipo; viejo: solo totales)
 function h2xRows(r){ if(Array.isArray(r[3])) return [r[3], r[4]]; const n = [null,null,null,null,null,null,null,null]; const a = n.slice(), b = n.slice(); a[0] = r[3]; b[0] = r[4]; return [a, b]; }
@@ -4457,7 +4487,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39.5 · oportunidades solo de la liga elegida';
+const APP_VERSION = 'v39.6 · equipos correctos (no se mezclan nombres parecidos)';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4529,7 +4559,9 @@ function sameTeam(a,b){
   const x = normName(a), y = normName(b);
   if(!x || !y) return false;
   if(x===y || x.includes(y) || y.includes(x)) return true;
-  const tx = x.split(' ').filter(w=>w.length>=4), ty = y.split(' ');
+  if(typeof TM_GEN!=='undefined' && TM_GEN){ const A = tmTok(a), B = tmTok(b); if(A.length && B.length){ const [S, L] = A.length<=B.length ? [A, B] : [B, A];
+    if(tmCover(S, L) && (S.length>=2 || S.some(w=>!TM_GEN.has(w) && w.length>=3))) return true; } }
+  const tx = x.split(' ').filter(w=>w.length>=4 && !(TM_GEN && TM_GEN.has(w))), ty = y.split(' ');  // v39.6: "Madrid", "United", "City"… ya no bastan
   return tx.some(w=>ty.includes(w));
 }
 function staticStatsFor(leagueId, name){
@@ -4731,7 +4763,7 @@ async function loadRemote(log){
       if(j.sc && j.sc[sl.id]) LS.set('ab_sc_'+sl.id, j.sc[sl.id]);
     });
     LS.set('ab_stats', Object.assign(LS.get('ab_stats',{}), j.stats||{}));
-    if(j.logos){ Object.keys(j.logos).forEach(n=>noteLogo(n, j.logos[n])); if(j.logosLg) Object.entries(j.logosLg).forEach(([sl,L])=>Object.keys(L).forEach(n=>noteLogo(n, L[n], sl))); LS.set('ab_logos', LG()); }
+    if(j.logos){ Object.keys(j.logos).forEach(n=>noteLogo(n, j.logos[n])); if(j.logosLg) Object.entries(j.logosLg).forEach(([sl,L])=>Object.keys(L).forEach(n=>noteLogo(n, L[n], sl))); if(j.teamsLg){ TEAMS_LG = j.teamsLg; LS.set('ab_teamslg', j.teamsLg); PBI = {}; } LS.set('ab_logos', LG()); }
     log.push({name:'Datos del servidor', ok:true, msg:`${Object.keys(j.fx).length} ligas · generados ${ago(j.t)}`});
     (j.log||[]).filter(l=>!l.ok).forEach(l=>log.push({name:'Servidor · '+l.name, ok:false, msg:l.msg}));
     return j;

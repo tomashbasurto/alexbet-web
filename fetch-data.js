@@ -254,14 +254,16 @@ function applySummary(j, id, stats){
   // 5) logos de equipos (ESPN)
   out.logos = Object.assign({}, prev.logos||{});
   out.logosLg = Object.assign({}, prev.logosLg||{}); // v38.5: escudos por liga (mismo nombre en ligas distintas)
+  const tl = {}; // v39.6: equipos oficiales de ESPN por liga [id, nombre, corto, nombre club, sigla, ciudad]
   for(const cfg of LEAGUES){
     if(!cfg.espn) continue;
     try{
       const j = await getJson(`${ESPN_BASE}/${cfg.espn}/teams`);
       const ts = (((j.sports||[])[0]||{}).leagues||[])[0];
-      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href)||t.logo; if(lg){ if(t.displayName) out.logos[t.displayName]=lg; if(t.shortDisplayName) out.logos[t.shortDisplayName]=lg; const L = out.logosLg[cfg.espn] = out.logosLg[cfg.espn] || {}; [t.displayName, t.shortDisplayName, t.name].forEach(n=>{ if(n) L[n] = lg; }); } });
+      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href)||t.logo; if(lg){ if(t.displayName) out.logos[t.displayName]=lg; if(t.shortDisplayName) out.logos[t.shortDisplayName]=lg; const L = out.logosLg[cfg.espn] = out.logosLg[cfg.espn] || {}; [t.displayName, t.shortDisplayName, t.name].forEach(n=>{ if(n) L[n] = lg; }); } if(t.id){ const T = tl[cfg.espn] = tl[cfg.espn] || []; T.push([String(t.id), t.displayName||'', t.shortDisplayName||'', t.name||'', t.abbreviation||'', t.location||'']); } });
     }catch(e){ log.push({name:'Logos '+cfg.name, ok:false, msg:e.message}); }
   }
+  out.teamsLg = Object.assign({}, prev.teamsLg||{}, tl);
   const okLeagues = Object.keys(out.fx).length;
   fs.writeFileSync(OUT, JSON.stringify(out));
   console.log(`datos.json escrito: ${okLeagues}/${LEAGUES.length} ligas, ${Object.keys(out.stats).length} estadísticas`);
