@@ -4278,7 +4278,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.4 · escudos correctos por liga';
+const APP_VERSION = 'v38.5 · escudos por liga también desde el servidor';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4552,7 +4552,7 @@ async function loadRemote(log){
       if(j.sc && j.sc[sl.id]) LS.set('ab_sc_'+sl.id, j.sc[sl.id]);
     });
     LS.set('ab_stats', Object.assign(LS.get('ab_stats',{}), j.stats||{}));
-    if(j.logos){ Object.keys(j.logos).forEach(n=>noteLogo(n, j.logos[n])); LS.set('ab_logos', LG()); }
+    if(j.logos){ Object.keys(j.logos).forEach(n=>noteLogo(n, j.logos[n])); if(j.logosLg) Object.entries(j.logosLg).forEach(([sl,L])=>Object.keys(L).forEach(n=>noteLogo(n, L[n], sl))); LS.set('ab_logos', LG()); }
     log.push({name:'Datos del servidor', ok:true, msg:`${Object.keys(j.fx).length} ligas · generados ${ago(j.t)}`});
     (j.log||[]).filter(l=>!l.ok).forEach(l=>log.push({name:'Servidor · '+l.name, ok:false, msg:l.msg}));
     return j;

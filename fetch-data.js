@@ -253,12 +253,13 @@ function applySummary(j, id, stats){
   Object.keys(out.stats).forEach(k=>{ if(!keep.has(k)) delete out.stats[k]; });
   // 5) logos de equipos (ESPN)
   out.logos = Object.assign({}, prev.logos||{});
+  out.logosLg = Object.assign({}, prev.logosLg||{}); // v38.5: escudos por liga (mismo nombre en ligas distintas)
   for(const cfg of LEAGUES){
     if(!cfg.espn) continue;
     try{
       const j = await getJson(`${ESPN_BASE}/${cfg.espn}/teams`);
       const ts = (((j.sports||[])[0]||{}).leagues||[])[0];
-      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href)||t.logo; if(lg){ if(t.displayName) out.logos[t.displayName]=lg; if(t.shortDisplayName) out.logos[t.shortDisplayName]=lg; } });
+      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href)||t.logo; if(lg){ if(t.displayName) out.logos[t.displayName]=lg; if(t.shortDisplayName) out.logos[t.shortDisplayName]=lg; const L = out.logosLg[cfg.espn] = out.logosLg[cfg.espn] || {}; [t.displayName, t.shortDisplayName, t.name].forEach(n=>{ if(n) L[n] = lg; }); } });
     }catch(e){ log.push({name:'Logos '+cfg.name, ok:false, msg:e.message}); }
   }
   const okLeagues = Object.keys(out.fx).length;
