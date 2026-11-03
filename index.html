@@ -1665,7 +1665,7 @@ function renderLive(){
     }
     return `<div class="match-card" onclick="ldOpen('f', ${liveData.list.indexOf(m)})">
       <div class="match-meta"><span><i class="lg-dot" style="background:${m.color}"></i>${m.lname}</span><span class="lv-min"><i></i>${m.label}${fmStar(m.h,m.a)}</span></div>
-      <div class="lv-score"><div class="tn r">${m.h} ${logoImg(m.h)}</div><div class="sc">${m.gh} - ${m.ga}</div><div class="tn">${logoImg(m.a)}${m.a}</div></div>
+      <div class="lv-score"><div class="tn r">${m.h} ${logoImg(m.h, m.lid)}</div><div class="sc">${m.gh} - ${m.ga}</div><div class="tn">${logoImg(m.a, m.lid)}${m.a}</div></div>
       ${stats.length?`<div class="lv-stats">${stats.join('<span style="opacity:.4">·</span>')}</div>`:''}
       ${body}
       ${est?`<div class="foot-note" style="margin:8px 0 0;">(est.) Faltan datos reales de alguno de los equipos: el pronóstico usa promedios estimados.</div>`:''}
@@ -1683,7 +1683,11 @@ function IC(n,size,style){ return `<svg class="ic" width="${size||18}" height="$
 let LOGOS_C = null;
 function LG(){ if(!LOGOS_C){ const v = LS.get('ab_logos', null); LOGOS_C = (v && v.map) ? v : {map:{}, t:0}; } return LOGOS_C; }
 const LOGO_MEMO = {};
-function logoFor(name){
+// v38.4: escudos por liga primero (Santos de Brasil ≠ Santos Laguna, Barcelona ≠ Barcelona SC)
+function logoFor(name, lid){
+  const sl = lid && SRC[lid] && SRC[lid].espn, L = sl && LG().lg && LG().lg[sl];
+  if(L){ const k = normName(name); if(L[k]) return L[k];
+    for(const key of Object.keys(L)) if(key.length>=4 && k.length>=4 && (key.includes(k) || k.includes(key))) return L[key]; }
   const m = LG().map, k = normName(name);
   if(m[k]) return m[k];
   const mk = k+'|'+Object.keys(m).length;
@@ -1692,30 +1696,30 @@ function logoFor(name){
   for(const key of Object.keys(m)){ if(key.length>=4 && k.length>=4 && (key.includes(k) || k.includes(key))){ hit = m[key]; break; } }
   return LOGO_MEMO[mk] = hit;
 }
-function badgeHTML(name, big, label){
+function badgeHTML(name, big, label, lid){
   const cls = big ? 'badge-lg' : 'badge', ini = (label||initials(name)).replace(/[<>&"]/g,'');
-  const u = logoFor(name);
+  const u = logoFor(name, lid);
   if(!u) return `<div class="${cls}" style="background:${hashColor(name)}">${ini}</div>`;
   return `<div class="${cls} logo"><img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="var b=this.parentNode;b.classList.remove('logo');b.style.background='${hashColor(name)}';b.textContent='${ini}'"></div>`;
 }
-function logoImg(name){
-  const u = logoFor(name);
+function logoImg(name, lid){
+  const u = logoFor(name, lid);
   return u ? `<img class="lg-img" src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
 }
-function noteLogo(name, url){ if(name && url){ const k = normName(name); if(k) LG().map[k] = url; } }
+function noteLogo(name, url, sl){ if(name && url){ const k = normName(name); if(!k) return; if(sl){ const G = LG(); G.lg = G.lg || {}; (G.lg[sl] = G.lg[sl] || {})[k] = url; } else LG().map[k] = url; } }
 let logosBusy = false, LOGO_STATUS = '';
 async function logosLoad(force){
   if(logosBusy) return;
-  if(!force && Object.keys(LG().map).length > 100 && Date.now()-LG().t < 7*864e5) return;
+  if(!force && LG().lg && Object.keys(LG().map).length > 100 && Date.now()-LG().t < 7*864e5) return;
   logosBusy = true;
-  const urls = [...new Set(Object.values(SRC).map(c=>c.espn).filter(Boolean))].map(sl=>`${ESPN_BASE}/${sl}/teams`);
+  const slugs = [...new Set(Object.values(SRC).map(c=>c.espn).filter(Boolean))], urls = slugs.map(sl=>`${ESPN_BASE}/${sl}/teams`);
   urls.push(`${US_API}/site/v2/sports/basketball/nba/teams`, `${US_API}/site/v2/sports/baseball/mlb/teams`);
   let got = 0, failed = 0, lastE = '';
-  await Promise.all(urls.map(async u=>{
+  await Promise.all(urls.map(async (u, i)=>{
     try{
-      const j = await webGet(u);
+      const j = await webGet(u), sl = slugs[i];
       const ts = (((j.sports||[])[0]||{}).leagues||[])[0];
-      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href) || t.logo; if(lg){ noteLogo(t.displayName, lg); noteLogo(t.shortDisplayName, lg); got++; } });
+      ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href) || t.logo; if(lg){ noteLogo(t.displayName, lg); noteLogo(t.shortDisplayName, lg); if(sl){ noteLogo(t.displayName, lg, sl); noteLogo(t.shortDisplayName, lg, sl); noteLogo(t.name, lg, sl); } got++; } });
     }catch(e){ failed++; lastE = e.message||String(e); }
   }));
   LOGO_STATUS = `${Object.keys(LG().map).length} nombres · ${urls.length-failed}/${urls.length} ligas${failed?' · error: '+lastE:''}`;
@@ -2452,7 +2456,7 @@ function mhStatsHTML(){
 }
 function mhRender(){
   const c = mh.ctx; if(!c) return; const D = mh.data;
-  const logo = n => { const u = logoFor(n); return u ? `<img src="${u}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div class="ld-ini">${initials(n)}</div>`; };
+  const logo = n => { const u = logoFor(n, c.lid); return u ? `<img src="${u}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div class="ld-ini">${initials(n)}</div>`; };
   const sc = c.score || '';
   let html = `<button class="back-btn" style="margin:0 0 8px;" onclick="mhBack()">${IC('back',16)} Volver al partido</button>
   <div class="ld-head" style="background:var(--surface);">
@@ -3486,7 +3490,7 @@ function ldRender(){
   const label = f ? (m.ht ? 'Descanso' : (D && D.label && /\d/.test(D.label) ? D.label : m.label)) : (usLiveModel(m).label);
   const ht = f && D && D.ls[0].length>=1 && D.ls[1].length>=1 && (m.min>45 || D.ls[0].length>1) ? `HT ${D.ls[0][0]}-${D.ls[1][0]}` : '';
   const lg = f ? m.lname : US[ld.sp].name;
-  const logo = n => { const u = logoFor(n); return u ? `<img src="${u}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div class="ld-ini">${initials(n)}</div>`; };
+  const logo = n => { const u = logoFor(n, f ? m.lid : null); return u ? `<img src="${u}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div class="ld-ini">${initials(n)}</div>`; };
   let html = `<div class="ld-head">
     <div class="ld-min">${label}</div>
     <div class="ld-row">
@@ -3723,12 +3727,12 @@ function renderMatches(){
       <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora Ecuador${fmStar(homeName,awayName,isoDateOnlyEcuador(when, league.utcOffset))}</span></div>
       <div class="teams-row">
         <div class="team">
-          ${badgeHTML(homeName,false)}
+          ${badgeHTML(homeName,false,'',league.id)}
           <div class="team-name">${homeName}${favStar(homeName)}</div>
         </div>
         <div class="ko"><b>${fmtParts(when, league.utcOffset).time}</b><span>${fmtParts(when, league.utcOffset).date}</span></div>
         <div class="team away">
-          ${badgeHTML(awayName,false)}
+          ${badgeHTML(awayName,false,'',league.id)}
           <div class="team-name">${awayName}${favStar(awayName)}</div>
         </div>
       </div>
@@ -4113,12 +4117,12 @@ function openMatch(leagueId, idx){
       <div class="meta">${league.name.toUpperCase()}</div>
       <div class="row">
         <div class="team-big">
-          ${badgeHTML(homeName,true)}
+          ${badgeHTML(homeName,true,'',league.id)}
           <div class="name">${homeName}${favStar(homeName)}</div>
         </div>
         <div class="center-vs"><div class="ko-big">${fmtParts(when, league.utcOffset).time}<small>${fmtParts(when, league.utcOffset).date} Ecuador</small></div></div>
         <div class="team-big">
-          ${badgeHTML(awayName,true)}
+          ${badgeHTML(awayName,true,'',league.id)}
           <div class="name">${awayName}${favStar(awayName)}</div>
         </div>
       </div>
@@ -4274,7 +4278,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.3 · cuadro para escribir la línea';
+const APP_VERSION = 'v38.4 · escudos correctos por liga';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
