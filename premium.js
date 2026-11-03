@@ -18,8 +18,7 @@ const PAGO = {
 };
 const PLANES = [
   {id: 'premium', nombre: 'Premium mensual', precio: '$4,99', dias: 30},
-  {id: 'premium_anual', nombre: 'Premium anual', precio: '$39,99', dias: 365},
-  {id: 'vip', nombre: 'VIP mensual', precio: '$9,99', dias: 30}
+  {id: 'premium_anual', nombre: 'Premium anual', precio: '$39,99', dias: 365}
 ];
 const PRUEBA_DIAS = 15;
 // ==============================
@@ -267,20 +266,39 @@ function cuentaBox() {
 }
 
 // ---------- Planes y pago ----------
-window.abPayOpen = () => {
+// v39: dos pasos — 1) Elige tu plan (Gratis / Premium mensual o anual)  2) Paga y envía el comprobante
+let payPaso = 'planes';
+const PREM_INCLUYE = ['Goles, ambos marcan, tarjetas y córners', 'NBA, NCAA, MLB y NHL completas, con jugadores y en vivo', 'Sugerencias, señales y alertas de valor y cuotas', 'Estadísticas por partido y por jugador', 'Combinadas, favoritos, lesiones y resumen diario'];
+window.abPayOpen = (paso) => {
   const s = $('abPaySheet'), w = $('abPay');
   if (!s || !w) return;
+  if (paso) payPaso = paso; else if (!w.classList.contains('show')) payPaso = 'planes';
   const mets = METODOS();
   if (mets.length && !mets.some(m => m[0] === metodo)) metodo = mets[0][0];
   const pago = (mets.find(m => m[0] === metodo) || [])[1] || '';
-  s.innerHTML = `
-    <h2>Desbloquea Premium</h2>
-    <div class="sub">Todos los pronósticos (goles, ambos anotan, tarjetas y córners), NBA y MLB, sugerencias, valor, alertas y mis jugadas.</div>
-    <div class="ab-plans">${PLANES.map(p => `
-      <button type="button" class="ab-plan${p.id === planSel ? ' on' : ''}" aria-pressed="${p.id === planSel}" onclick="abPlan('${p.id}')">
-        <span>${p.nombre}${p.id === 'vip' ? '<small>Premium + canal de Telegram con picks comentados</small>' : ''}</span><b>${p.precio}</b>
-      </button>`).join('')}
+  const plan = PLANES.find(x => x.id === planSel) || PLANES[0];
+  if (payPaso === 'planes') {
+    s.innerHTML = `
+    <div class="ab-ph"><h2>Elige tu plan</h2></div>
+    <div class="ab-pc">
+      <div class="ab-pc-h"><b>Gratis</b><span class="ab-pr">$0</span></div>
+      <div class="sub">Todas las ligas con pronóstico 1X2 · En vivo · Tablas · Precisión del modelo</div>
     </div>
+    <div class="ab-pc rec">
+      <div class="ab-pc-h"><b>Premium</b><span class="ab-tag">RECOMENDADO</span></div>
+      <div class="ab-big">${esc(plan.precio)} <small>${plan.id === 'premium_anual' ? '/año' : '/mes'}</small></div>
+      <div class="ab-tg2">${PLANES.map(p => `<button type="button" class="${p.id === planSel ? 'on' : ''}" aria-pressed="${p.id === planSel}" onclick="abPlan('${p.id}')">${p.id === 'premium_anual' ? 'Anual' : 'Mensual'} · ${esc(p.precio)}</button>`).join('')}</div>
+      ${planSel === 'premium_anual' ? '<div class="sub" style="margin:-2px 0 6px">Equivale a $3,33 al mes: ahorras 4 meses.</div>' : ''}
+      <ul class="ab-ok">${PREM_INCLUYE.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+      <button type="button" class="btn primary" onclick="abPayOpen('pago')">Activar Premium</button>
+    </div>
+    <div class="sub" style="text-align:center;margin-top:10px">Pagas con Deuna o transferencia</div>
+    <button type="button" class="btn ghost" onclick="abPayClose()">Cerrar</button>`;
+    w.classList.add('show'); return;
+  }
+  s.innerHTML = `
+    <div class="ab-ph"><button type="button" class="ab-back" aria-label="Volver a los planes" onclick="abPayOpen('planes')">‹</button><h2>Paga tu plan</h2></div>
+    <div class="set-box" style="display:flex;justify-content:space-between;align-items:center"><span>${esc(plan.nombre)}</span><b style="font-size:16px">${esc(plan.precio)}</b></div>
     <label>1. ${mets.length > 1 ? 'Elige cómo pagar' : 'Paga por ' + esc(metodo)}</label>
     ${mets.length > 1 ? `<div class="ab-met">${mets.map(([m]) => `<button type="button" class="${m === metodo ? 'on' : ''}" aria-pressed="${m === metodo}" onclick="abMetodo('${m}')">${m}</button>`).join('')}</div>` : ''}
     <div class="set-box">${pago ? esc(pago).replace(/\n/g, '<br>') : 'Datos de pago: [PENDIENTE DE CONFIGURAR]'}</div>
@@ -304,8 +322,8 @@ window.abCopiar = async (t, btn) => {
   if (btn) { btn.textContent = ok ? 'Copiado ✓' : t; setTimeout(() => { btn.textContent = 'Copiar'; }, 2000); }
 };
 window.abPayClose = () => { const w = $('abPay'); if (w) w.classList.remove('show'); };
-window.abPlan = id => { planSel = id; window.abPayOpen(); };
-window.abMetodo = m => { metodo = m; window.abPayOpen(); };
+window.abPlan = id => { planSel = id; window.abPayOpen('planes'); };
+window.abMetodo = m => { metodo = m; window.abPayOpen('pago'); };
 window.abComprobante = async () => {
   const p = PLANES.find(x => x.id === planSel) || PLANES[0];
   const mail = AB.user ? AB.user.email : '';

@@ -391,6 +391,15 @@
   .btn:disabled{ opacity:.5; }
   .set-box{ background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin-top:10px; }
   .ab-qr{ text-align:center; margin:10px 0 4px; } .ab-qr img{ display:block; width:220px; max-width:70%; margin:0 auto 10px; background:#fff; border-radius:14px; padding:10px; } .ab-qr .btn{ display:block; text-align:center; text-decoration:none; }
+  .ab-ph{ display:flex; align-items:center; gap:10px; margin-bottom:10px; } .ab-ph h2{ margin:0; }
+  .ab-back{ width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:700 20px var(--font-body); cursor:pointer; }
+  .ab-pc{ background:var(--surface-2); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .ab-pc.rec{ border:2px solid #f5b942; background:rgba(245,185,66,.06); }
+  .ab-pc-h{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; } .ab-pc-h b{ font-size:16px; }
+  .ab-pr{ font:800 20px var(--font-head, var(--font-body)); } .ab-tag{ background:#f5b942; color:#1a1405; font:800 10.5px var(--font-body); padding:4px 8px; border-radius:6px; letter-spacing:.3px; }
+  .ab-big{ font:800 30px var(--font-head, var(--font-body)); margin:4px 0 8px; } .ab-big small{ font:500 13px var(--font-body); color:var(--ink-dim); }
+  .ab-tg2{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px; } .ab-tg2 button{ min-height:36px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; } .ab-tg2 button.on{ border-color:#f5b942; color:#f5b942; }
+  .ab-ok{ list-style:none; padding:0; margin:4px 0 12px; font-size:13.5px; } .ab-ok li{ position:relative; padding:4px 0 4px 24px; } .ab-ok li::before{ content:'✓'; position:absolute; left:2px; color:var(--over); font-weight:800; }
   .ab-ctas{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
   .ab-cta{ background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:8px 6px; text-align:center; min-width:0; }
   .ab-bk{ border-radius:8px; padding:7px 2px; font:700 11.5px var(--font-body); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -4344,7 +4353,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v38.9 · últimos 5 enfrentamientos en Estadísticas';
+const APP_VERSION = 'v39 · nueva pantalla de planes';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
