@@ -430,6 +430,12 @@
   .sg-t{ display:flex; align-items:center; gap:8px; cursor:pointer; } .sg-t b{ flex:1; min-width:0; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .sg-t b:last-of-type{ text-align:right; } .sg-t span{ color:var(--ink-dim); font-size:12px; }
   .sg-p{ display:inline-block; margin-top:8px; padding:5px 10px; border-radius:999px; background:rgba(201,162,39,.16); color:#e5c95a; font:600 12.5px var(--font-body); }
   .sg-d{ margin-top:6px; font-size:12.5px; } .sg-d summary{ color:var(--ink-dim); cursor:pointer; } .sg-d div{ margin-top:3px; }
+  .op-c{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:8px; cursor:pointer; }
+  .op-top{ display:flex; justify-content:space-between; gap:10px; } .op-top small{ display:block; font-size:11.5px; color:var(--ink-dim); } .op-top b{ display:block; font-size:15px; margin:2px 0 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .op-p{ text-align:right; flex:0 0 auto; } .op-p b{ font-size:22px; color:var(--over); margin:0; }
+  .op-mk{ font-weight:700; font-size:13.5px; margin:8px 0 6px; }
+  .op-bars{ position:relative; display:flex; gap:3px; align-items:flex-end; height:44px; } .op-bars i{ flex:1; border-radius:3px 3px 0 0; } .op-bars span{ position:absolute; left:0; right:0; border-top:1px dashed var(--ink); }
+  .op-ft{ display:flex; justify-content:space-between; margin-top:6px; font-size:12px; color:var(--ink-dim); } .op-ft em{ font-style:normal; color:var(--accent); font-weight:600; }
   .pk-sec{ overflow-x:auto; scrollbar-width:none; margin:2px 0 10px; } .pk-sec button{ flex:0 0 auto; }
   .pb-bars{ position:relative; display:flex; gap:3px; align-items:flex-end; height:130px; border-bottom:1px solid var(--line); margin-top:6px; }
   .pb-b{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:2px; cursor:pointer; }
@@ -1475,12 +1481,66 @@ function sgHTML(items){
         <details class="sg-d"><summary>más detalle</summary>${o.why.map(w=>`<div>• ${escA(w)}</div>`).join('')}<div style="color:var(--ink-dim)">Promedios de los últimos 10 partidos de cada equipo (datos reales de ESPN).</div></details>
       </div>`; }).join('') + `</div>`;
 }
+// v39.1 · Opción B: Oportunidades del día. Para cada partido busca la línea más alta donde el modelo da 62–85%
+// (v39.1: 58–78%, líneas con cuota razonable) y lo que pasó en los últimos 10 coincide (al menos 6 de 10). Se ordenan por probabilidad del modelo.
+let OP_WANT = null;
+const OP_M = [ // m = índice en PB_M (0 córners, 1 tiros al arco, 2 tarjetas, 3 goles)
+  {k:'córners', m:0, f:r=>r[1], team:true, tot:true},
+  {k:'tiros al arco', m:1, f:r=>r[2], team:true, tot:false},
+  {k:'tarjetas', m:2, f:r=>r[4]==null?null:r[4]+(r[5]||0), team:false, tot:true},
+  {k:'goles', m:3, f:r=>r[0], team:false, tot:true}];
+function opFind(vals, lam){
+  const avg = vals.reduce((a,b)=>a+b,0)/vals.length;
+  for(let ln = Math.max(0.5, Math.floor(lam+1)-0.5); ln>=0.5; ln-=1){
+    const p = Math.round((0.5 + (pbPois(lam, ln)-0.5)*0.9)*100); if(p<58) continue; if(p>78) return null;
+    const hit = vals.slice(0,10).filter(v=>v>ln).length; if(hit<6) return null;
+    return {ln, p, hit, n:Math.min(10, vals.length), avg};
+  }
+  return null;
+}
+function opHTML(items){
+  if(!PB.S){ pbLoad(); return null; }
+  const out = [];
+  items.forEach(x=>{
+    const [hn, an] = x.f, hid = pbTeamId(x.l.id, hn), aid = pbTeamId(x.l.id, an); if(!hid || !aid) return;
+    const H = pbGames(hid), A = pbGames(aid), cands = [];
+    OP_M.forEach(M=>{
+      if(M.team) [[0, hn, H, A], [1, an, A, H]].forEach(([t, nm, me, op])=>{
+        const v = me.map(g=>M.f(g.us)).filter(z=>z!=null).slice(0,10), c = op.map(g=>M.f(g.them)).filter(z=>z!=null).slice(0,10); if(v.length<8 || c.length<5) return;
+        const lam = (v.reduce((a,b)=>a+b,0)/v.length + c.reduce((a,b)=>a+b,0)/c.length)/2, r = opFind(v, lam);
+        if(r) cands.push(Object.assign(r, {who:nm, t, M, vals:v}));
+      });
+      if(M.tot){ const T = g => M.f(g.us)==null||M.f(g.them)==null ? null : M.f(g.us)+M.f(g.them);
+        const a = H.map(T).filter(z=>z!=null).slice(0,10), b = A.map(T).filter(z=>z!=null).slice(0,10); if(a.length<8 || b.length<8) return;
+        const lam = (a.reduce((p,q)=>p+q,0)/a.length + b.reduce((p,q)=>p+q,0)/b.length)/2, mix = [];
+        for(let i=0;i<5;i++){ if(a[i]!=null) mix.push(a[i]); if(b[i]!=null) mix.push(b[i]); }
+        const r = opFind(mix, lam); if(r) cands.push(Object.assign(r, {who:'Partido', t:2, M, vals:mix}));
+      }
+    });
+    cands.sort((p,q)=>q.p-p.p || q.hit-p.hit).slice(0,2).forEach(c=>out.push(Object.assign(c, {x})));
+  });
+  if(!out.length) return '';
+  out.sort((p,q)=>q.p-p.p || q.hit-p.hit);
+  return out.slice(0,20).map((o,i)=>{ const f = fmtParts(o.x.f[2], o.x.l.utcOffset), vals = o.vals.slice(0,10).reverse(), mx = Math.max(o.ln+1, ...vals);
+    OP_LIST[i] = {lid:o.x.l.id, idx:o.x.idx, h:o.x.f[0], m:o.M.m, t:o.t, ln:o.ln};
+    return `<div class="op-c" onclick="opOpen(${i})">
+      <div class="op-top"><div style="min-width:0"><small><i class="lg-dot" style="background:${o.x.l.color}"></i>${escA(o.x.l.name)} · ${f.date} ${f.time}</small>
+        <b>${escA(o.who==='Partido' ? o.x.f[0]+' vs '+o.x.f[1] : o.who)}</b><small>${o.who==='Partido' ? 'Total del partido' : 'vs '+escA(o.t ? o.x.f[0] : o.x.f[1])}</small></div>
+        <div class="op-p"><b>${o.p}%</b><small>modelo</small></div></div>
+      <div class="op-mk">Más de ${o.ln.toFixed(1)} ${o.M.k}</div>
+      <div class="op-bars">${vals.map(v=>`<i style="height:${Math.max(3, v/mx*44)}px;background:${v>o.ln?'var(--over)':'var(--under)'}"></i>`).join('')}<span style="bottom:${o.ln/mx*44}px"></span></div>
+      <div class="op-ft">Se cumplió ${o.hit} de ${o.n} · promedio ${o.avg.toFixed(1)} <em>Ver ›</em></div></div>`; }).join('') +
+    `<div class="foot-note">Probabilidad del modelo (Poisson con lo que hace cada equipo y lo que concede el rival, últimos 10) y lo que pasó en sus últimos 10 partidos. Solo salen las que coinciden. Datos reales de ESPN. No garantiza el resultado.</div>`;
+}
+const OP_LIST = [];
+function opOpen(i){ const o = OP_LIST[i]; if(!o) return; OP_WANT = o; LS.set('ab_dtsec','e'); openMatch(o.lid, o.idx); }
 function pkSecHTML(P){
-  const T = [['mejores','Mejores'],['senales','Señales'],['combinadas','Combinadas'],['partidos','Partidos'],['resultados','Resultados'],['todo','Todo']].filter(t=>t[0]!=='senales' || P.sig!=null);
+  const T = [['mejores','Mejores'],['oport','Oportunidades'],['senales','Señales'],['combinadas','Combinadas'],['partidos','Partidos'],['resultados','Resultados'],['todo','Todo']].filter(t=>(t[0]!=='senales' || P.sig!=null) && (t[0]!=='oport' || P.op!=null));
   if(PKSEC==null) PKSEC = LS.get('ab_pksec','mejores'); const cur = T.some(t=>t[0]===PKSEC) ? PKSEC : 'mejores';
   const bar = `<div class="tn-chips pk-sec">${T.map(([k,t])=>`<button type="button" class="${cur===k?'on':''}" onclick="pkSecSet('${k}')">${t}</button>`).join('')}</div>`;
   const none = t => `<div class="empty-state" style="padding:18px">${t}</div>`;
   if(cur==='todo') return bar + P.of + P.cb + P.day + P.top + (P.sig||'') + P.items + P.done;
+  if(cur==='oport') return bar + (P.op || none(PB.S ? 'Hoy no hay oportunidades donde el modelo y lo que pasó coincidan.' : 'Cargando estadísticas…'));
   if(cur==='senales') return bar + (P.sig || none(PB.S ? 'Hoy ningún partido tiene doble confirmación en córners o tarjetas.' : 'Cargando estadísticas…'));
   if(cur==='mejores') return bar + (P.top || none('Hoy ningún mercado pasa el filtro de confianza. Mira la sección Partidos para ver el análisis de cada uno.'));
   if(cur==='combinadas') return bar + (P.cb || none('Todavía no hay combinadas para esta fecha.'));
@@ -1512,7 +1572,7 @@ function renderPicks(){
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol')):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items)};
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol')):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:opHTML(items)};
   let html = '';
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
@@ -3874,7 +3934,7 @@ async function h2hFutInit(league, h, a, when){
 const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Tiros al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Tiros', f:r=>r[3]}];
 let PB = {S:null, loading:false, err:0, m:0, t:0, per:'L10', ln:null, hid:null, aid:null, h:'', a:'', kind:'f', sp:null, gid:null};
 async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; PBI = {}; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); if(PB.S && sport==='futbol' && (viewMode==='matches'||viewMode==='picks')) renderMatches(); }
-function pbSet(hid, aid, h, a){ Object.assign(PB, {kind:'f', hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); pbLoad(); pbRender(); }
+function pbSet(hid, aid, h, a){ Object.assign(PB, {kind:'f', hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); if(OP_WANT && OP_WANT.h===h){ Object.assign(PB, {m:OP_WANT.m, t:OP_WANT.t, ln:OP_WANT.ln}); } OP_WANT = null; pbLoad(); pbRender(); }
 // v37.4 · lo mismo para NBA, NCAA, MLB y NHL con los calendarios de ESPN (puntos, goles o carreras)
 function pbSetUS(sp, g){ const same = PB.kind==='us' && PB.gid===g.id; Object.assign(PB, {kind:'us', sp, gid:g.id, hid:String(g.h.id), aid:String(g.a.id), h:g.h.name, a:g.a.name}); if(!same) Object.assign(PB, {m:0, t:0, per:'L10', ln:null}); pbRender(); }
 function pbGames(id){
@@ -4353,7 +4413,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39 · nueva pantalla de planes';
+const APP_VERSION = 'v39.1 · Oportunidades del día';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
