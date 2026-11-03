@@ -1534,6 +1534,46 @@ function opHTML(items){
 }
 const OP_LIST = [];
 function opOpen(i){ const o = OP_LIST[i]; if(!o) return; OP_WANT = o; LS.set('ab_dtsec','e'); openMatch(o.lid, o.idx); }
+// v39.3 · oportunidades calculadas en el servidor (oportunidades.json): todos los deportes, equipos y jugadores
+const OPX = {j:null, t:0, busy:false}; let OPK = null, PJ_WANT = null;
+function opxLoad(){ if(OPX.busy || (OPX.j && Date.now()-OPX.t < 20*60e3)) return; OPX.busy = true;
+  mirrorGet('oportunidades.json').then(j=>{ OPX.j = j; OPX.t = Date.now(); }).catch(()=>{}).finally(()=>{ OPX.busy = false; if(viewMode==='picks') renderMatches(); }); }
+function opKind(k){ OPK = k; LS.set('ab_opk', k); renderMatches(); }
+function opxHTML(sp, localTeams){
+  opxLoad(); if(OPK==null) OPK = LS.get('ab_opk','team');
+  const J = OPX.j, day = ymd(todayDate), now = Date.now();
+  const L = J && J.day===day ? (J.items||[]).filter(x=>x.sp===sp && x.ts>now - 5*60e3) : null;
+  if(!L && !localTeams) return OPX.busy || !J ? null : '';
+  const teams = L ? L.filter(x=>x.kind==='team') : [], pls = L ? L.filter(x=>x.kind==='player') : [];
+  const bar = `<div class="tn-chips" style="display:grid;grid-template-columns:1fr 1fr">${[['team','Equipos'],['player','Jugadores']].map(([k,t])=>`<button type="button" class="${OPK===k?'on':''}" onclick="opKind('${k}')">${t}</button>`).join('')}</div>`;
+  if(OPK==='player'){
+    if(!pls.length) return bar + `<div class="empty-state" style="padding:18px">${L ? 'Hoy no hay jugadores donde el modelo y lo que pasó coincidan.' : 'Las oportunidades de jugadores se calculan en el servidor cada 3 horas. Vuelve en un rato.'}</div>`;
+    return bar + pls.sort((a,b)=>b.p-a.p || b.hit-a.hit).slice(0,30).map(o=>opCard(o)).join('') + opFoot(true);
+  }
+  if(teams.length) return bar + teams.sort((a,b)=>b.p-a.p || b.hit-a.hit).slice(0,20).map(o=>opCard(o)).join('') + opFoot(false);
+  return bar + (localTeams || `<div class="empty-state" style="padding:18px">Hoy no hay oportunidades de equipos donde el modelo y lo que pasó coincidan.</div>`);
+}
+function opFoot(pl){ return `<div class="foot-note">Probabilidad del modelo con ${pl?'el promedio del jugador en sus últimos 10 partidos':'lo que hace cada equipo y lo que concede el rival (últimos 10)'}, y lo que pasó en esos 10. Solo salen las que coinciden (al menos 6 de 10). Datos reales de ESPN, calculado en el servidor. No garantiza el resultado.</div>`; }
+function opCard(o){
+  const i = OP_LIST.push(o)-1, f = fmtParts(o.when, o.sp==='futbol' ? (LEAGUES.find(l=>l.id===o.lid)||{utcOffset:0}).utcOffset : 0), vals = o.vals||[], mx = Math.max(o.ln+1, ...vals);
+  const pl = o.kind==='player', title = pl ? o.pname : (o.who==='Partido' ? o.h+' vs '+o.a : o.who);
+  const sub = pl ? `${o.pos?escA(o.pos)+' · ':''}${escA(o.team)} · vs ${escA(o.t ? o.h : o.a)}` : (o.who==='Partido' ? 'Total del partido' : 'vs '+escA(o.t ? o.h : o.a));
+  return `<div class="op-c" onclick="opGo(${i})">
+    <div class="op-top"><div style="min-width:0"><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>${escA(o.lname)} · ${f.date} ${f.time}</small>
+      <b>${escA(title)}</b><small>${sub}</small></div><div class="op-p"><b>${o.p}%</b><small>modelo</small></div></div>
+    <div class="op-mk">Más de ${(+o.ln).toFixed(1)} ${escA(String(o.mk).toLowerCase())}</div>
+    <div class="op-bars">${vals.map(v=>`<i style="height:${Math.max(3, v/mx*44)}px;background:${v>o.ln?'var(--over)':'var(--under)'}"></i>`).join('')}<span style="bottom:${o.ln/mx*44}px"></span></div>
+    <div class="op-ft">Se cumplió ${o.hit} de ${o.n} · promedio ${(+o.avg).toFixed(1)} <em>Ver ›</em></div></div>`;
+}
+function opGo(i){
+  const o = OP_LIST[i]; if(!o) return;
+  const pl = o.kind==='player';
+  if(pl) PJ_WANT = {h:o.h, t:o.t, pid:o.pid, mn:o.mk, ln:+o.ln};
+  else OP_WANT = o.sp==='futbol' ? {h:o.h, m:o.m||0, t:o.t, ln:+o.ln} : {gid:o.gid, t:o.t, ln:+o.ln};
+  LS.set('ab_dtsec', pl ? 'j' : 'e');
+  if(o.sp==='futbol'){ const L = LEAGUES.find(l=>l.id===o.lid), idx = L ? L.fixtures.findIndex(f=>f[0]===o.h && f[1]===o.a) : -1; if(idx>=0) openMatch(o.lid, idx); }
+  else usOpen(o.sp, o.gid);
+}
 function pkSecHTML(P){
   const T = [['mejores','Mejores'],['oport','Oportunidades'],['senales','Señales'],['combinadas','Combinadas'],['partidos','Partidos'],['resultados','Resultados'],['todo','Todo']].filter(t=>(t[0]!=='senales' || P.sig!=null) && (t[0]!=='oport' || P.op!=null));
   if(PKSEC==null) PKSEC = LS.get('ab_pksec','mejores'); const cur = T.some(t=>t[0]===PKSEC) ? PKSEC : 'mejores';
@@ -1572,7 +1612,7 @@ function renderPicks(){
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol')):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:opHTML(items)};
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol')):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:(OP_LIST.length=0, opxHTML('futbol', opHTML(items)))};
   let html = '';
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
@@ -2693,7 +2733,7 @@ function usRenderPicks(){
   }
   if(!items.length){ list.innerHTML = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), ofCardHTML(sp) + cbHTML(sp)) : '') + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
-  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML(sp):'', cb:isT?(cbPrime(), cbHTML(sp)):'', day:pkDayHTML(p=>p.sp===sp), top:'', items:'', done:doneS};
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML(sp):'', cb:isT?(cbPrime(), cbHTML(sp)):'', day:pkDayHTML(p=>p.sp===sp), top:'', items:'', done:doneS, op:(OP_LIST.length=0, opxHTML(sp, ''))};
   let html = '';
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
     const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
@@ -3936,7 +3976,7 @@ let PB = {S:null, loading:false, err:0, m:0, t:0, per:'L10', ln:null, hid:null, 
 async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; PBI = {}; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); if(PB.S && sport==='futbol' && (viewMode==='matches'||viewMode==='picks')) renderMatches(); }
 function pbSet(hid, aid, h, a){ Object.assign(PB, {kind:'f', hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); if(OP_WANT && OP_WANT.h===h){ Object.assign(PB, {m:OP_WANT.m, t:OP_WANT.t, ln:OP_WANT.ln}); } OP_WANT = null; pbLoad(); pbRender(); }
 // v37.4 · lo mismo para NBA, NCAA, MLB y NHL con los calendarios de ESPN (puntos, goles o carreras)
-function pbSetUS(sp, g){ const same = PB.kind==='us' && PB.gid===g.id; Object.assign(PB, {kind:'us', sp, gid:g.id, hid:String(g.h.id), aid:String(g.a.id), h:g.h.name, a:g.a.name}); if(!same) Object.assign(PB, {m:0, t:0, per:'L10', ln:null}); pbRender(); }
+function pbSetUS(sp, g){ const same = PB.kind==='us' && PB.gid===g.id; Object.assign(PB, {kind:'us', sp, gid:g.id, hid:String(g.h.id), aid:String(g.a.id), h:g.h.name, a:g.a.name}); if(!same) Object.assign(PB, {m:0, t:0, per:'L10', ln:null}); if(OP_WANT && OP_WANT.gid===g.id){ Object.assign(PB, {t:OP_WANT.t, ln:OP_WANT.ln}); OP_WANT = null; } pbRender(); }
 function pbGames(id){
   const E = (PB.S && PB.S.ev) || {}, out = [];
   for(const [eid, r] of Object.entries(E)){ const home = String(r[2])===id; if(!home && String(r[3])!==id) continue;
@@ -4102,6 +4142,7 @@ function pjRender(){ try{ pbKeep('pjBox', pjRender0); }catch(e){ const el = docu
 function pjRender0(){
   const el = document.getElementById('pjBox'); if(!el) return;
   if(PJ.key!==pjCtxKey()) PJ = {key:pjCtxKey(), t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
+  if(PJ_WANT && PJ_WANT.h===PB.h){ Object.assign(PJ, {t:PJ_WANT.t, pid:PJ_WANT.pid, mn:PJ_WANT.mn, ln:PJ_WANT.ln}); PJ_WANT = null; }
   let b = `<h3><span class="dot"></span>Estadísticas por jugador</h3>`;
   if(PB.kind==='f' && (!PB.hid || !H2F.key || PB.h!==H2F.h)){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando el partido en ESPN…':'ESPN no tiene este partido: no hay estadísticas de jugadores.'}</div>`; return; }
   if(!PB.hid){ el.innerHTML = b + `<div class="pl-none">Cargando…</div>`; return; }
@@ -4115,7 +4156,7 @@ function pjRender0(){
   if(!L.length){ el.innerHTML = b + `<div class="pl-none">${PJ.prog || (PJ.loadKey ? 'ESPN no publicó estadísticas de jugadores de estos partidos.' : 'Cargando partidos…')}</div>`; return; }
   const P = pjPlayers(L);
   if(!P.length){ el.innerHTML = b + `<div class="pl-none">${PJ.prog || 'ESPN no publicó estadísticas individuales de los partidos de este equipo.'}</div>`; return; }
-  let cur = P.find(p=>p.key===PJ.pid); if(!cur){ cur = P[0]; PJ.pid = cur.key; }
+  let cur = P.find(p=>p.key===PJ.pid); if(!cur){ cur = P[0]; if(!PJ.prog || !PJ.pid) PJ.pid = cur.key; }
   const kinds = [...new Set(P.map(p=>p.kind))];
   b += `<select onchange="pjPick('j',this.value)" style="width:100%;min-height:40px;margin:2px 0 8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--font-body);padding:0 10px">${kinds.map(k=>{
     const opts = P.filter(p=>p.kind===k).map(p=>`<option value="${escA(p.key)}" ${p.key===cur.key?'selected':''}>${escA(p.name)}${p.pos?' · '+escA(p.pos):''} (${p.n} PJ)</option>`).join('');
@@ -4414,7 +4455,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v39.2 · rival correcto debajo de la fecha';
+const APP_VERSION = 'v39.3 · Oportunidades de todos los deportes y de jugadores';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
