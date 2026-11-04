@@ -192,6 +192,7 @@ async function loadFixtures(cfg, prev){
       if(src==='fd' && e.status===401) fdDead = true;
     }
   }
+  if(cfg.cup && errs.length && errs.every(e=>/sin partidos/.test(e))){ log.push({name:cfg.name, ok:true, msg:'sin partidos en estas fechas (fuera de temporada)'}); return null; }
   if(prev){ log.push({name:cfg.name, ok:false, msg:errs.join(' · ')+' · se conservan los datos anteriores'}); return prev; }
   log.push({name:cfg.name, ok:false, msg:errs.join(' · ') || 'sin fuente'});
   return null;
