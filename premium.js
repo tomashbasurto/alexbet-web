@@ -232,21 +232,15 @@ function diasRest(hasta) { return Math.max(0, Math.ceil((hasta - Date.now()) / D
 function barra() {
   const b = $('abBar');
   if (!b) return;
-  if (!AB.user) { b.innerHTML = ''; return; }
+  if (!AB.user) { b.textContent = ''; return; }
   const ahora = Date.now();
-  let t, cta = 'Ver planes', cls = '';
-  if (AB.premiumHasta > ahora) {
-    t = `${AB.user.plan === 'vip' ? 'VIP' : 'Premium'} activo hasta el ${fecha(AB.premiumHasta)}`; cta = ''; cls = 'ok';
-  } else if (AB.enPrueba) {
-    const n = diasRest(AB.pruebaHasta);
-    t = `Prueba gratis: ${n === 1 ? 'queda 1 día' : 'quedan ' + n + ' días'} con todo incluido`;
-  } else if (AB.user.pendiente) {
-    t = 'Pago recibido, estamos activando tu Premium'; cta = '';
-  } else {
-    t = 'Tu prueba terminó. El 1X2 de todas las ligas sigue gratis'; cta = 'Desbloquear Premium'; cls = 'off';
-  }
-  b.className = 'ab-bar ' + cls;
-  b.innerHTML = `<span>${esc(t)}</span>${cta ? `<button type="button" onclick="abPay()">${cta}</button>` : ''}`;
+  let t, cls = '';
+  if (AB.premiumHasta > ahora) { t = AB.user.plan === 'vip' ? 'VIP' : 'Premium'; cls = 'ok'; b.title = `Activo hasta el ${fecha(AB.premiumHasta)}`; }
+  else if (AB.enPrueba) { const n = diasRest(AB.pruebaHasta); t = `Prueba · ${n} ${n === 1 ? 'día' : 'días'}`; b.title = 'Prueba gratis con todo incluido'; }
+  else if (AB.user.pendiente) { t = 'Activando…'; b.title = 'Pago recibido, estamos activando tu Premium'; }
+  else { t = 'Hazte Premium'; cls = 'off'; b.title = 'Tu prueba terminó. El 1X2 de todas las ligas sigue gratis'; }
+  b.className = 'ab-chip ' + cls;
+  b.textContent = t;
 }
 function cuentaBox() {
   const t = $('abTech');

@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root, :root[data-theme="estadio"]{
     --bg:#06120b; --bg-img:radial-gradient(120% 55% at 50% -8%, #123a22 0%, rgba(6,18,11,0) 62%);
@@ -559,6 +559,83 @@
 :root[data-theme="carbono"] .ibtn{ border-radius:8px; border-color:var(--line-hi); color:var(--accent); }
 :root[data-theme="carbono"] .sp, :root[data-theme="carbono"] .tab, :root[data-theme="carbono"] .chip, :root[data-theme="carbono"] .datechip{ border-radius:6px; }
 
+
+/* ---------- v41 · rediseño: barra inferior, cabecera compacta, tarjetas cortas ---------- */
+:root{ --mid:var(--accent); --low:var(--accent); --home:var(--over); --away:var(--accent); }
+:root[data-theme="alexbet"]{
+  --bg:#05080d; --bg-img:radial-gradient(110% 45% at 50% -12%, #0e2a2a 0%, rgba(5,8,13,0) 60%);
+  --surface:#0c1219; --surface-2:#111a23; --line:#1a2631; --line-hi:#2a3a46; --track:#18232d;
+  --ink:#eef4f2; --ink-dim:#93a7ab; --accent:#c6ff00; --accent-dim:rgba(198,255,0,.13); --on-accent:#0d1200;
+  --over:#c6ff00; --under:#ff5c7a; --draw:#3a4652; --mid:#f5b942; --low:#6b7c86; --home:#22d3ee; --away:#c4b5fd;
+  --pitch-a:#0b1c22; --pitch-b:#09171c; --pitch-line:rgba(34,211,238,.28);
+  --card-grad:none; --shadow:0 0 0 1px rgba(255,255,255,.02), 0 8px 24px rgba(0,0,0,.45);
+}
+:root[data-theme="alexbet"] .match-card, :root[data-theme="alexbet"] .prob-card{ border-color:var(--line); border-radius:16px; }
+:root[data-theme="alexbet"] header.top h1{ font-family:Orbitron, var(--font-head); font-weight:900; font-size:18px; letter-spacing:1.5px; text-transform:uppercase; }
+:root[data-theme="alexbet"] .ko b, :root[data-theme="alexbet"] .ko-big, :root[data-theme="alexbet"] .v, :root[data-theme="alexbet"] .plain-v,
+:root[data-theme="alexbet"] .ring-text, :root[data-theme="alexbet"] .pick-pct b, :root[data-theme="alexbet"] .datechip .num,
+:root[data-theme="alexbet"] .line-pct, :root[data-theme="alexbet"] .cp-chip b, :root[data-theme="alexbet"] .bo-row > b{ font-family:Orbitron, var(--font-head); letter-spacing:.3px; }
+:root[data-theme="alexbet"] .ko b{ color:#22d3ee; }
+:root[data-theme="alexbet"] .datechip.active{ background:#0b2630; border-color:#22d3ee; }
+:root[data-theme="alexbet"] .datechip.active .dow, :root[data-theme="alexbet"] .datechip.active .num{ color:#22d3ee; }
+:root[data-theme="alexbet"] .datechip.all.active{ color:#22d3ee; }
+:root[data-theme="alexbet"] .sp.active{ background:#141c0a; }
+.bar1x2 span:first-child, .mini1x2 span:first-child{ background:var(--home) !important; }
+.bar1x2 span:last-child, .mini1x2 span:last-child{ background:var(--away) !important; }
+.bar1x2 span:only-child, .mini1x2 span:only-child{ background:var(--home) !important; }
+header.top{ position:sticky; top:0; z-index:30; }
+.hbtns{ align-items:center; }
+.ab-chip{ min-height:34px; padding:0 12px; border-radius:999px; border:1px solid var(--accent-dim); background:var(--accent-dim); color:var(--accent); font:600 12px var(--font-body); cursor:pointer; white-space:nowrap; }
+.ab-chip:empty{ display:none; }
+.ab-chip.ok{ color:var(--over); }
+.ab-chip.off{ background:var(--accent); color:var(--on-accent); }
+.sports{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px; margin:2px 0 8px; }
+.sp{ flex-direction:column; gap:3px; padding:7px 2px; border-radius:12px; font-size:11.5px; min-height:48px; }
+.lg-row{ display:flex; gap:8px; align-items:stretch; margin-bottom:6px; }
+.lg-row #leagueChips{ flex:1; min-width:0; }
+.lg-row #leagueChips:empty, .lg-row #leagueChips[style*="none"]{ display:none; }
+.lg-row:has(#leagueChips[style*="none"]) .fav-tg{ margin-left:auto; }
+.fav-tg{ width:44px; height:44px; border-radius:12px; flex:none; color:var(--ink-dim); }
+.fav-tg.on{ color:var(--accent); border-color:var(--accent); }
+.fav-bar{ display:none !important; flex-wrap:wrap; }
+.fav-bar.open{ display:flex !important; }
+.fav-bar.open[style*="none"]{ display:none !important; }
+.dates{ gap:6px; margin-bottom:8px; }
+.datechip{ min-width:46px; padding:6px 4px; border-radius:12px; }
+.datechip.all{ padding:6px 12px; }
+.data-status{ padding:0 4px 6px; font-size:11px; }
+main{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
+.tabs#tabs{ position:fixed; left:0; right:0; bottom:0; z-index:45; max-width:640px; margin:0 auto; display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:0;
+  padding:6px 4px calc(10px + env(safe-area-inset-bottom,0px)); border-radius:0; border:0; border-top:1px solid var(--line); background:var(--bg); overflow:visible; }
+.tabs#tabs .tab{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:52px; padding:4px 2px; border-radius:12px; background:transparent; color:var(--ink-dim); font-size:10.5px; white-space:nowrap; }
+.tabs#tabs .tab[hidden]{ display:none; }
+.tabs#tabs .tab.active{ background:transparent; color:var(--accent); box-shadow:none; }
+.tabs#tabs .tab.active .tb-ic{ filter:drop-shadow(0 0 6px var(--accent-dim)); }
+.tb-l{ display:flex; align-items:center; gap:3px; }
+.tb-l #liveCount, .tb-l #btCount{ font-size:10px; }
+.tb-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--under); margin-left:2px; }
+#moreSheet{ position:fixed; inset:0; z-index:55; display:none; background:rgba(0,0,0,.6); }
+#moreSheet.show{ display:block; }
+.more-it{ display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; min-height:56px; margin-top:8px; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); text-align:left; font-family:var(--font-body); cursor:pointer; }
+.more-it b{ font-size:14.5px; } .more-it small{ font-size:12px; color:var(--ink-dim); }
+.more-ref{ flex-direction:row; align-items:center; gap:12px; flex-wrap:wrap; }
+.more-ref svg{ flex:none; } .more-ref b{ flex:1; } .more-ref small{ width:100%; padding-left:31px; margin-top:-4px; }
+.cpick{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:10px; }
+.cp-chip{ display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:0 10px; border-radius:999px; background:var(--accent-dim); border:1px solid var(--accent-dim); font-size:12px; font-weight:600; color:var(--ink); min-width:0; }
+.cp-chip i{ width:7px; height:7px; border-radius:50%; flex:none; }
+.cp-chip b{ color:var(--accent); }
+.cp-none{ font-size:12px; color:var(--ink-dim); }
+.cp-more{ font-size:12px; color:var(--ink-dim); white-space:nowrap; }
+.lvl-key{ margin-left:auto; display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:500; color:var(--ink-dim); }
+.lvl-key i{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-left:4px; }
+.bo-row{ display:flex; align-items:center; gap:10px; min-height:46px; border-top:1px solid var(--line); }
+.bo-row > i{ width:8px; height:8px; border-radius:50%; flex:none; }
+.bo-row .t{ flex:1; font-size:14px; font-weight:600; display:flex; flex-direction:column; }
+.bo-row .t small{ font-size:11px; color:var(--ink-dim); font-weight:400; }
+.bo-row > b{ font-size:16px; }
+.dt-tabs{ gap:4px; padding:4px; border-radius:12px; border:1px solid var(--line); background:var(--surface); }
+.dt-tabs button{ min-height:38px; padding:0 12px; border:0; border-radius:9px; background:transparent; font-size:12.5px; }
+.dt-tabs button.on{ background:var(--accent-dim); }
 </style>
 </head>
 <body>
@@ -566,9 +643,7 @@
 <header class="top">
   <h1><img class="logo-img" alt="" src="icon-192.png">Alex<span>Bet</span></h1>
   <div class="hbtns">
-    <button class="ibtn" id="btnRefresh" onclick="updateAll()" aria-label="Actualizar datos" title="Actualizar datos">
-      <svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg>
-    </button>
+    <button type="button" class="ab-chip" id="abBar" onclick="abPay()"></button>
     <button class="ibtn" onclick="openSettings()" aria-label="Ajustes" title="Ajustes">
       <svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
     </button>
@@ -585,16 +660,7 @@
       <button class="sp" id="sp_nhl" onclick="setSport('nhl')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l7 12"/><path d="M20 4l-7 12"/><ellipse cx="12" cy="19" rx="4" ry="1.6"/></svg> NHL</button>
       <button class="sp" id="sp_tenis" onclick="setSport('tenis')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.2 3.2 3.2 9.6 0 12.8M18.4 5.6c-3.2 3.2-3.2 9.6 0 12.8"/></svg>Tenis</button>
     </div>
-    <div class="tabs" id="tabs">
-      <button class="tab active" id="tabMatches" onclick="setView('matches')">Partidos</button>
-      <button class="tab" id="tabPicks" onclick="setView('picks')">Sugerencias</button>
-      <button class="tab" id="tabValue" onclick="setView('value')">Valor</button>
-      <button class="tab" id="tabLive" onclick="setView('live')"><span class="live-dot"></span>En vivo<span id="liveCount"></span></button>
-      <button class="tab" id="tabAlerts" onclick="setView('alerts')">Alertas<span id="alCount"></span></button>
-      <button class="tab" id="tabBets" onclick="setView('bets')">Mis jugadas<span id="btCount"></span></button>
-    </div>
-    <div class="ab-bar" id="abBar"></div>
-    <div id="leagueChips"></div>
+    <div class="lg-row"><div id="leagueChips"></div><button type="button" class="ibtn fav-tg" id="favTg" onclick="favTgToggle()" aria-label="Filtros de favoritos" aria-expanded="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z"/></svg></button></div>
     <div class="dates" id="dateChips"></div>
     <div class="fav-bar" id="favBar"></div>
     <div class="data-status" id="dataStatus"></div>
@@ -613,12 +679,34 @@
 <div id="leaguePicker" onclick="if(event.target===this)closeLeaguePicker()">
   <div class="sheet"><h2>Elegir liga</h2><div class="sub">Los números son los partidos de la fecha elegida.</div><div id="leagueList"></div></div>
 </div>
+<nav class="tabs" id="tabs" aria-label="Secciones">
+  <button class="tab active" id="tabMatches" onclick="abNav('matches')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 5v14"/></svg><span class="tb-l">Partidos</span></button>
+  <button class="tab" id="tabPicks" onclick="abNav('picks')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg><span class="tb-l">Sugerencias</span></button>
+  <button class="tab" id="tabLive" onclick="abNav('live')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10"/></svg><span class="tb-l"><span class="live-dot"></span>En vivo<span id="liveCount"></span></span></button>
+  <button class="tab" id="tabBets" onclick="abNav('bets')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM9 10h6M9 14h6M9 18h4"/></svg><span class="tb-l">Mis jugadas<span id="btCount"></span></span></button>
+  <button class="tab" id="tabMore" onclick="moreOpen()"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg><span class="tb-l">Más<span id="alCountMore"></span></span></button>
+  <button class="tab" id="tabValue" onclick="abNav('value')" hidden>Valor</button>
+  <button class="tab" id="tabAlerts" onclick="abNav('alerts')" hidden>Alertas<span id="alCount"></span></button>
+</nav>
+<div id="moreSheet" onclick="if(event.target===this)moreClose()">
+  <div class="sheet">
+    <h2>Más</h2>
+    <button type="button" class="more-it" onclick="moreClose();abNav('value')"><b>Valor</b><small>Modelo contra las cuotas de las casas</small></button>
+    <button type="button" class="more-it" onclick="moreClose();abNav('alerts')"><b>Alertas<span id="alCountM"></span></b><small>Partidos movidos, valor y cuotas</small></button>
+    <button type="button" class="more-it" onclick="moreClose();openSettings()"><b>Ajustes</b><small>Cuenta, plan y apariencia</small></button>
+        <button type="button" class="more-it more-ref" id="btnRefresh" onclick="moreClose();updateAll()" aria-label="Actualizar datos" title="Actualizar datos">
+      <svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg>
+    <b>Actualizar datos</b><small>Descarga de nuevo partidos y estadísticas</small></button>
+    <button type="button" class="btn ghost" onclick="moreClose()">Cerrar</button>
+  </div>
+</div>
 <div id="settings" onclick="if(event.target===this)closeSettings()">
   <div class="sheet">
     <h2>Ajustes</h2>
     <div class="set-box" id="abAcct" style="margin-bottom:12px"></div>
     <label>Apariencia</label>
     <div class="themes" id="themeBox"></div>
+    <button type="button" class="btn" id="cmpBtn" onclick="abCompactToggle()"></button>
     <button class="btn ghost" onclick="closeSettings()">Cerrar</button>
     <button type="button" class="btn ghost" id="abTechBtn" style="display:none;font-size:12px" onclick="var t=document.getElementById('abTech');t.style.display=t.style.display==='none'?'':'none'">Opciones de administrador</button>
     <div id="abTech" style="display:none">
@@ -646,6 +734,27 @@
 <script>
 // ---------- Cuentas y Premium (premium.js llena window.AB) ----------
 window.AB = window.AB || {ready:false, premium:false, user:null};
+function lvlC(v){ return v>=60 ? 'var(--over)' : v>=45 ? 'var(--mid)' : 'var(--low)'; }
+function abCompact(){ return LS.get('ab_compact', true) !== false; }
+function abCompactToggle(){ LS.set('ab_compact', !abCompact()); abCmpLbl(); renderMatches(); }
+function abCmpLbl(){ const b = document.getElementById('cmpBtn'); if(b) b.textContent = abCompact() ? 'Tarjetas: compactas (tocar para ver la tabla completa)' : 'Tarjetas: con tabla completa (tocar para compactas)'; }
+function abNav(v){ const d = document.getElementById('detail'); if(d && d.classList.contains('show')) goHome(); setView(v); window.scrollTo(0,0); }
+function moreOpen(){ const n = document.getElementById('alCount'), m = document.getElementById('alCountM'); if(n && m) m.textContent = n.textContent; document.getElementById('moreSheet').classList.add('show'); }
+function moreClose(){ document.getElementById('moreSheet').classList.remove('show'); }
+function favTgToggle(){ const b = document.getElementById('favBar'), t = document.getElementById('favTg'); const o = !b.classList.contains('open'); b.classList.toggle('open', o); t.setAttribute('aria-expanded', o); }
+function favTgState(){ const t = document.getElementById('favTg'); if(t) t.classList.toggle('on', !!(LS.get('ab_favonly',false) || LS.get('ab_favmonly',false))); }
+function bestOptsHTML(league, f){
+  let pk = null; try{ pk = matchPicks(league, f); }catch(e){}
+  const L = (pk && pk.picks || []).slice().sort((x,y)=>y.prob-x.prob).slice(0,3); if(!L.length) return '';
+  return `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones<span class="lvl-key"><i style="background:var(--over)"></i>alta <i style="background:var(--mid)"></i>media <i style="background:var(--low)"></i>baja</span></h3>` +
+    L.map(k=>`<div class="bo-row"><i style="background:${lvlC(k.prob)}"></i><div class="t">${k.label}<small>${k.why||''}</small></div><b style="color:${lvlC(k.prob)}">${k.prob}%</b>${pkBtn(pkReg('futbol', league.id, f[0], f[1], f[2], pkTs(f[2], league.utcOffset), null, k))}</div>`).join('') + `</div>`;
+}
+function abOddsLast(){ const ob = document.getElementById('oddBox'); if(ob && ob.parentNode) ob.parentNode.appendChild(ob); }
+function cardPick(league, f){
+  if(!PREM()) return abLockBtn('Mercados y mejor opción · Premium');
+  let k = null; try{ const pk = matchPicks(league, f); k = pk && pk.picks && pk.picks[0]; }catch(e){}
+  return `<div class="cpick">${k ? `<span class="cp-chip"><i style="background:${lvlC(k.prob)}"></i>${k.label} · <b>${k.prob}%</b></span>` : `<span class="cp-none">Sin opción clara</span>`}<span class="cp-more">Ver mercados ›</span></div>`;
+}
 function PREM(){ return !!(window.AB && AB.premium); }
 function abPay(){ if(typeof window.abPayOpen==='function') abPayOpen(); }
 const AB_LOCK_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
@@ -1182,6 +1291,7 @@ let activeDate = 'all';
 
 let viewMode = 'matches';
 function setView(v){
+  setTimeout(()=>{ const t = document.getElementById('tabMore'); if(t) t.classList.toggle('active', viewMode==='value' || viewMode==='alerts'); }, 0);
   if(AB_PREM_VIEWS.includes(v) && !PREM()){ abPay(); return; }
   viewMode = v;
   document.getElementById('tabMatches').classList.toggle('active', v==='matches');
@@ -2635,7 +2745,7 @@ function mhRender(){
   else if(mh.err) html += `<div class="empty-state">No pude cargar el partido (${mh.err}).<br><br><button class="btn primary" onclick="mh.loading=true;mh.err='';mhRender();mhFetch()">Reintentar</button></div>`;
   else if(D) html += mh.tab==='stats' ? mhStatsHTML() : mhLineupHTML();
   html += `<div class="foot-note">Datos reales de ESPN. Si ESPN no publica algo de este partido, simplemente no aparece.</div>` + mhPlayerSheet();
-  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailContent').innerHTML = html; abOddsLast();
 }
 
 let ul = {key:'', data:null, loading:false, err:'', team:'h', ctx:null, timer:null, t:0, names:null};
@@ -2784,7 +2894,7 @@ function usRenderLive(){
 function usOpen(sp, id, keep){
   const g = usData[sp].games.find(x=>x.id===id); if(!g) return;
   const m = usPre(g), f = fmtParts(g.d,0), tag = usSeasonTag(g);
-  const ringC = p => p>=60 ? 'var(--over)' : 'var(--accent)';
+  const ringC = p => lvlC(p);
   const pH = pc(m.pH), pA = 100-pH;
   const teamInfo = (side, X) => {
     const T = X.T;
@@ -2835,7 +2945,7 @@ function usOpen(sp, id, keep){
     ${rcSection(sp,g)}
     <div class="prob-card"><h3><span class="dot"></span>Forma de los equipos</h3>${teamInfo(g.h, m.H)}${teamInfo(g.a, m.A)}</div></div>
     <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo basado en los promedios reales de la temporada de cada equipo (ESPN)${sp==='nba'?', con ventaja de local de 2.5 puntos (supuesto)':', con ligera ventaja de local (supuesto)'}. No considera lesiones${sp==='mlb'?' ni lanzadores':''}${g.stype===1?'. Pretemporada: los titulares suelen jugar poco, así que el pronóstico es menos fiable':''}. Es una estimación estadística, no garantiza el resultado.</div>`;
-  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailContent').innerHTML = html; abOddsLast();
   dtSec(LS.get('ab_dtsec','p'), true); pbSetUS(sp, g);
   usxInit(sp, g);
   document.getElementById('home').classList.add('hide');
@@ -2847,7 +2957,7 @@ function updateChrome(){
   const live = viewMode==='live', val = viewMode==='value', fut = sport==='futbol', alt = viewMode==='alerts' || viewMode==='bets';
   const set = (id,show)=>{ const e=document.getElementById(id); if(e) e.style.display = show ? '' : 'none'; };
   set('leagueChips', (fut || sport==='nba' || sport==='ncaa' || sport==='eul') && !live && !val && !alt); set('dateChips', !live && !alt); set('dataStatus', fut && !live && !val && !alt); set('homeNote', fut && !alt);
-  set('favBar', ['matches','picks','live'].includes(viewMode));
+  set('favBar', ['matches','picks','live'].includes(viewMode)); set('favTg', ['matches','picks','live'].includes(viewMode)); favTgState();
 }
 function setSport(sp){
   if(sp===sport) return;
@@ -3139,6 +3249,7 @@ async function pushOff(){ try{ await window.abPushDisable(); pushBox('Notificaci
 function alDot(){
   const h = LS.get('ab_al_hist',[]), rd = LS.get('ab_al_read',0), n = viewMode==='alerts' ? 0 : h.filter(x=>x.t>rd).length, e = document.getElementById('alCount');
   if(e) e.textContent = n ? ' ('+n+')' : '';
+  const m = document.getElementById('alCountMore'); if(m) m.innerHTML = n ? '<i class="tb-dot"></i>' : '';
 }
 async function alTick(manual){
   const cfg = alCfg(); if(!cfg.on && !manual) return;
@@ -3235,7 +3346,7 @@ function favToggle(n){
 }
 function favOnlyToggle(){ LS.set('ab_favonly', !LS.get('ab_favonly',false)); favBar(); renderMatches(); }
 function favBar(){
-  const el = document.getElementById('favBar'); if(!el) return;
+  const el = document.getElementById('favBar'); if(!el) return; setTimeout(favTgState, 0);
   const n = favList().length, on = LS.get('ab_favonly',false);
   const nm = Object.keys(fmList()).length, om = LS.get('ab_favmonly',false);
   el.innerHTML = `<button class="fav-btn${on?' on':''}" onclick="favOnlyToggle()">${on?'★':'☆'} Solo mis equipos${n?' ('+n+')':''}</button><button class="fav-btn${om?' on':''}" onclick="favMOnlyToggle()">${om?'★':'☆'} Mis partidos${nm?' ('+nm+')':''}</button>` + (n||nm ? '' : `<span class="fav-hint">☆ arriba de un partido lo guarda</span>`);
@@ -3710,7 +3821,7 @@ function ldRender(){
   }
   html += `<div class="foot-note">Datos: ESPN. El pronóstico en vivo es una estimación estadística y no garantiza el resultado.</div>`;
   if(f && ld.tab==='lineup' && mh.live) html += mhPlayerSheet();
-  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailContent').innerHTML = html; abOddsLast();
 }
 function ldModelHTML(m, D){
   const f = ld.kind==='f';
@@ -3934,12 +4045,12 @@ function renderMatches(){
       <div class="teams-row">
         <div class="team">
           ${badgeHTML(homeName,false,'',league.id)}
-          <div class="team-name">${homeName}${favStar(homeName)}</div>
+          <div class="team-name">${homeName}${abCompact()?'':favStar(homeName)}</div>
         </div>
         <div class="ko"><b>${fmtParts(when, league.utcOffset).time}</b><span>${fmtParts(when, league.utcOffset).date}</span></div>
         <div class="team away">
           ${badgeHTML(awayName,false,'',league.id)}
-          <div class="team-name">${awayName}${favStar(awayName)}</div>
+          <div class="team-name">${awayName}${abCompact()?'':favStar(awayName)}</div>
         </div>
       </div>
       <div class="mini1x2">
@@ -3952,11 +4063,11 @@ function renderMatches(){
         <span>Emp. ${p.drawPct}%</span>
         <span>${awayName} ${p.lossPct}%</span>
       </div>
-      ${PREM() ? (cdTable(league, homeName, awayName, p) || `<div class="quick-probs">
-        <div class="ring-item">${ringHTML(p.over25, p.over25>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+2.5 goles</div></div>
-        <div class="ring-item">${ringHTML(p.btts, p.btts>=60?'var(--over)':'var(--accent)', 54)}<div class="l">Ambos anotan</div></div>
-        <div class="ring-item">${ringHTML(p.over35cards, p.over35cards>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+3.5 tarj.</div></div>
-        <div class="ring-item">${ringHTML(p.over85corners, p.over85corners>=60?'var(--over)':'var(--accent)', 54)}<div class="l">+8.5 córn.</div></div>
+      ${abCompact() ? cardPick(league, f) : PREM() ? (cdTable(league, homeName, awayName, p) || `<div class="quick-probs">
+        <div class="ring-item">${ringHTML(p.over25, lvlC(p.over25), 54)}<div class="l">+2.5 goles</div></div>
+        <div class="ring-item">${ringHTML(p.btts, lvlC(p.btts), 54)}<div class="l">Ambos anotan</div></div>
+        <div class="ring-item">${ringHTML(p.over35cards, lvlC(p.over35cards), 54)}<div class="l">+3.5 tarj.</div></div>
+        <div class="ring-item">${ringHTML(p.over85corners, lvlC(p.over85corners), 54)}<div class="l">+8.5 córn.</div></div>
       </div>`) : abLockBtn('Goles, ambos anotan, tarjetas y córners · Premium')}
     </div>`;
   }).join('');
@@ -4354,15 +4465,16 @@ function openMatch(leagueId, idx){
         <div><div class="v">${p.lossPct}%</div><div class="l">Gana ${awayName}</div></div>
       </div>
     </div>
+    ${PREM() ? bestOptsHTML(league, league.fixtures[idx]) : ''}
 
     ${PREM() ? `
     <div class="prob-card">
       <h3><span class="dot"></span>Probabilidad de goles</h3>
       <div class="stat-grid">
-        <div class="stat-tile">${ringHTML(p.over15,'var(--over)',72)}<div class="l">Más de 1.5 goles</div></div>
-        <div class="stat-tile">${ringHTML(p.over25,'var(--accent)',72)}<div class="l">Más de 2.5 goles</div></div>
-        <div class="stat-tile">${ringHTML(p.btts,'var(--over)',72)}<div class="l">Ambos anotan</div></div>
-        <div class="stat-tile">${ringHTML(p.under25,'var(--accent)',72)}<div class="l">Menos de 2.5 goles</div></div>
+        <div class="stat-tile">${ringHTML(p.over15,lvlC(p.over15),72)}<div class="l">Más de 1.5 goles</div></div>
+        <div class="stat-tile">${ringHTML(p.over25,lvlC(p.over25),72)}<div class="l">Más de 2.5 goles</div></div>
+        <div class="stat-tile">${ringHTML(p.btts,lvlC(p.btts),72)}<div class="l">Ambos anotan</div></div>
+        <div class="stat-tile">${ringHTML(p.under25,lvlC(p.under25),72)}<div class="l">Menos de 2.5 goles</div></div>
       </div>
       <div class="line-item" style="border-top:1px solid var(--line);">
         <div class="line-label">Esperados</div>
@@ -4418,7 +4530,7 @@ function openMatch(leagueId, idx){
       Es una estimación estadística, no garantiza el resultado.
     </div>
   `;
-  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailContent').innerHTML = html; abOddsLast();
   dtSec(LS.get('ab_dtsec','p'), true);
   document.getElementById('home').classList.add('hide');
   document.getElementById('detail').classList.add('show');
@@ -4489,7 +4601,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v40.1 · logo nuevo';
+const APP_VERSION = 'v41 · rediseño: barra inferior y tema AlexBet';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4982,7 +5094,7 @@ function renderSettings(){
     `<div class="row"><span>Última actualización</span><span>${last?ago(last):'nunca'}</span></div>
      <div style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px;">${logHtml}</div>`;
 }
-const THEMES = [['estadio','Estadio','linear-gradient(90deg,#17642f,#f5c542)'],['noche','Noche','linear-gradient(90deg,#1d3f8a,#4da3ff)'],['clasico','Clásico','linear-gradient(90deg,#2f8a40,#e8590c)'],['fuego','Fuego','linear-gradient(90deg,#33200f,#ff7a3d)'],['neon','Neón cian','linear-gradient(90deg,#0b3a52,#00e5ff)'],['carbono','Carbono + lima','linear-gradient(90deg,#1a1a1d,#c6ff00)']];
+const THEMES = [['alexbet','AlexBet','linear-gradient(90deg,#22d3ee,#c6ff00)'],['estadio','Estadio','linear-gradient(90deg,#17642f,#f5c542)'],['noche','Noche','linear-gradient(90deg,#1d3f8a,#4da3ff)'],['clasico','Clásico','linear-gradient(90deg,#2f8a40,#e8590c)'],['fuego','Fuego','linear-gradient(90deg,#33200f,#ff7a3d)'],['neon','Neón cian','linear-gradient(90deg,#0b3a52,#00e5ff)'],['carbono','Carbono + lima','linear-gradient(90deg,#1a1a1d,#c6ff00)']];
 function setTheme(t){
   document.documentElement.setAttribute('data-theme', t); LS.set('ab_theme', t);
   const b = document.getElementById('themeBox');
@@ -4990,7 +5102,7 @@ function setTheme(t){
 }
 function openSettings(){
   document.getElementById('verLine').textContent = 'Versión de la app: '+APP_VERSION + ' · logos: ' + (LOGO_STATUS || (Object.keys(LG().map).length+' guardados'));
-  setTheme(LS.get('ab_theme','estadio'));
+  setTheme(LS.get('ab_theme','alexbet')); abCmpLbl();
   document.getElementById('inKey').value = LS.get('ab_fdkey','') || '';
   document.getElementById('inKey').placeholder = DEFAULT_KEY ? 'Usando la clave incluida (…'+DEFAULT_KEY.slice(-4)+')' : 'Pega aquí tu clave de football-data.org (opcional)';
   document.getElementById('inSeason').value = LS.get('ab_season','') || '';
@@ -5015,7 +5127,8 @@ function clearData(){
 
 if('serviceWorker' in navigator && location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 // ---------- Arranque ----------
-document.documentElement.setAttribute('data-theme', LS.get('ab_theme','estadio'));
+if(!LS.get('ab_th41',0)){ if(LS.get('ab_theme','estadio')==='estadio') LS.set('ab_theme','alexbet'); LS.set('ab_th41',1); }
+document.documentElement.setAttribute('data-theme', LS.get('ab_theme','alexbet'));
 LEAGUES = STATIC_LEAGUES.map(s=>buildLive()[s.id]||s);
 renderChips();
 renderDateChips();
