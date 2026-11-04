@@ -4218,7 +4218,8 @@ function crestHTML(name, lid, sz){
 function pbSel(list, cur, fn){ return `<label class="pb-msel"><span class="sr">Estadística</span><select onchange="${fn}(+this.value)">${list.map((t,i)=>t==null?'':`<option value="${i}" ${i===cur?'selected':''}>${escA(t)}</option>`).join('')}</select></label>`; }
 function pbSeg(names, cur, fn, lid){
   return `<div class="pb-seg" style="grid-template-columns:repeat(${names.length},minmax(0,1fr))">${names.map((n,i)=>{ const both = i===2; const cr = both ? `<span class="cr-two">${crestHTML(names[0], lid, 16)}${crestHTML(names[1], lid, 16)}</span>` : crestHTML(n, lid, 20);
-    return `<button type="button" class="${i===cur?'on':''}" onclick="${fn}(${i})">${cr}<span class="nm">${escA(n)}</span></button>`; }).join('')}</div>`;
+    const lab = (!lid && !both && String(n).split(' ').length>1 && String(n).length>11) ? String(n).split(' ').slice(-1)[0] : n;
+    return `<button type="button" class="${i===cur?'on':''}" onclick="${fn}(${i})" title="${escA(n)}">${cr}<span class="nm">${escA(lab)}</span></button>`; }).join('')}</div>`;
 }
 function pbTiles(pr, avg, avgLab, hits){ return `<div class="pb-tiles"><div><b style="color:${lvlC(pr)}">${pr}%</b><small>Probabilidad</small></div><div><b>${avg}</b><small>${avgLab}</small></div><div><b>${hits}</b><small>Superó la línea</small></div></div>`; }
 function pbLineRow(crest, txt, sub, ln, fn){ return `<div class="pb-line2">${crest}<span class="tx">Más de <b>${ln.toFixed(1)}</b> ${txt}<small>${sub}</small></span><span class="pb-step"><button type="button" aria-label="Bajar línea" onclick="${fn}('l',-1)">−</button><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="${fn}('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><button type="button" aria-label="Subir línea" onclick="${fn}('l',1)">+</button></span></div>`; }
