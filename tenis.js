@@ -261,7 +261,7 @@ function tnScore(m) {
 }
 function tnTime(m, f) { return m.tv ? f.time : 'Por conf.'; }
 function tnRow(m, M, mid) {
-  const pl = (s, X, right) => `<div class="team${right ? ' away' : ''}">${badgeHTML(s.name, false)}<div class="team-name">${tnFlag(s)}${escA(s.name)}${tnRankTag(X)}${favStar(s.name)}</div></div>`;
+  const pl = (s, X, right) => `<div class="team${right ? ' away' : ''}">${badgeHTML(s.name, false)}<div class="team-name">${tnFlag(s)}${escA(abCompact() ? s.short : s.name)}${tnRankTag(X)}${abCompact() ? '' : favStar(s.name)}</div></div>`;
   return `<div class="teams-row">${pl(m.p[0], M.A)}${mid}${pl(m.p[1], M.B, true)}</div>`;
 }
 function tnMeta(m, f) {
@@ -289,7 +289,7 @@ function tnRenderMatches() {
       ${tnRow(m, M, mid)}
       <div class="mini1x2"><span style="width:${a}%; background:var(--over);"></span><span style="width:${b}%; background:var(--accent);"></span></div>
       <div class="mini1x2-labels"><span>${escA(m.p[0].short)} ${a}%</span><span>${escA(m.p[1].short)} ${b}%</span></div>
-      <div class="lv-stats" style="justify-content:center;margin-top:8px;"><span>${m.state === 'pre' ? `Juegos esperados: <b>${M.exp.toFixed(1)}</b> · Sets corridos: <b>${tnPc(straight)}%</b>` : 'Probabilidad según el marcador actual'}${M.est ? ' (est.)' : ''}</span></div>
+      ${abCompact() ? chipPick(m.state === 'pre' && !M.est ? tnCands(m, M)[0] : null, m.state === 'pre' ? `Juegos esperados ${M.exp.toFixed(1)}` : m.state === 'in' ? 'En juego' : 'Terminado') : ''}<div class="lv-stats" style="justify-content:center;margin-top:8px;${abCompact() ? 'display:none' : ''}"><span>${m.state === 'pre' ? `Juegos esperados: <b>${M.exp.toFixed(1)}</b> · Sets corridos: <b>${tnPc(straight)}%</b>` : 'Probabilidad según el marcador actual'}${M.est ? ' (est.)' : ''}</span></div>
     </div>`;
   }).join('') + `<div class="foot-note">Tenis: probabilidades según el rating Elo de cada jugador (resultados de los últimos 150 días, ESPN); si no tiene Elo, según el ranking ATP/WTA. No considera superficie, lesiones ni cuotas. "(est.)" = jugador sin ranking conocido. No garantizan el resultado.</div>`;
 }
@@ -397,14 +397,14 @@ function tnOpen(id, keep) {
   const M = tnModel(m), f = fmtParts(m.d, 0), sc = tnScore(m);
   const L = m.state === 'in' ? tnLive(m, M) : null;
   const pA = tnPc(L ? L.pA : M.pA), pB = 100 - pA, A = m.p[0], B = m.p[1], need = M.need;
-  const ringC = p => p >= 60 ? 'var(--over)' : 'var(--accent)';
+  const ringC = p => lvlC(p);
   const tile = (p, lab) => `<div class="stat-tile">${ringHTML(p, ringC(p), 72)}<div class="l">${lab}</div></div>`;
   const setKeys = need === 3 ? ['3-0', '3-1', '3-2', '0-3', '1-3', '2-3'] : ['2-0', '2-1', '0-2', '1-2'];
   const setLab = k => { const [a, b] = k.split('-').map(Number); return a > b ? `${escA(A.short)} ${a}-${b}` : `${escA(B.short)} ${b}-${a}`; };
   const info = (s, X) => `<div style="padding:8px 0;border-top:1px solid var(--line);"><div style="font-weight:700;font-size:14px;">${tnFlag(s)}${escA(s.name)}</div>
     <div class="lv-stats"><span>Ranking: <b>${X.rank ? '#' + X.rank : 'sin dato (est.)'}</b></span>${X.pts && X.rank ? `<span>Puntos: <b>${Math.round(X.pts)}</b></span>` : ''}<span>Últimos partidos en los datos: <b>${X.w}-${X.l}</b></span></div>${tnForm(s)}</div>`;
   const html = `
-    <div class="matchup-hero"><div class="meta">${TN_TOURS[m.tour].name} · ${escA(m.ev).toUpperCase()}${m.round ? ' · ' + escA(m.round).toUpperCase() : ''}</div>
+    <div class="matchup-hero hero-plain"><div class="meta">${TN_TOURS[m.tour].name} · ${escA(m.ev).toUpperCase()}${m.round ? ' · ' + escA(m.round).toUpperCase() : ''}</div>
       <div class="row">
         <div class="team-big">${badgeHTML(A.name, true)}<div class="name">${tnFlag(A)}${escA(A.name)}${favStar(A.name)}</div></div>
         <div class="center-vs"><div class="ko-big">${m.state === 'pre' ? tnTime(m, f) : `<span style="font-size:17px;white-space:nowrap">${sc.pairs || '-'}</span>`}<small>${f.date} Ecuador${m.state === 'post' ? ' · Final' : m.state === 'in' ? ' · En vivo' : ''}${m.court ? ' · ' + escA(m.court) : ''}</small></div></div>
