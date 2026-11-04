@@ -635,6 +635,44 @@ main{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
 .dt-tabs{ gap:4px; padding:4px; border-radius:12px; border:1px solid var(--line); background:var(--surface); }
 .dt-tabs button{ min-height:38px; padding:0 12px; border:0; border-radius:9px; background:transparent; font-size:12.5px; }
 .dt-tabs button.on{ background:var(--accent-dim); }
+
+/* v41.2 · estadísticas por partido / jugador */
+:root{ --miss:var(--under); } :root[data-theme="alexbet"]{ --miss:#3a4652; }
+.sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+.pb-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; } .pb-head h3{ margin:0 !important; }
+.pb-msel select{ min-height:36px; max-width:170px; padding:0 30px 0 12px; border-radius:10px; border:1px solid var(--line-hi); color:var(--ink); font:600 13px var(--font-body); appearance:none; -webkit-appearance:none;
+  background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2393a7ab' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center; }
+.pb-seg{ display:grid; gap:2px; padding:3px; border-radius:10px; background:var(--surface-2); margin-bottom:10px; }
+.pb-seg button{ min-height:40px; display:flex; align-items:center; justify-content:center; gap:7px; padding:0 6px; border:0; border-radius:8px; background:transparent; color:var(--ink-dim); font:600 13px var(--font-body); min-width:0; cursor:pointer; }
+.pb-seg button .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pb-seg button.on{ background:var(--accent-dim); color:var(--accent); font-weight:700; }
+:root[data-theme="alexbet"] .pb-seg button.on{ background:#0b2630; color:#22d3ee; }
+.cr-sh{ flex:none; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:800; clip-path:polygon(50% 0,100% 14%,100% 58%,50% 100%,0 58%,0 14%); }
+.cr-im{ flex:none; display:inline-flex; align-items:center; justify-content:center; } .cr-im img{ width:100%; height:100%; object-fit:contain; }
+.cr-two{ display:inline-flex; } .cr-two > :last-child{ margin-left:-5px; }
+.pb-line2{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.pb-line2 .tx{ flex:1; min-width:0; font-size:14px; line-height:1.3; } .pb-line2 .tx b{ font-family:Orbitron, var(--font-head); color:var(--accent); } .pb-line2 .tx small{ display:block; font-size:12px; color:var(--ink-dim); }
+.pb-step{ display:flex; align-items:center; border:1px solid var(--line-hi); border-radius:12px; overflow:hidden; flex:none; }
+.pb-step button{ width:42px; height:44px; border:0; background:var(--surface-2); color:var(--ink); font-size:20px; cursor:pointer; }
+.pb-step input{ width:50px; height:44px; border:0; background:transparent; color:var(--ink); text-align:center; font:700 15px Orbitron, var(--font-head); padding:0; }
+.pb-step input:focus{ outline:none; background:var(--accent-dim); }
+.pb-tiles{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:6px; }
+.pb-tiles div{ padding:10px 6px; border-radius:12px; background:var(--surface-2); text-align:center; } .pb-tiles b{ display:block; font:700 19px Orbitron, var(--font-head); } .pb-tiles small{ font-size:11px; color:var(--ink-dim); }
+.pb-bars{ height:140px; border-bottom:0; margin-top:16px; gap:4px; }
+.pb-b span{ font-family:Orbitron, var(--font-head); font-size:10.5px; } .pb-b.ok span{ color:var(--ink); }
+.pb-b i{ border-radius:5px 5px 2px 2px; }
+.pb-ln{ border-top:2px dashed rgba(238,244,242,.7); z-index:2; } .pb-ln em{ position:absolute; right:0; top:-16px; font:700 10px Orbitron, var(--font-head); font-style:normal; color:var(--ink); background:var(--surface); padding:0 3px; border-radius:4px; }
+.pb-lab2{ display:flex; gap:4px; margin-top:5px; } .pb-lab2 div{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; } .pb-lab2 small{ font-size:9px; color:var(--ink-dim); white-space:nowrap; }
+.pb-per button{ border:0; background:var(--surface-2); min-height:44px; } .pb-per button b{ font-family:Orbitron, var(--font-head); font-size:12.5px; } .pb-per button.on{ background:var(--accent-dim); color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); }
+.pb-note{ display:flex; align-items:center; gap:6px; margin-top:10px; font-size:11.5px; color:var(--ink-dim); }
+.pj-row{ display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; margin-bottom:10px; } .pj-row::-webkit-scrollbar{ display:none; }
+.pj-grp{ flex:none; align-self:center; font-size:10.5px; font-weight:700; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.5px; writing-mode:vertical-rl; transform:rotate(180deg); }
+.pj-chip{ flex:none; width:84px; min-height:82px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:6px 4px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); cursor:pointer; font-family:var(--font-body); }
+.pj-chip b{ font-size:11px; font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .pj-chip small{ font-size:9.5px; color:var(--ink-dim); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pj-chip.on{ border-color:var(--accent); } .pj-chip.on .pj-ava{ border-color:var(--accent); }
+.pj-ava{ position:relative; width:38px; height:38px; flex:none; border-radius:50%; overflow:hidden; border:2px solid var(--line-hi); background:var(--track); display:inline-flex; align-items:center; justify-content:center; }
+.pj-ava i{ font:700 11px Orbitron, var(--font-head); font-style:normal; color:var(--ink-dim); } .pj-ava img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:1; background:var(--track); }
+.pj-ava.big{ width:40px; height:40px; }
 </style>
 </head>
 <body>
@@ -4170,6 +4208,24 @@ function pbSrc(){
   }
   return {G, lam, label:M.k.toLowerCase(), markets:PB_M, prob: ln => pbPois(lam, ln)};
 }
+
+// v41.2 · diseño nuevo de Estadísticas por partido / por jugador (escudos, selector de estadística, 3 cuadros)
+function crestHTML(name, lid, sz){
+  sz = sz || 22; const u = name ? logoFor(name, lid) : '', ini = String(initials(name||'?')).replace(/[<>&"]/g,'');
+  const fb = `<span class="cr-sh" style="width:${sz}px;height:${Math.round(sz*1.1)}px;background:${hashColor(name||'?')};font-size:${Math.max(7, Math.round(sz*.34))}px">${ini}</span>`;
+  return u ? `<span class="cr-im" style="width:${sz}px;height:${sz}px"><img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.outerHTML=this.parentNode.dataset.fb" ></span>`.replace('class="cr-im"', `class="cr-im" data-fb='${fb.replace(/'/g,'&#39;')}'`) : fb;
+}
+function pbSel(list, cur, fn){ return `<label class="pb-msel"><span class="sr">Estadística</span><select onchange="${fn}(+this.value)">${list.map((t,i)=>t==null?'':`<option value="${i}" ${i===cur?'selected':''}>${escA(t)}</option>`).join('')}</select></label>`; }
+function pbSeg(names, cur, fn, lid){
+  return `<div class="pb-seg" style="grid-template-columns:repeat(${names.length},minmax(0,1fr))">${names.map((n,i)=>{ const both = i===2; const cr = both ? `<span class="cr-two">${crestHTML(names[0], lid, 16)}${crestHTML(names[1], lid, 16)}</span>` : crestHTML(n, lid, 20);
+    return `<button type="button" class="${i===cur?'on':''}" onclick="${fn}(${i})">${cr}<span class="nm">${escA(n)}</span></button>`; }).join('')}</div>`;
+}
+function pbTiles(pr, avg, avgLab, hits){ return `<div class="pb-tiles"><div><b style="color:${lvlC(pr)}">${pr}%</b><small>Probabilidad</small></div><div><b>${avg}</b><small>${avgLab}</small></div><div><b>${hits}</b><small>Superó la línea</small></div></div>`; }
+function pbLineRow(crest, txt, sub, ln, fn){ return `<div class="pb-line2">${crest}<span class="tx">Más de <b>${ln.toFixed(1)}</b> ${txt}<small>${sub}</small></span><span class="pb-step"><button type="button" aria-label="Bajar línea" onclick="${fn}('l',-1)">−</button><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="${fn}('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><button type="button" aria-label="Subir línea" onclick="${fn}('l',1)">+</button></span></div>`; }
+function pbLabs(shown){ return `<div class="pb-lab2">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3), yr = Date.now()-g.ts > 300*864e5 ? '/'+String(d.getUTCFullYear()).slice(2) : '';
+  return `<div title="${escA(g.opp||'')}">${g.opp ? crestHTML(g.opp, g.ctx && g.ctx.lid, 20) : '<span class="cr-sh" style="width:20px;height:22px;background:var(--line);font-size:7px">H2H</span>'}<small>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}${yr}</small></div>`; }).join('')}</div>`; }
+const PB_NOTE = `<div class="pb-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Toca una barra para ver ese partido · verde = superó la línea</span></div>`;
+function pjHead(sp, id){ const lg = {futbol:'soccer', nba:'nba', ncaa:'mens-college-basketball', mlb:'mlb', nhl:'nhl'}[sp]; const pid = String(id||'').split('|')[0]; return lg && /^\d+$/.test(pid) ? `https://a.espncdn.com/i/headshots/${lg}/players/full/${pid}.png` : ''; }
 // v38.1 · al tocar un mercado la fila de botones se queda donde estaba (no vuelve al inicio)
 function pbKeep(id, fn){ const el = document.getElementById(id), q = el && el.querySelector('.pk-sec'), sl = q ? q.scrollLeft : 0; fn(); const q2 = el && el.querySelector('.pk-sec'); if(q2) q2.scrollLeft = sl; }
 function pbRender(){ pbKeep('pbBox', pbRender0); pjRender(); }
@@ -4178,8 +4234,9 @@ function pbRender0(){
   let b = `<h3><span class="dot"></span>Estadísticas por partido</h3>`;
   if(PB.kind==='f' && (!PB.hid || !H2F.key || PB.h!==H2F.h)){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando el partido en ESPN…':'ESPN no tiene este partido: no hay estadísticas por partido.'}</div>`; return; }
   const R = pbSrc(), nm = [PB.h, PB.a, 'Ambos'][PB.t], name = PB.t===2 ? 'el partido (ambos)' : escA(nm), oname = escA(PB.t===1?PB.h:PB.a);
-  if(PB.kind==='f') b += `<div class="tn-chips pk-sec">${PB_M.map((x,i)=>`<button type="button" class="${i===PB.m?'on':''}" onclick="pbPick('m',${i})">${x.k}</button>`).join('')}</div>`;
-  b += `<div class="tn-chips" style="display:grid;grid-template-columns:1fr 1fr auto">${[PB.h,PB.a,'Ambos'].map((n,i)=>`<button type="button" class="${i===PB.t?'on':''}" onclick="pbPick('t',${i})" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escA(n)}</button>`).join('')}</div>`;
+  const lidF = PB.kind==='f' ? (H2F.lid || (curFixture && curFixture.lid)) : null;
+  if(PB.kind==='f') b = `<div class="pb-head"><h3><span class="dot"></span>Estadísticas por partido</h3>${pbSel(PB_M.map(x=>x.k), PB.m, "pbPick.bind(null,'m')")}</div>`;
+  b += pbSeg([PB.h, PB.a, 'Ambos'], PB.t, "pbPick.bind(null,'t')", lidF);
   if(R.wait){ el.innerHTML = b + `<div class="pl-none">${R.wait}</div>`; return; }
   const G = R.G, lam = R.lam;
   if(PB.ln==null) PB.ln = Math.max(0.5, Math.floor(lam)-0.5);
@@ -4189,15 +4246,15 @@ function pbRender0(){
   const shown = (sets[PB.per]||sets.L10).slice(0,20).slice().reverse(), mx = Math.max(ln+1, ...shown.map(g=>g.v)), mn = PB.kind==='us' && usPts(PB.sp) ? Math.max(0, Math.min(ln, ...shown.map(g=>g.v)) - 12) : 0;
   const hgt = v => Math.max(3, (v-mn)/(mx-mn)*108);
   const avgShow = pbAvg(Gn.slice(0,10).map(g=>g.v));
-  b += `<div class="mh-grid" style="margin-top:4px"><div><b style="color:${pr>=55?'var(--over)':'var(--under)'}">${pr}%</b><small>Probabilidad estimada</small></div><div><b>${avgShow.toFixed(1)}</b><small>Promedio ${PB.t===2?'del partido':'de '+escA(nm)} (L10)</small></div></div>
-    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${R.label} ${PB.t===2?'en el partido':'de '+escA(nm)}</span><span class="pb-ctl"><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="pbPick('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pbPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pbPick('l',1)">+</button></span></span></div>`;
+  const curSet = (sets[PB.per]||sets.L10), lcr = PB.t===2 ? `<span class="cr-two">${crestHTML(PB.h, lidF, 20)}${crestHTML(PB.a, lidF, 20)}</span>` : crestHTML(nm, lidF, 26);
+  b += pbLineRow(lcr, escA(R.label), PB.t===2 ? 'en el partido (suma de ambos)' : 'de '+escA(nm), ln, 'pbPick');
+  b += pbTiles(pr, avgShow.toFixed(1), 'Promedio L10', curSet.length ? curSet.filter(g=>over(g.v)).length+'/'+curSet.length : '-');
   if(!shown.length) b += `<div class="pl-none">${PB.per==='H2H' ? (PB.kind==='f' && H2F.lid && !(H2X[H2F.lid]&&H2X[H2F.lid].ev) ? 'Cargando enfrentamientos…' : 'No se enfrentaron en las últimas 6 temporadas (o ESPN no tiene esos partidos).') : 'Sin partidos.'}</div>`;
   else {
-    b += `<div class="pb-bars">${shown.map(g=>{ const ix = mhReg(g.ctx); return `<div class="pb-b" onclick="mhOpen(${ix})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--under)'}"></i></div>`; }).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"></div></div>
-      <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3), yr = Date.now()-g.ts > 300*864e5 ? '/'+String(d.getUTCFullYear()).slice(2) : ''; return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}${yr}<br>${escA(String(g.opp||'H2H').slice(0,5))}</div>`; }).join('')}</div>`;
+    b += `<div class="pb-bars">${shown.map(g=>{ const ix = mhReg(g.ctx); return `<div class="pb-b${over(g.v)?' ok':''}" onclick="mhOpen(${ix})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--miss)'}"></i></div>`; }).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"><em>${ln.toFixed(1)}</em></div></div>` + pbLabs(shown);
   }
   b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PB.per===k?'on':''}" onclick="pbPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
-    <div class="lv-stats">El % de cada botón es cuántas veces superó la línea. ${PB.t===2?'"Ambos" suma lo de los dos equipos en cada partido (últimos partidos de cada uno).':`La probabilidad estimada combina lo que hace ${escA(nm)} con lo que le hacen a ${oname} (últimos 10).`} Toca una barra para ver la estadística completa de ese partido.</div>`;
+    ${PB_NOTE}`;
   el.innerHTML = b;
 }
 // v38 · Estadísticas por jugador: mismo modelo que "Estadísticas por partido", con las estadísticas reales de ESPN de cada jugador en los últimos partidos de su equipo
@@ -4212,6 +4269,7 @@ const PJ_M = {
 };
 const PJ_GRP = {futbol:'Jugadores', bask:'Jugadores', mlbB:'Bateadores', mlbP:'Lanzadores', nhlS:'Jugadores', nhlG:'Porteros'};
 const PJE = {};
+let PJ_KEYS = [];
 let PJ = {key:'', t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
 function pjNum(v, lab){
   if(v==null || v==='') return null; const s = String(v).trim(); if(s==='--' || s==='-') return null;
@@ -4290,7 +4348,9 @@ function pjRender0(){
   let b = `<h3><span class="dot"></span>Estadísticas por jugador</h3>`;
   if(PB.kind==='f' && (!PB.hid || !H2F.key || PB.h!==H2F.h)){ el.innerHTML = b + `<div class="pl-none">${H2F.loading?'Buscando el partido en ESPN…':'ESPN no tiene este partido: no hay estadísticas de jugadores.'}</div>`; return; }
   if(!PB.hid){ el.innerHTML = b + `<div class="pl-none">Cargando…</div>`; return; }
-  b += `<div class="tn-chips" style="display:grid;grid-template-columns:1fr 1fr">${[PB.h,PB.a].map((n,i)=>`<button type="button" class="${i===PJ.t?'on':''}" onclick="pjPick('t',${i})" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escA(n)}</button>`).join('')}</div>`;
+  const lidJ = PB.kind==='f' ? (H2F.lid || (curFixture && curFixture.lid)) : null;
+  const segJ = pbSeg([PB.h, PB.a], PJ.t, "pjPick.bind(null,'t')", lidJ);
+  b += segJ;
   const dc = document.getElementById('detailContent'), visible = dc && dc.dataset.sec==='j';
   const G = pjGamesOf(PJ.t);
   if(!G){ el.innerHTML = b + `<div class="pl-none">${PB.kind==='f' && PB.err ? 'No pude cargar los partidos. <a href="#" onclick="PB.err=0;pbLoad();return false;" style="color:var(--accent)">Reintentar</a>' : 'Cargando partidos…'}</div>`; return; }
@@ -4302,9 +4362,11 @@ function pjRender0(){
   if(!P.length){ el.innerHTML = b + `<div class="pl-none">${PJ.prog || 'ESPN no publicó estadísticas individuales de los partidos de este equipo.'}</div>`; return; }
   let cur = P.find(p=>p.key===PJ.pid); if(!cur){ cur = P[0]; if(!PJ.prog || !PJ.pid) PJ.pid = cur.key; }
   const kinds = [...new Set(P.map(p=>p.kind))];
-  b += `<select onchange="pjPick('j',this.value)" style="width:100%;min-height:40px;margin:2px 0 8px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--font-body);padding:0 10px">${kinds.map(k=>{
-    const opts = P.filter(p=>p.kind===k).map(p=>`<option value="${escA(p.key)}" ${p.key===cur.key?'selected':''}>${escA(p.name)}${p.pos?' · '+escA(p.pos):''} (${p.n} PJ)</option>`).join('');
-    return kinds.length>1 ? `<optgroup label="${PJ_GRP[k]}">${opts}</optgroup>` : opts; }).join('')}</select>`;
+  PJ_KEYS = P.map(p=>p.key);
+  const spJ = pjSp();
+  const chips = `<div class="pj-row pk-sec">${kinds.map(k=>(kinds.length>1?`<span class="pj-grp">${PJ_GRP[k]}</span>`:'') + P.filter(p=>p.kind===k).map(p=>{ const u = pjHead(spJ, p.key), ini = escA(initials(p.name));
+    return `<button type="button" class="pj-chip${p.key===cur.key?' on':''}" onclick="pjPick('j',PJ_KEYS[${PJ_KEYS.indexOf(p.key)}])"><span class="pj-ava">${u?`<img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${ini}</i></span><b>${escA(plShort(p.name))}</b><small>${escA(p.pos||'')}${p.pos?' · ':''}${p.n} PJ</small></button>`; }).join('')).join('')}</div>`;
+  b += chips;
   const MK = PJ_M[cur.kind];
   if(PJ.mn){ const i = MK.findIndex(x=>x[0]===PJ.mn); PJ.m = i>=0 ? i : 0; } if(PJ.m>=MK.length) PJ.m = 0;
   const comps = MK[PJ.m][1], mName = MK[PJ.m][0];
@@ -4313,7 +4375,7 @@ function pjRender0(){
   const S = [];
   L.forEach(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); if(!p) return; const v = pjVal(p.S, comps); if(v==null) return; S.push({id:g.id, ts:g.ts, v, opp:g.opp, h2:g.oppId===String(op), ctx:g.ctx}); });
   const avail = MK.map((x,i)=>i).filter(i=>L.some(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); return p && pjVal(p.S, MK[i][1])!=null; }));
-  b += `<div class="tn-chips pk-sec">${MK.map((x,i)=>avail.includes(i)||i===PJ.m?`<button type="button" class="${i===PJ.m?'on':''}" onclick="pjPick('m',${i})">${x[0]}</button>`:'').join('')}</div>`;
+  b = `<div class="pb-head"><h3><span class="dot"></span>Estadísticas por jugador</h3>${pbSel(MK.map((x,i)=>avail.includes(i)||i===PJ.m?x[0]:null), PJ.m, "pjPick.bind(null,'m')")}</div>` + segJ + chips;
   if(!S.length){ el.innerHTML = b + `<div class="pl-none">ESPN no tiene ${mName.toLowerCase()} de ${escA(cur.name)} en estos partidos.</div>${PJ.prog?`<div class="lv-stats">${PJ.prog}</div>`:''}`; return; }
   const lam = pbAvg(S.slice(0,10).map(x=>x.v)), big = lam>=8, sd = big ? Math.max(pbSd(S.slice(0,20).map(x=>x.v))||0, Math.sqrt(lam)) : 0;
   const prob = ln => big ? 1-pbNorm((ln-lam)/sd) : pbPois(lam, ln);
@@ -4323,13 +4385,13 @@ function pjRender0(){
   const pct = a => a.length ? Math.round(a.filter(g=>over(g.v)).length/a.length*100)+'%' : '-';
   const shown = (sets[PJ.per]||sets.L10).slice(0,20).slice().reverse(), mx = Math.max(ln+1, ...shown.map(g=>g.v)), mn = lam>=15 ? Math.max(0, Math.min(ln, ...shown.map(g=>g.v)) - 6) : 0;
   const hgt = v => Math.max(3, (v-mn)/(mx-mn)*108);
-  b += `<div class="mh-grid" style="margin-top:4px"><div><b style="color:${pr>=55?'var(--over)':'var(--under)'}">${pr}%</b><small>Probabilidad estimada</small></div><div><b>${lam.toFixed(1)}</b><small>Promedio de ${escA(plShort(cur.name))} (L10)</small></div></div>
-    <div class="pb-line"><span>Más de <b>${ln.toFixed(1)}</b> ${mName.toLowerCase()} de ${escA(plShort(cur.name))}</span><span class="pb-ctl"><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="pjPick('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><span style="display:flex;gap:6px"><button type="button" aria-label="Bajar línea" onclick="pjPick('l',-1)">−</button><button type="button" aria-label="Subir línea" onclick="pjPick('l',1)">+</button></span></span></div>`;
+  const curSetJ = (sets[PJ.per]||sets.L10), uJ = pjHead(spJ, cur.key);
+  b += pbLineRow(`<span class="pj-ava big">${uJ?`<img src="${uJ}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(cur.name))}</i></span>`, mName.toLowerCase(), 'de '+escA(plShort(cur.name)), ln, 'pjPick');
+  b += pbTiles(pr, lam.toFixed(1), 'Promedio L10', curSetJ.length ? curSetJ.filter(g=>over(g.v)).length+'/'+curSetJ.length : '-');
   if(!shown.length) b += `<div class="pl-none">No se enfrentó a este rival en los partidos cargados.</div>`;
-  else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b" onclick="mhOpen(${mhReg(g.ctx)})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--under)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"></div></div>
-      <div class="pb-lab">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3); return `<div>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}<br>${escA(String(g.opp||'').slice(0,5))}</div>`; }).join('')}</div>`;
+  else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b${over(g.v)?' ok':''}" onclick="mhOpen(${mhReg(g.ctx)})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--miss)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"><em>${ln.toFixed(1)}</em></div></div>` + pbLabs(shown);
   b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PJ.per===k?'on':''}" onclick="pjPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
-    <div class="lv-stats">${PJ.prog?PJ.prog+' ':''}El % de cada botón es cuántas veces superó la línea en los partidos que jugó. La probabilidad estimada usa su promedio de los últimos 10 (no considera lesiones, minutos ni el rival). Datos reales de ESPN${PJ.fail?` · ${PJ.fail} partidos sin respuesta`:''}. Toca una barra para ver ese partido.</div>`;
+    ${PJ.prog?`<div class="lv-stats">${PJ.prog}</div>`:''}${PB_NOTE}`;
   el.innerHTML = b;
 }
 function h2hFutRender(){
@@ -4600,7 +4662,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v41.1 · letra del logo en toda la app';
+const APP_VERSION = 'v41.2 · estadísticas por partido y jugador con escudos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
