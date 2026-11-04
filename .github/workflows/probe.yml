@@ -9,14 +9,7 @@ jobs:
       - run: |
           python3 - <<'PY'
           import urllib.request, json
-          u='https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-08-12&hydrate=probablePitcher(stats(group=[pitching],type=[season])),team'
+          u='https://statsapi.mlb.com/api/v1/people?personIds=805673,543037&hydrate=stats(group=[pitching],type=[season],season=2026)'
           j=json.load(urllib.request.urlopen(u,timeout=30))
-          g=j['dates'][0]['games'][0]
-          print(json.dumps({k:g[k] for k in ['gameDate','gamePk']}))
-          t=g['teams']['home']
-          print('TEAM', t['team'].get('name'))
-          pp=t.get('probablePitcher') or {}
-          print('PP', json.dumps(pp)[:1500])
-          u2='https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-09-25&endDate=2026-09-27&hydrate=probablePitcher(stats(group=[pitching],type=[season]))'
-          j=json.load(urllib.request.urlopen(u2,timeout=30)); print('N',sum(len(d['games']) for d in j['dates']), len(json.dumps(j))//1024,'KB')
+          for p in j['people']: print('P',p['fullName'], json.dumps(p.get('stats'))[:900])
           PY
