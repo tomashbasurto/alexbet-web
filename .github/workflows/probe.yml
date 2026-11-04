@@ -2,32 +2,23 @@ name: Probe ESPN tenis
 on:
   push:
     branches: [tenis-probe]
-permissions:
-  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - run: |
-          cd probe
           python3 - <<'PY'
           import json, urllib.request
-          B='https://site.api.espn.com/apis/site/v2/sports/soccer/'
-          out=[]
-          for s in open('slugs.txt').read().split():
-              row={'slug':s}
-              for rng in ['202510','202602','202611','202612']:
-                  try:
-                      j=json.load(urllib.request.urlopen(urllib.request.Request(B+s+'/scoreboard?dates='+rng,headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
-                      if not row.get('name'): row['name']=((j.get('leagues') or [{}])[0]).get('name')
-                      L=(j.get('leagues') or [{}])[0]
-                      row['name']=L.get('name') or L.get('abbreviation'); row[rng]=len(j.get('events',[]))
-                      ev=j.get('events',[])
-                      if ev: row['last_'+rng]=ev[-1].get('date','')[:10]
-                  except Exception as e: row[rng]='ERR '+str(e)[:40]
-              out.append(row); print(row)
-          json.dump(out,open('result.json','w'),indent=1)
+          def g(u): return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=30))
+          j=g('https://sports.core.api.espn.com/v2/sports/soccer/leagues?limit=1000')
+          print('COUNT',j.get('count'))
+          import concurrent.futures as cf
+          refs=[i['$ref'] for i in j.get('items',[])]
+          def one(r):
+              try:
+                  L=g(r); return L.get('slug'),L.get('name')
+              except Exception as e: return r,'ERR'
+          with cf.ThreadPoolExecutor(20) as ex:
+              for s,n in ex.map(one,refs):
+                  if s and any(s.startswith(p) for p in ['ecu','por','bel','tur','gre','mex','col','arg','bra','usa','concacaf','conmebol','ned','sco','ita','ger','fra','esp','eng']): print('LG',s,'|',n)
           PY
-          git config user.name probe-bot; git config user.email probe@users.noreply.github.com
-          echo done
