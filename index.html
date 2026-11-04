@@ -571,10 +571,9 @@
   --card-grad:none; --shadow:0 0 0 1px rgba(255,255,255,.02), 0 8px 24px rgba(0,0,0,.45);
 }
 :root[data-theme="alexbet"] .match-card, :root[data-theme="alexbet"] .prob-card{ border-color:var(--line); border-radius:16px; }
-:root[data-theme="alexbet"] header.top h1{ font-family:Orbitron, var(--font-head); font-weight:900; font-size:18px; letter-spacing:1.5px; text-transform:uppercase; }
-:root[data-theme="alexbet"] .ko b, :root[data-theme="alexbet"] .ko-big, :root[data-theme="alexbet"] .v, :root[data-theme="alexbet"] .plain-v,
-:root[data-theme="alexbet"] .ring-text, :root[data-theme="alexbet"] .pick-pct b, :root[data-theme="alexbet"] .datechip .num,
-:root[data-theme="alexbet"] .line-pct, :root[data-theme="alexbet"] .cp-chip b, :root[data-theme="alexbet"] .bo-row > b{ font-family:Orbitron, var(--font-head); letter-spacing:.3px; }
+/* letra del logo en todos los temas: nombre de la app y números */
+header.top h1{ font-family:Orbitron, var(--font-head) !important; font-weight:900 !important; font-size:18px !important; letter-spacing:1.5px; text-transform:uppercase; }
+.ko b, .ko-big, .v, .plain-v, .ring-text, .pick-pct b, .datechip .num, .line-pct, .cp-chip b, .bo-row > b, .sc, .lv-score .sc, .ab-logo{ font-family:Orbitron, var(--font-head) !important; letter-spacing:.3px; }
 :root[data-theme="alexbet"] .ko b{ color:#22d3ee; }
 :root[data-theme="alexbet"] .datechip.active{ background:#0b2630; border-color:#22d3ee; }
 :root[data-theme="alexbet"] .datechip.active .dow, :root[data-theme="alexbet"] .datechip.active .num{ color:#22d3ee; }
@@ -4601,7 +4600,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
 };
-const APP_VERSION = 'v41 · rediseño: barra inferior y tema AlexBet';
+const APP_VERSION = 'v41.1 · letra del logo en toda la app';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -5127,7 +5126,7 @@ function clearData(){
 
 if('serviceWorker' in navigator && location.protocol==='https:'){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
 // ---------- Arranque ----------
-if(!LS.get('ab_th41',0)){ if(LS.get('ab_theme','estadio')==='estadio') LS.set('ab_theme','alexbet'); LS.set('ab_th41',1); }
+if(!LS.get('ab_th41b',0)){ LS.set('ab_theme','alexbet'); LS.set('ab_th41b',1); }
 document.documentElement.setAttribute('data-theme', LS.get('ab_theme','alexbet'));
 LEAGUES = STATIC_LEAGUES.map(s=>buildLive()[s.id]||s);
 renderChips();
