@@ -4398,7 +4398,7 @@ async function h2hFutInit(league, h, a, when){
 }
 
 // v37 · Estadísticas por partido: barras de los últimos partidos con línea ajustable (datos reales de ESPN, stats-futbol.json)
-const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Remates al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Remates totales', f:r=>r[3]}];
+const PB_M = [{k:'Córners', f:r=>r[1]}, {k:'Remates al arco', f:r=>r[2]}, {k:'Tarjetas', f:r=>r[4]==null?null:r[4]+(r[5]||0)}, {k:'Goles', f:r=>r[0]}, {k:'Faltas', f:r=>r[6]}, {k:'Remates totales', f:r=>r[3]}, {k:'Fueras de juego', f:r=>r[8]==null?null:r[8]}];
 let PB = {S:null, loading:false, err:0, m:0, t:0, per:'L10', ln:null, hid:null, aid:null, h:'', a:'', kind:'f', sp:null, gid:null};
 async function pbLoad(){ if(PB.S || PB.loading) return; PB.loading = true; try{ PB.S = await mirrorGet('stats-futbol.json'); PB.err = 0; PBI = {}; }catch(e){ PB.err = 1; } PB.loading = false; pbRender(); if(PB.S && sport==='futbol' && (viewMode==='matches'||viewMode==='picks')) renderMatches(); }
 function pbSet(hid, aid, h, a){ Object.assign(PB, {kind:'f', hid:String(hid), aid:String(aid), h, a, m:0, t:0, per:'L10', ln:null}); if(OP_WANT && OP_WANT.h===h){ Object.assign(PB, {m:OP_WANT.m, t:OP_WANT.t, ln:OP_WANT.ln}); } OP_WANT = null; pbLoad(); pbRender(); }
@@ -5007,7 +5007,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v44 · cuotas del servidor, clima, MLB oficial';
+const APP_VERSION = 'v44.1 · fueras de juego';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

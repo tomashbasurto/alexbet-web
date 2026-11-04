@@ -6,8 +6,8 @@ const fs = require('fs');
 const FILE = 'stats-futbol.json', DAYS = 300;
 const LG = {ecuador: 'ecu.1', bra2: 'bra.2', ucl: 'uefa.champions', uel: 'uefa.europa', uecl: 'uefa.europa.conf', bra: 'bra.1', laliga: 'esp.1', epl: 'eng.1', seriea: 'ita.1', bundes: 'ger.1', bundes2: 'ger.2', champ: 'eng.2', ligue1: 'fra.1', portugal: 'por.1', turkey: 'tur.1', netherlands: 'ned.1', lib: 'conmebol.libertadores', sud: 'conmebol.sudamericana', arg: 'arg.1', col: 'col.1', mex: 'mex.1', mls: 'usa.1', laliga2: 'esp.2', serieb: 'ita.2', ligue2: 'fra.2', league1: 'eng.3', league2: 'eng.4', natleague: 'eng.5', scotprem: 'sco.1', scotchamp: 'sco.2', belgium: 'bel.1', greece: 'gre.1'};
 const API = 'https://site.api.espn.com/apis/site/v2/sports/soccer/';
-// orden de cada fila de estadísticas: goles, córners, tiros al arco, tiros, amarillas, rojas, faltas, posesión
-const KEYS = [null, ['wonCorners'], ['shotsOnTarget', 'shotsOnGoal'], ['totalShots'], ['yellowCards'], ['redCards'], ['foulsCommitted'], ['possessionPct']];
+// orden de cada fila de estadísticas: goles, córners, tiros al arco, tiros, amarillas, rojas, faltas, posesión, fueras de juego (v45)
+const KEYS = [null, ['wonCorners'], ['shotsOnTarget', 'shotsOnGoal'], ['totalShots'], ['yellowCards'], ['redCards'], ['foulsCommitted'], ['possessionPct'], ['offsides']];
 
 async function get(url) {
   for (let i = 0; i < 3; i++) {
@@ -38,7 +38,8 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
       const y = new Date().getUTCFullYear(), R = (await Promise.all(teams.slice(i, i + 4).map(id => Promise.all(['', 1, 2, 3, 4, 5].map(q => get(`${API}${code}/teams/${id}/schedule${q === '' ? '' : '?season=' + (y - q)}`)))))).flat();
       R.forEach(j => { if (!j) { fail++; return; } (j.events || []).forEach(e => {
         if (!done(e)) return; all[e.id] = e;
-        if (Date.parse(e.date) < lim || S.ev[e.id] || seen.has(e.id)) return; seen.add(e.id); todo.push([lg, code, e]); n++; }); });
+        if (Date.parse(e.date) < lim || seen.has(e.id)) return;
+        if (S.ev[e.id] && (S.ev[e.id][6] || []).length >= KEYS.length) return; /* ya completo (los viejos sin fueras de juego se vuelven a pedir) */ seen.add(e.id); todo.push([lg, code, e]); n++; }); });
     }
     LGT[lg] = {code, set, all};
     console.log(lg, 'equipos:', teams.length, '· nuevos:', n, '· sin respuesta:', fail);
@@ -101,7 +102,7 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
   console.log('Enfrentamientos: partidos', h2todo.length, 'por completar · completados', h2ok);
   // 3) limpiar y guardar
   for (const [id, r] of Object.entries(S.ev)) if (r[0] < lim) delete S.ev[id];
-  S.t = Date.now(); S.keys = ['goles', 'corners', 'tirosArco', 'tiros', 'amarillas', 'rojas', 'faltas', 'posesion'];
+  S.t = Date.now(); S.keys = ['goles', 'corners', 'tirosArco', 'tiros', 'amarillas', 'rojas', 'faltas', 'posesion', 'fuerasDeJuego'];
   fs.writeFileSync(FILE, JSON.stringify(S));
   console.log(`Partidos nuevos: ${ok} (sin estadísticas: ${sinStats}) · total guardados: ${Object.keys(S.ev).length}`);
   console.log('Nombres de estadísticas vistos:', [...names].join(', '));
