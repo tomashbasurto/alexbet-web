@@ -4439,7 +4439,7 @@ function pbSrc(){
   if(both){
     const T = id => pbGames(id).filter(g=>f(g.us)!=null && f(g.them)!=null).map(g=>Object.assign(mk(g, f(g.us)+f(g.them)), {h2:g.oppId===(id===PB.hid?PB.aid:PB.hid)}));
     const A = T(PB.hid), B = T(PB.aid), seen = new Set(); G = A.concat(B).filter(x=>!seen.has(x.id) && seen.add(x.id)).sort((x,y)=>y.ts-x.ts);
-    if(!A.length && !B.length) return {wait:`ESPN no tiene ${M.k.toLowerCase()} de los partidos de estos equipos.`};
+    if(!A.length && !B.length) return {wait: M.k==='Fueras de juego' ? 'Los fueras de juego se están cargando en el servidor (se agregaron hoy). Estarán listos en unas horas.' : `ESPN no tiene ${M.k.toLowerCase()} de los partidos de estos equipos.`};
     lam = ((A.length?pbAvg(A.slice(0,10).map(x=>x.v)):pbAvg(B.slice(0,10).map(x=>x.v))) + (B.length?pbAvg(B.slice(0,10).map(x=>x.v)):pbAvg(A.slice(0,10).map(x=>x.v))))/2;
     // los últimos 5 entre ellos (archivo por liga, hasta 6 temporadas)
     const lid = H2F.lid||'';
@@ -4447,7 +4447,7 @@ function pbSrc(){
   } else {
     G = pbGames(me).filter(g=>f(g.us)!=null).map(g=>Object.assign(mk(g, f(g.us)), {h2:g.oppId===op}));
     { const lid = H2F.lid||''; if(lid){ h2xGames(lid, me, op).forEach(g=>{ if(f(g.us)==null || G.some(y=>y.id===g.id)) return; G.push(pbH2xItem(g, f(g.us), lid, me)); }); G.sort((x,y)=>y.ts-x.ts); } }
-    if(!G.some(x=>!x.old)) return {wait:`ESPN no tiene ${M.k.toLowerCase()} de los partidos de ${escA(ti?PB.a:PB.h)} en los últimos meses.`};
+    if(!G.some(x=>!x.old)) return {wait: M.k==='Fueras de juego' ? 'Los fueras de juego se están cargando en el servidor (se agregaron hoy). Estarán listos en unas horas.' : `ESPN no tiene ${M.k.toLowerCase()} de los partidos de ${escA(ti?PB.a:PB.h)} en los últimos meses.`};
     const O = pbGames(op).filter(g=>f(g.them)!=null), mine = pbAvg(G.filter(x=>!x.old).slice(0,10).map(x=>x.v));
     lam = (mine + (O.length>=3 ? pbAvg(O.slice(0,10).map(g=>f(g.them))) : mine))/2;
   }
