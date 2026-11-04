@@ -42,3 +42,10 @@ usa.open
 conmebol.recopa
 uefa.super_cup
 fifa.cwc
+esp.copa_de_la_reina
+tur.super_cup
+gre.super_cup
+bel.super_cup
+ned.knvb_beker
+usa.lamex
+club.friendly
