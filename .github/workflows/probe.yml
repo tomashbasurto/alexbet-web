@@ -8,57 +8,19 @@ jobs:
     steps:
       - run: |
           python3 - <<'PY'
-          import urllib.request, json, time
-          U=[
-           ('TSDB Copa Ecuador proximos','https://www.thesportsdb.com/api/v1/json/123/eventsnextleague.php?id=5636'),
-           ('TSDB Copa Ecuador pasados','https://www.thesportsdb.com/api/v1/json/123/eventspastleague.php?id=5636'),
-           ('TSDB Copa Ecuador temporada','https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=5636&s=2026'),
-           ('TSDB ligas Ecuador lista','https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?c=Ecuador&s=Soccer'),
-           ('TSDB Turquia copa','https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?c=Turkey&s=Soccer'),
-           ('TSDB Belgica','https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?c=Belgium&s=Soccer'),
-           ('TSDB Grecia','https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?c=Greece&s=Soccer'),
-           ('TSDB Portugal','https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?c=Portugal&s=Soccer'),
-           ('ESPN cuotas partido','https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events?limit=1'),
-           ('ESPN summary pickcenter','https://site.api.espn.com/apis/site/v2/sports/soccer/ecu.1/scoreboard'),
-           ('LigaPro wp-json','https://ligapro.ec/wp-json/wp/v2/posts?per_page=1'),
-           ('FEF html','https://www.fef.ec/'),
-           ('ClubElo ayer','http://api.clubelo.com/2026-11-03'),
-           ('ClubElo club','http://api.clubelo.com/Arsenal'),
-           ('Understat API','https://understat.com/getLeagueData/EPL/2026'),
-           ('football-data.co.uk lista nuevas','https://www.football-data.co.uk/new/USA.csv'),
-           ('football-data.co.uk MEX','https://www.football-data.co.uk/new/MEX.csv'),
-           ('football-data.co.uk BRA','https://www.football-data.co.uk/new/BRA.csv'),
-          ]
-          X={}
-          for n,u in U:
-              t=time.time()
-              try:
-                  r=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/124 Safari/537.36','Accept':'*/*','Referer':'https://www.nba.com/'}),timeout=25)
-                  b=r.read(); s=b[:300].decode('utf8','replace').replace('\n',' ')
-                  print(f'RES|{n}|{r.status}|{len(b)//1024}KB|{s[:220]}')
-                  X[n]=b
-              except Exception as e:
-                  print(f'RES|{n}|ERR|{str(e)[:90]}')
-          import re
-          try:
-              j=json.loads(X['TSDB Copa Ecuador proximos']); print('NEXT',[(e['strEvent'],e['dateEvent'],e.get('strTime')) for e in (j.get('events') or [])])
-          except Exception as e: print('nx',e)
-          try:
-              j=json.loads(X['TSDB Copa Ecuador pasados']); print('PAST',[(e['strEvent'],e['dateEvent'],e.get('intHomeScore'),e.get('intAwayScore')) for e in (j.get('events') or [])])
-          except Exception as e: print('ps',e)
-          try:
-              j=json.loads(X['TSDB Copa Ecuador temporada']); ev=j.get('events') or []; print('SEASON',len(ev),[(e['strEvent'],e['dateEvent'],e.get('intHomeScore'),e.get('intAwayScore')) for e in ev[-8:]])
-          except Exception as e: print('ss',e)
-          for k in ['TSDB Turquia copa','TSDB Belgica','TSDB Grecia','TSDB Portugal','TSDB ligas Ecuador lista']:
-              try: print('LGS',k,[(l['idLeague'],l['strLeague']) for l in json.loads(X[k])['countries']])
-              except Exception as e: print('lg',k,e)
-          try:
-              j=json.loads(X['ESPN cuotas partido']); r=j['items'][0]['$ref']; ev=json.loads(urllib.request.urlopen(r.replace('http:','https:'),timeout=20).read())
-              c=ev['competitions'][0]; o=c.get('odds',{}).get('$ref')
-              print('ODDSREF',o); oj=json.loads(urllib.request.urlopen(o.replace('http:','https:'),timeout=20).read()); print('ODDS',json.dumps(oj)[:700])
-          except Exception as e: print('od',e)
-          try:
-              h=X['FEF html'].decode('utf8','replace'); js=re.findall(r'src="(/assets/[^"]+\.js)"',h); print('FEFJS',js)
-              t=urllib.request.urlopen('https://www.fef.ec'+js[0],timeout=20).read().decode('utf8','replace'); print('FEFAPI',sorted(set(re.findall(r'https?://[a-zA-Z0-9.\-]+[a-zA-Z0-9/\-_.]*',t)))[:40])
-          except Exception as e: print('fef',e)
+          import urllib.request, json
+          def g(u):
+              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
+              except Exception as e: return {'ERR':str(e)}
+          B='https://www.thesportsdb.com/api/v1/json/123/'
+          for lid,ss in [('5636',['2026']),('5884',['2026']),('5831',['2026-2027','2025-2026']),('5830',['2026-2027','2025-2026']),('4686',['2026'])]:
+              print('==',lid)
+              for q in ['eventsnextleague.php?id='+lid,'eventspastleague.php?id='+lid]+['eventsseason.php?id=%s&s=%s'%(lid,s) for s in ss]+['lookupleague.php?id='+lid]:
+                  j=g(B+q)
+                  if 'leagues' in j: print(q, [(l.get('strLeague'),l.get('strCurrentSeason')) for l in j['leagues'] or []]); continue
+                  ev=j.get('events') or []
+                  print(q,'n=',len(ev), j.get('ERR',''))
+                  for e in ev[-6:]: print('   ',e.get('strTimestamp'),e.get('dateEvent'),e.get('strTime'),'|',e.get('strHomeTeam'),'vs',e.get('strAwayTeam'),'|',e.get('intHomeScore'),e.get('intAwayScore'),e.get('strStatus'),e.get('intRound'))
+          j=g(B+'eventsday.php?d=2026-11-04&s=Soccer'); ev=j.get('events') or []
+          print('DAY n=',len(ev),[ (e['strLeague'],e['strEvent']) for e in ev if 'Ecuador' in (e.get('strLeague') or '')])
           PY
