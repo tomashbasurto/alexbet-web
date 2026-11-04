@@ -59,9 +59,20 @@ function guardar(file, data) {
 
 // v44: cuotas de fútbol de ESPN (todas las ligas y copas con partidos en los próximos 8 días), cada 30 min.
 // La app las lee de aquí en vez de pedir más de 100 consultas a ESPN desde cada celular.
+// solo lo que la app usa de cada cuota (apertura y cierre)
+function slimOdds(o) {
+  const pr = n => n && {odds: n.odds, line: n.line};
+  const pair = n => n && {open: pr(n.open), close: pr(n.close || n.current)};
+  const out = {provider: {name: o.provider && (o.provider.displayName || o.provider.name)}, overUnder: o.overUnder};
+  if (o.moneyline) out.moneyline = {home: pair(o.moneyline.home), away: pair(o.moneyline.away), draw: pair(o.moneyline.draw)};
+  if (o.total) out.total = {over: pair(o.total.over), under: pair(o.total.under)};
+  if (o.pointSpread) out.pointSpread = {home: pair(o.pointSpread.home), away: pair(o.pointSpread.away)};
+  ['homeTeamOdds', 'awayTeamOdds', 'drawOdds'].forEach(k => { if (o[k] && o[k].moneyLine != null) out[k] = {moneyLine: o[k].moneyLine}; });
+  return out;
+}
 async function cuotasFutbol(t) {
   const F = 'espn-cuotas.json';
-  try { const old = JSON.parse(fs.readFileSync(F, 'utf8')); if (t - old.t < 25 * 60e3) return; } catch (e) {}
+  try { const old = JSON.parse(fs.readFileSync(F, 'utf8')); if (t - old.t < 25 * 60e3 && !process.env.FORZAR) return; } catch (e) {}
   const L = [...fs.readFileSync('fetch-data.js', 'utf8').matchAll(/\{id:'([a-z0-9]+)'[^}\n]*espn:'([^']+)'/g)].map(m => [m[1], m[2]]);
   let D = {}; try { D = JSON.parse(fs.readFileSync('datos.json', 'utf8')).fx || {}; } catch (e) {}
   const t1 = t + 8 * 864e5, t0 = t - 3 * 3600e3;
@@ -75,7 +86,7 @@ async function cuotasFutbol(t) {
         (j.events || []).forEach(e => {
           const c = (e.competitions || [])[0]; if (!c || !(c.odds && c.odds[0])) return;
           const x = Date.parse(e.date); if (x < t0 || x > t1) return;
-          ev.push({lid, e: prune({id: e.id, date: e.date, competitions: [{status: c.status, competitors: (c.competitors || []).map(k => ({homeAway: k.homeAway, team: {displayName: k.team && k.team.displayName, name: k.team && k.team.name}})), odds: [c.odds[0]]}]})});
+          ev.push({lid, e: {id: e.id, date: e.date, competitions: [{status: {type: {state: (c.status && c.status.type && c.status.type.state) || 'pre'}}, competitors: (c.competitors || []).map(k => ({homeAway: k.homeAway, team: {displayName: k.team && k.team.displayName}})), odds: [slimOdds(c.odds[0])]}]}});
         });
       }
     }));
