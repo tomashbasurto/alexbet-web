@@ -9,7 +9,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
 
 (async () => {
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const page = await browser.newPage({timezoneId: 'America/Guayaquil'}); // el día y las horas en Ecuador, como los usuarios
   page.on('pageerror', e => console.log('error en la app:', e.message));
   await page.route('**/*', async r => {
     const u = r.request().url();
