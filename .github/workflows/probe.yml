@@ -9,18 +9,14 @@ jobs:
       - run: |
           python3 - <<'PY'
           import urllib.request, json
-          def g(u):
-              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
-              except Exception as e: return {'ERR':str(e)}
-          B='https://www.thesportsdb.com/api/v1/json/123/'
-          for lid,ss in [('5636',['2026']),('5884',['2026']),('5831',['2026-2027','2025-2026']),('5830',['2026-2027','2025-2026']),('4686',['2026'])]:
-              print('==',lid)
-              for q in ['eventsnextleague.php?id='+lid,'eventspastleague.php?id='+lid]+['eventsseason.php?id=%s&s=%s'%(lid,s) for s in ss]+['lookupleague.php?id='+lid]:
-                  j=g(B+q)
-                  if 'leagues' in j: print(q, [(l.get('strLeague'),l.get('strCurrentSeason')) for l in j['leagues'] or []]); continue
-                  ev=j.get('events') or []
-                  print(q,'n=',len(ev), j.get('ERR',''))
-                  for e in ev[-6:]: print('   ',e.get('strTimestamp'),e.get('dateEvent'),e.get('strTime'),'|',e.get('strHomeTeam'),'vs',e.get('strAwayTeam'),'|',e.get('intHomeScore'),e.get('intAwayScore'),e.get('strStatus'),e.get('intRound'))
-          j=g(B+'eventsday.php?d=2026-11-04&s=Soccer'); ev=j.get('events') or []
-          print('DAY n=',len(ev),[ (e['strLeague'],e['strEvent']) for e in ev if 'Ecuador' in (e.get('strLeague') or '')])
+          u='https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=2026-07-15&hydrate=probablePitcher(stats(group=[pitching],type=[season])),team'
+          j=json.load(urllib.request.urlopen(u,timeout=30))
+          g=j['dates'][0]['games'][0]
+          print(json.dumps({k:g[k] for k in ['gameDate','gamePk']}))
+          t=g['teams']['home']
+          print('TEAM', t['team'].get('name'))
+          pp=t.get('probablePitcher') or {}
+          print('PP', json.dumps(pp)[:1500])
+          u2='https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-09-25&endDate=2026-09-27&hydrate=probablePitcher(stats(group=[pitching],type=[season]))'
+          j=json.load(urllib.request.urlopen(u2,timeout=30)); print('N',sum(len(d['games']) for d in j['dates']), len(json.dumps(j))//1024,'KB')
           PY
