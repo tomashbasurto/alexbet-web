@@ -10,18 +10,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          cd probe; mkdir -p out
+          cd probe
           python3 - <<'PY'
-          import json, hashlib, urllib.request, concurrent.futures as cf
-          U=json.load(open('urls.json'))
-          def get(u):
-              ext='.img' if 'espncdn' in u else '.json'
-              try:
-                  r=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=20).read()
-                  open('out/'+hashlib.md5(u.encode()).hexdigest()+ext,'wb').write(r)
-              except Exception as e: print('fail',u,e)
-          with cf.ThreadPoolExecutor(16) as ex: list(ex.map(get,U))
+          import json, urllib.request
+          B='https://site.api.espn.com/apis/site/v2/sports/soccer/'
+          out=[]
+          for s in open('slugs.txt').read().split():
+              row={'slug':s}
+              for rng in ['20250701-20251231','20260101-20260630','20260701-20261231']:
+                  try:
+                      j=json.load(urllib.request.urlopen(urllib.request.Request(B+s+'/scoreboard?dates='+rng+'&limit=500',headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
+                      L=(j.get('leagues') or [{}])[0]
+                      row['name']=L.get('name') or L.get('abbreviation'); row[rng]=len(j.get('events',[]))
+                      ev=j.get('events',[])
+                      if ev: row['last_'+rng]=ev[-1].get('date','')[:10]
+                  except Exception as e: row[rng]='ERR '+str(e)[:40]
+              out.append(row); print(row)
+          json.dump(out,open('result.json','w'),indent=1)
           PY
-          ls out | wc -l
           git config user.name probe-bot; git config user.email probe@users.noreply.github.com
-          git add -A .; git commit -qm "probe cache" && git push
+          git add -A .; git commit -qm "probe slugs" && git push
