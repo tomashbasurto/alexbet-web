@@ -1261,6 +1261,114 @@ const STATIC_LEAGUES = [
   {
     id:'mls', name:'MLS', color:'#a78bfa', utcOffset:-5, teams:{}, fixtures:[],
   },
+  {
+    id:'copaecu', name:'Copa Ecuador', color:'#facc15', utcOffset:-5, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'facup', name:'FA Cup', color:'#e11d48', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'eflcup', name:'Copa de la Liga (Carabao Cup)', color:'#22c55e', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'efltrophy', name:'EFL Trophy', color:'#94a3b8', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'comshield', name:'Community Shield', color:'#f97316', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'cdr', name:'Copa del Rey', color:'#dc2626', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'supesp', name:'Supercopa de España', color:'#f59e0b', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'coppait', name:'Coppa Italia', color:'#16a34a', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'supita', name:'Supercoppa Italiana', color:'#0ea5e9', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'pokal', name:'DFB-Pokal (Copa de Alemania)', color:'#eab308', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'supger', name:'Supercopa de Alemania', color:'#ef4444', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'cdf', name:'Copa de Francia', color:'#3b82f6', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'tdc', name:'Trofeo de Campeones (Francia)', color:'#a855f7', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'scocup', name:'Copa de Escocia', color:'#2563eb', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'scolc', name:'Copa de la Liga (Escocia)', color:'#14b8a6', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'scochal', name:'Challenge Cup (Escocia)', color:'#64748b', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'knvb', name:'Copa KNVB (Holanda)', color:'#f97316', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'jcs', name:'Supercopa de Holanda', color:'#fb923c', utcOffset:1, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'taca', name:'Taça de Portugal', color:'#dc2626', utcOffset:0, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'cdb', name:'Copa do Brasil', color:'#22c55e', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'supbra', name:'Supercopa do Brasil', color:'#facc15', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'paulista', name:'Campeonato Paulista', color:'#e5e7eb', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'carioca', name:'Campeonato Carioca', color:'#38bdf8', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'mineiro', name:'Campeonato Mineiro', color:'#a3a3a3', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'gaucho', name:'Campeonato Gaúcho', color:'#ef4444', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'copaarg', name:'Copa Argentina', color:'#7dd3fc', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'suparg', name:'Supercopa Argentina', color:'#60a5fa', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'tdcarg', name:'Trofeo de Campeones (Argentina)', color:'#93c5fd', utcOffset:-3, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'copacol', name:'Copa Colombia', color:'#facc15', utcOffset:-5, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'supcol', name:'Superliga (Colombia)', color:'#fde047', utcOffset:-5, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'ccmx', name:'Campeón de Campeones (México)', color:'#16a34a', utcOffset:-6, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'usopen', name:'US Open Cup', color:'#ef4444', utcOffset:-5, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'leaguescup', name:'Leagues Cup', color:'#a78bfa', utcOffset:-5, cup:2, teams:{}, fixtures:[],
+  },
+  {
+    id:'concachamp', name:'Concacaf Champions Cup', color:'#22d3ee', utcOffset:-5, cup:2, teams:{}, fixtures:[],
+  },
+  {
+    id:'recopa', name:'Recopa Sudamericana', color:'#fbbf24', utcOffset:-5, cup:2, teams:{}, fixtures:[],
+  },
+  {
+    id:'supuefa', name:'Supercopa de Europa', color:'#60a5fa', utcOffset:1, cup:2, teams:{}, fixtures:[],
+  },
 ];
 let LEAGUES = STATIC_LEAGUES;
 
@@ -1279,9 +1387,12 @@ function poissonOverHalf(line, lambda){ // for lines like 1.5, 2.5 -> P(X >= lin
   return poissonAtLeast(Math.ceil(line), lambda);
 }
 
+// v43: en copas, el equipo de división más alta pesa más (S = fuerza por división, solo en copas)
+const cupR = (home, away) => (home && away && home.S && away.S) ? Math.sqrt(home.S/away.S) : 1;
 function project(home, away){
-  const lambdaHome = (home.gf + away.ga)/2;
-  const lambdaAway = (away.gf + home.ga)/2;
+  const cr = cupR(home, away);
+  const lambdaHome = (home.gf + away.ga)/2*cr;
+  const lambdaAway = (away.gf + home.ga)/2/cr;
   const lambdaTotal = lambdaHome + lambdaAway;
 
   const over15 = poissonOverHalf(1.5, lambdaTotal);
@@ -1425,7 +1536,7 @@ function setView(v){
 
 // ---------- Cuotas de varias casas (The Odds API) ----------
 const ODDS_DEFAULT_KEY = '';
-const OD_KEYS = {epl:'soccer_epl', laliga:'soccer_spain_la_liga', seriea:'soccer_italy_serie_a', bundes:'soccer_germany_bundesliga', bundes2:'soccer_germany_bundesliga2', ligue1:'soccer_france_ligue_one', champ:'soccer_efl_champ', portugal:'soccer_portugal_primeira_liga', netherlands:'soccer_netherlands_eredivisie', turkey:'soccer_turkey_super_league', ucl:'soccer_uefa_champs_league', uel:'soccer_uefa_europa_league', lib:'soccer_conmebol_copa_libertadores', sud:'soccer_conmebol_copa_sudamericana', arg:'soccer_argentina_primera_division', mex:'soccer_mexico_ligamx', mls:'soccer_usa_mls', bra:'soccer_brazil_campeonato', nba:'basketball_nba', mlb:'baseball_mlb'};
+const OD_KEYS = {epl:'soccer_epl', laliga:'soccer_spain_la_liga', seriea:'soccer_italy_serie_a', bundes:'soccer_germany_bundesliga', bundes2:'soccer_germany_bundesliga2', ligue1:'soccer_france_ligue_one', champ:'soccer_efl_champ', portugal:'soccer_portugal_primeira_liga', netherlands:'soccer_netherlands_eredivisie', turkey:'soccer_turkey_super_league', ucl:'soccer_uefa_champs_league', uel:'soccer_uefa_europa_league', lib:'soccer_conmebol_copa_libertadores', sud:'soccer_conmebol_copa_sudamericana', arg:'soccer_argentina_primera_division', mex:'soccer_mexico_ligamx', mls:'soccer_usa_mls', bra:'soccer_brazil_campeonato', facup:'soccer_fa_cup', eflcup:'soccer_england_efl_cup', cdr:'soccer_spain_copa_del_rey', pokal:'soccer_germany_dfb_pokal', cdf:'soccer_france_coupe_de_france', leaguescup:'soccer_concacaf_leagues_cup', nba:'basketball_nba', mlb:'baseball_mlb'};
 const OD = {c:null, busy:{}, fail:{}, err:''};
 function odKey(){ return String(LS.get('ab_odkey','')||ODDS_DEFAULT_KEY||'').trim(); }
 function odCache(){ if(!OD.c) OD.c = LS.get('ab_od',{}) || {}; return OD.c; }
@@ -1907,7 +2018,8 @@ function livePress(sot, minute){ // presión ofensiva: tiros al arco por minuto 
   return Math.max(0.6, Math.min(1.7, 1 + w*(Math.pow(Math.max(ratio,0.05),0.6)-1)));
 }
 function liveProject(home, away, gh, ga, minute, rh, ra, st){
-  let lh = (home.gf + away.ga)/2, la = (away.gf + home.ga)/2;
+  const cr = cupR(home, away);
+  let lh = (home.gf + away.ga)/2*cr, la = (away.gf + home.ga)/2/cr;
   const rem = minute<90 ? 90-minute : 2;
   const frac = Math.max(rem,1)/90;
   const ph = st ? livePress(st.sh, minute) : 1, pa = st ? livePress(st.sa, minute) : 1;
@@ -1968,11 +2080,18 @@ function livePicks(m, p, est, H, A){
   return lvPick(c, est, 3);
 }
 const lvOddTxt = k => k.odd ? `<small style="display:block;color:var(--ink-dim);font-weight:500;margin-top:2px">cuota ≈ ${k.odd.toFixed(2)}</small>` : '';
+// v43: las copas solo se consultan en vivo si tienen partidos cerca (horas desde/hasta ahora)
+function cupIdle(sl, h0, h1){
+  if(!sl.cup) return false;
+  const d = LS.get('ab_fx_'+sl.id, null); if(!d || !d.fx) return true;
+  const a = Date.now()+h0*3600e3, b = Date.now()+h1*3600e3;
+  return !d.fx.some(f=>{ const t = Date.parse(f.d+':00Z'); return t>=a && t<=b; });
+}
 async function liveFetch(){
   if(liveBusy) return; liveBusy = true;
   const list = [], soon = [], done = []; let fail = 0, total = 0, lastErr = '';
   await Promise.all(STATIC_LEAGUES.map(async sl=>{
-    const cfg = SRC[sl.id]; if(!cfg || !cfg.espn) return; total++;
+    const cfg = SRC[sl.id]; if(!cfg || !cfg.espn || cupIdle(sl, -6, 30)) return; total++;
     try{
       const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard`);
       for(const ev of (j.events||[])){
@@ -3125,7 +3244,7 @@ async function vaFetch(sp){
   try{
     if(sp==='futbol'){
       await Promise.all(STATIC_LEAGUES.map(async sl=>{
-        const cfg = SRC[sl.id]; if(!cfg||!cfg.espn) return; total++;
+        const cfg = SRC[sl.id]; if(!cfg||!cfg.espn || cupIdle(sl, -1, 8*24)) return; total++;
         try{
           let evs = []; let okN = 0;
           for(const mo of vaMonths()){ try{ const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${mo}`); okN++; evs = evs.concat(j.events||[]); }catch(e){ err = e.message||String(e); } }
@@ -3957,26 +4076,28 @@ function ldModelHTML(m, D){
 
 // v36: ligas agrupadas por país (los países con varias ligas tienen la opción "Todas")
 const LG_GROUPS = [
-  ['🇪🇨 Ecuador', ['ecuador'], 'ecu'],
-  ['🏆 Copas de Sudamérica', ['lib','sud'], 'csa'],
-  ['🇧🇷 Brasil', ['bra','bra2'], 'bra'],
-  ['🇦🇷 Argentina', ['arg'], 'arg'],
-  ['🇨🇴 Colombia', ['col'], 'col'],
-  ['🇲🇽 México', ['mex'], 'mex'],
-  ['🇺🇸 Estados Unidos', ['mls'], 'usa'],
-  ['🏆 Copas de Europa', ['ucl','uel','uecl'], 'ceu'],
-  ['🏴 Inglaterra', ['epl','champ','league1','league2','natleague'], 'eng'],
-  ['🇪🇸 España', ['laliga','laliga2'], 'esp'],
-  ['🇮🇹 Italia', ['seriea','serieb'], 'ita'],
-  ['🇩🇪 Alemania', ['bundes','bundes2'], 'ger'],
-  ['🇫🇷 Francia', ['ligue1','ligue2'], 'fra'],
-  ['🏴 Escocia', ['scotprem','scotchamp'], 'sco'],
-  ['🇳🇱 Holanda', ['netherlands'], 'ned'],
-  ['🇵🇹 Portugal', ['portugal'], 'por'],
+  ['🇪🇨 Ecuador', ['ecuador','copaecu'], 'ecu'],
+  ['🏆 Copas de Sudamérica', ['lib','sud','recopa'], 'csa'],
+  ['🇧🇷 Brasil', ['bra','bra2','cdb','supbra','paulista','carioca','mineiro','gaucho'], 'bra'],
+  ['🇦🇷 Argentina', ['arg','copaarg','suparg','tdcarg'], 'arg'],
+  ['🇨🇴 Colombia', ['col','copacol','supcol'], 'col'],
+  ['🇲🇽 México', ['mex','ccmx'], 'mex'],
+  ['🇺🇸 Estados Unidos', ['mls','usopen'], 'usa'],
+  ['🏆 Copas de Norteamérica', ['leaguescup','concachamp'], 'cna'],
+  ['🏆 Copas de Europa', ['ucl','uel','uecl','supuefa'], 'ceu'],
+  ['🏴 Inglaterra', ['epl','champ','league1','league2','natleague','facup','eflcup','efltrophy','comshield'], 'eng'],
+  ['🇪🇸 España', ['laliga','laliga2','cdr','supesp'], 'esp'],
+  ['🇮🇹 Italia', ['seriea','serieb','coppait','supita'], 'ita'],
+  ['🇩🇪 Alemania', ['bundes','bundes2','pokal','supger'], 'ger'],
+  ['🇫🇷 Francia', ['ligue1','ligue2','cdf','tdc'], 'fra'],
+  ['🏴 Escocia', ['scotprem','scotchamp','scocup','scolc','scochal'], 'sco'],
+  ['🇳🇱 Holanda', ['netherlands','knvb','jcs'], 'ned'],
+  ['🇵🇹 Portugal', ['portugal','taca'], 'por'],
   ['🇧🇪 Bélgica', ['belgium'], 'bel'],
   ['🇹🇷 Turquía', ['turkey'], 'tur'],
   ['🇬🇷 Grecia', ['greece'], 'gre'],
 ];
+const LG_DIV = {bra2:2, champ:2, laliga2:2, serieb:2, bundes2:2, ligue2:2, scotchamp:2, league1:3, league2:4, natleague:5};
 const LG_NOTE = {greece:'en la prueba, la casa le sacó más ventaja al modelo aquí'};
 const LG_COUNTRY = {}; LG_GROUPS.forEach(([t, ids, c])=>ids.forEach(id=>{ LG_COUNTRY[id] = c; }));
 function lgIn(l){ return activeLeague==='all' || l.id===activeLeague || (String(activeLeague).startsWith('c:') && LG_COUNTRY[l.id]===activeLeague.slice(2)); }
@@ -4004,7 +4125,7 @@ const LG_FLAG = (()=>{ const tri = (a,b,c,d) => `linear-gradient(${d||'180deg'},
   sco:'linear-gradient(45deg,transparent 43%,#fff 43% 57%,transparent 57%),linear-gradient(-45deg,transparent 43%,#fff 43% 57%,transparent 57%),#005eb8',
   ned:tri('#ae1c28','#fff','#21468b'), por:'linear-gradient(90deg,#006600 0 40%,#ff0000 40%)', bel:tri('#000','#fdda24','#ef3340','90deg'),
   tur:'radial-gradient(circle at 42% 50%,#fff 0 24%,transparent 25%),#e30a17', gre:'repeating-linear-gradient(#0d5eaf 0 1.6px,#fff 1.6px 3.2px)',
-  csa:'linear-gradient(135deg,#f5c542,#b8860b)', ceu:'linear-gradient(135deg,#4da3ff,#1d3f8a)', otr:'linear-gradient(135deg,#3a4652,#18232d)'}; })();
+  csa:'linear-gradient(135deg,#f5c542,#b8860b)', ceu:'linear-gradient(135deg,#4da3ff,#1d3f8a)', cna:'linear-gradient(135deg,#a78bfa,#4c1d95)', otr:'linear-gradient(135deg,#3a4652,#18232d)'}; })();
 const LGP = {q:'', open:{}};
 function lgpToggle(c){ LGP.open[c] = !LGP.open[c]; lgRender(); }
 function lgpHide(){ LS.set('ab_lghide', !LS.get('ab_lghide', true)); lgRender(); }
@@ -4038,7 +4159,7 @@ function lgRender(){
     const open = !!(LGP.open[c] || q);
     h += `<div class="lgp-c"><button type="button" class="lgp-ch" aria-expanded="${open}" onclick="lgpToggle('${c}')"><span class="lgp-fl" style="background:${LG_FLAG[c]||LG_FLAG.otr}"></span><span class="t">${escA(gn)}</span>${badge(tot)}<svg class="chev${open?' up':''}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` +
       (open ? `<div class="lgp-ls">${(ls.length>1 && full && c!=='otr' ? `<button type="button" class="${activeLeague==='c:'+c?'on':''}" onclick="pickLeague('c:${c}')"><i class="lg-dot" style="background:var(--ink-dim)"></i><span>Todas de ${escA(gn)}</span>${badge(tot)}</button>` : '') +
-        lsF.map(l=>{ const n = lgCount(l); return `<button type="button" class="${l.id===activeLeague?'on':''}${n?'':' z'}" onclick="pickLeague('${l.id}')"><i class="lg-dot" style="background:${l.color}"></i><span>${escA(l.name)}${LG_NOTE[l.id]?` <small style="color:#f5b942">· ${LG_NOTE[l.id]}</small>`:''}</span>${badge(n)}</button>`; }).join('')}</div>` : '') + `</div>`;
+        lsF.filter(l=>!(hide && l.cup && !lgCount(l))).map(l=>{ const n = lgCount(l); return `<button type="button" class="${l.id===activeLeague?'on':''}${n?'':' z'}" onclick="pickLeague('${l.id}')"><i class="lg-dot" style="background:${l.color}"></i><span>${escA(l.name)}${LG_NOTE[l.id]?` <small style="color:#f5b942">· ${LG_NOTE[l.id]}</small>`:''}</span>${badge(n)}</button>`; }).join('')}</div>` : '') + `</div>`;
   });
   if(hidden) h += `<button type="button" class="lgp-more" onclick="lgpHide()">Ver ${hidden} ${hidden===1?'país':'países'} sin partidos este día</button>`;
   if(!h.includes('lgp-c') && !top.length && q) h += `<div class="pl-none">No encontré ligas con "${escA(LGP.q)}".</div>`;
@@ -4800,8 +4921,44 @@ const SRC = {
   scotchamp:  {             espn:'sco.2', csv:'SC1', primary:'espn'},
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
+  copaecu:    {             primary:'manual'},
+  facup:      {             espn:'eng.fa', primary:'espn'},
+  eflcup:     {             espn:'eng.league_cup', primary:'espn'},
+  efltrophy:  {             espn:'eng.trophy', primary:'espn'},
+  comshield:  {             espn:'eng.charity', primary:'espn'},
+  cdr:        {             espn:'esp.copa_del_rey', primary:'espn'},
+  supesp:     {             espn:'esp.super_cup', primary:'espn'},
+  coppait:    {             espn:'ita.coppa_italia', primary:'espn'},
+  supita:     {             espn:'ita.super_cup', primary:'espn'},
+  pokal:      {             espn:'ger.dfb_pokal', primary:'espn'},
+  supger:     {             espn:'ger.super_cup', primary:'espn'},
+  cdf:        {             espn:'fra.coupe_de_france', primary:'espn'},
+  tdc:        {             espn:'fra.super_cup', primary:'espn'},
+  scocup:     {             espn:'sco.tennents', primary:'espn'},
+  scolc:      {             espn:'sco.cis', primary:'espn'},
+  scochal:    {             espn:'sco.challenge', primary:'espn'},
+  knvb:       {             espn:'ned.cup', primary:'espn'},
+  jcs:        {             espn:'ned.supercup', primary:'espn'},
+  taca:       {             espn:'por.taca.portugal', primary:'espn'},
+  cdb:        {             espn:'bra.copa_do_brazil', primary:'espn'},
+  supbra:     {             espn:'bra.supercopa_do_brazil', primary:'espn'},
+  paulista:   {             espn:'bra.camp.paulista', primary:'espn'},
+  carioca:    {             espn:'bra.camp.carioca', primary:'espn'},
+  mineiro:    {             espn:'bra.camp.mineiro', primary:'espn'},
+  gaucho:     {             espn:'bra.camp.gaucho', primary:'espn'},
+  copaarg:    {             espn:'arg.copa', primary:'espn'},
+  suparg:     {             espn:'arg.supercopa', primary:'espn'},
+  tdcarg:     {             espn:'arg.trofeo_de_la_campeones', primary:'espn'},
+  copacol:    {             espn:'col.copa', primary:'espn'},
+  supcol:     {             espn:'col.superliga', primary:'espn'},
+  ccmx:       {             espn:'mex.campeon', primary:'espn'},
+  usopen:     {             espn:'usa.open', primary:'espn'},
+  leaguescup: {             espn:'concacaf.leagues.cup', primary:'espn'},
+  concachamp: {             espn:'concacaf.champions', primary:'espn'},
+  recopa:     {             espn:'conmebol.recopa', primary:'espn'},
+  supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v42 · revisión completa del diseño';
+const APP_VERSION = 'v43 · copas nacionales';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4811,7 +4968,7 @@ function seasonYear(id){
   const o = parseInt(LS.get('ab_season',''),10);
   if(o) return o;
   const now = new Date(), y = now.getFullYear();
-  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
+  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
 }
 function friendlyErr(e){
   const m = String(e && e.message || e);
@@ -5165,7 +5322,7 @@ const PM = {};
 function buildLive(){
   const out = {};
   const stats = LS.get('ab_stats',{});
-  const byAll = {}, dataBy = {};
+  const byAll = {}, dataBy = {}, teamLg = {};
   let cS=0,cN=0,kS=0,kN=0;
   for(const sl of STATIC_LEAGUES){
     const d = LS.get('ab_fx_'+sl.id,null);
@@ -5178,6 +5335,7 @@ function buildLive(){
         if(s.y[0]!=null&&s.y[1]!=null){ cS+=s.y[0]+s.y[1]; cN+=2; }
         if(s.c[0]!=null&&s.c[1]!=null){ kS+=s.c[0]+s.c[1]; kN+=2; }
       }
+      if(!sl.cup){ [f.h,f.a].forEach(t=>{ const o = teamLg[t] = teamLg[t]||{}; o[sl.id] = (o[sl.id]||0)+1; }); }
       (byAll[f.h]=byAll[f.h]||[]).push({f, home:true,  gf:f.g[0], ga:f.g[1], opp:f.a, y:has?s.y[0]:null, c:has?s.c[0]:null, st:s&&(s.y||s.c)?s:null});
       (byAll[f.a]=byAll[f.a]||[]).push({f, home:false, gf:f.g[1], ga:f.g[0], opp:f.h, y:has?s.y[1]:null, c:has?s.c[1]:null, st:s&&(s.y||s.c)?s:null});
     }
@@ -5196,6 +5354,12 @@ function buildLive(){
     const k = Object.keys(keyIndex).find(x=>x.length>3 && (x.includes(nn)||nn.includes(x)));
     return k ? byAll[keyIndex[k]] : [];
   };
+  const tlIndex = {}; Object.keys(teamLg).forEach(k=>{ tlIndex[normName(k)] = k; });
+  const divS = n => { // fuerza por división de la liga principal del equipo (para copas)
+    const o = teamLg[n] || teamLg[tlIndex[normName(n)]]; if(!o) return null;
+    const lid = Object.keys(o).sort((x,y)=>o[y]-o[x])[0], dv = LG_DIV[lid] || 1;
+    return [1, 1, 0.78, 0.66, 0.58, 0.5][dv];
+  };
   for(const sl of STATIC_LEAGUES){
     const d = dataBy[sl.id]; if(!d) continue;
     const fin = d.fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null&&f.g[1]!=null);
@@ -5213,7 +5377,7 @@ function buildLive(){
         ga: rec.length>=3 ? avg(rec,x=>x.ga) : lgGoals,
         cards: sy.length>=3 ? avg(sy,x=>x.y) : (stEst ? stEst.cards : lgCards),
         corners: sc.length>=3 ? avg(sc,x=>x.c) : (stEst ? stEst.corners : lgCorners),
-        n: rec.length, ny: sy.length, nc: sc.length,
+        n: rec.length, ny: sy.length, nc: sc.length, S: sl.cup ? (divS(n) || (sl.cup===2 ? 0.8 : 0.5)) : undefined,
         estG: rec.length<3, estC: sy.length<3, estK: sc.length<3,
         lastMatches: ms.slice(-5).reverse().map(x=>({opponent:x.opp, where:x.home?'H':'A', score:`${x.gf}-${x.ga}`,
           outcome:x.gf>x.ga?'W':(x.gf<x.ga?'L':'D'), date:x.f.d, fid:x.f.i}))

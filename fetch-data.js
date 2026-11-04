@@ -43,6 +43,42 @@ const LEAGUES = [
   {id:'scotchamp', name:'Championship (Escocia)', espn:'sco.2', csv:'SC1', primary:'espn'},
   {id:'belgium', name:'Pro League (Bélgica)', espn:'bel.1', csv:'B1', primary:'espn'},
   {id:'greece', name:'Super League (Grecia)', espn:'gre.1', csv:'G1', primary:'espn'},
+  {id:'copaecu', name:'Copa Ecuador', manual:1, primary:'manual', cup:1},
+  {id:'facup', name:'FA Cup', espn:'eng.fa', primary:'espn', cup:1},
+  {id:'eflcup', name:'Copa de la Liga (Carabao Cup)', espn:'eng.league_cup', primary:'espn', cup:1},
+  {id:'efltrophy', name:'EFL Trophy', espn:'eng.trophy', primary:'espn', cup:1},
+  {id:'comshield', name:'Community Shield', espn:'eng.charity', primary:'espn', cup:1},
+  {id:'cdr', name:'Copa del Rey', espn:'esp.copa_del_rey', primary:'espn', cup:1},
+  {id:'supesp', name:'Supercopa de España', espn:'esp.super_cup', primary:'espn', cup:1},
+  {id:'coppait', name:'Coppa Italia', espn:'ita.coppa_italia', primary:'espn', cup:1},
+  {id:'supita', name:'Supercoppa Italiana', espn:'ita.super_cup', primary:'espn', cup:1},
+  {id:'pokal', name:'DFB-Pokal (Copa de Alemania)', espn:'ger.dfb_pokal', primary:'espn', cup:1},
+  {id:'supger', name:'Supercopa de Alemania', espn:'ger.super_cup', primary:'espn', cup:1},
+  {id:'cdf', name:'Copa de Francia', espn:'fra.coupe_de_france', primary:'espn', cup:1},
+  {id:'tdc', name:'Trofeo de Campeones (Francia)', espn:'fra.super_cup', primary:'espn', cup:1},
+  {id:'scocup', name:'Copa de Escocia', espn:'sco.tennents', primary:'espn', cup:1},
+  {id:'scolc', name:'Copa de la Liga (Escocia)', espn:'sco.cis', primary:'espn', cup:1},
+  {id:'scochal', name:'Challenge Cup (Escocia)', espn:'sco.challenge', primary:'espn', cup:1},
+  {id:'knvb', name:'Copa KNVB (Holanda)', espn:'ned.cup', primary:'espn', cup:1},
+  {id:'jcs', name:'Supercopa de Holanda', espn:'ned.supercup', primary:'espn', cup:1},
+  {id:'taca', name:'Taça de Portugal', espn:'por.taca.portugal', primary:'espn', cup:1},
+  {id:'cdb', name:'Copa do Brasil', espn:'bra.copa_do_brazil', primary:'espn', cup:1},
+  {id:'supbra', name:'Supercopa do Brasil', espn:'bra.supercopa_do_brazil', primary:'espn', cup:1},
+  {id:'paulista', name:'Campeonato Paulista', espn:'bra.camp.paulista', primary:'espn', cup:1},
+  {id:'carioca', name:'Campeonato Carioca', espn:'bra.camp.carioca', primary:'espn', cup:1},
+  {id:'mineiro', name:'Campeonato Mineiro', espn:'bra.camp.mineiro', primary:'espn', cup:1},
+  {id:'gaucho', name:'Campeonato Gaúcho', espn:'bra.camp.gaucho', primary:'espn', cup:1},
+  {id:'copaarg', name:'Copa Argentina', espn:'arg.copa', primary:'espn', cup:1},
+  {id:'suparg', name:'Supercopa Argentina', espn:'arg.supercopa', primary:'espn', cup:1},
+  {id:'tdcarg', name:'Trofeo de Campeones (Argentina)', espn:'arg.trofeo_de_la_campeones', primary:'espn', cup:1},
+  {id:'copacol', name:'Copa Colombia', espn:'col.copa', primary:'espn', cup:1},
+  {id:'supcol', name:'Superliga (Colombia)', espn:'col.superliga', primary:'espn', cup:1},
+  {id:'ccmx', name:'Campeón de Campeones (México)', espn:'mex.campeon', primary:'espn', cup:1},
+  {id:'usopen', name:'US Open Cup', espn:'usa.open', primary:'espn', cup:1},
+  {id:'leaguescup', name:'Leagues Cup', espn:'concacaf.leagues.cup', primary:'espn', cup:1},
+  {id:'concachamp', name:'Concacaf Champions Cup', espn:'concacaf.champions', primary:'espn', cup:1},
+  {id:'recopa', name:'Recopa Sudamericana', espn:'conmebol.recopa', primary:'espn', cup:1},
+  {id:'supuefa', name:'Supercopa de Europa', espn:'uefa.super_cup', primary:'espn', cup:1},
 ];
 const FINISHED = ['FT','AET','PEN'];
 const log = [];
@@ -51,7 +87,7 @@ let lastFd = 0, fdDead = !FD_KEY;
 
 function seasonYear(id){
   const now = new Date(), y = now.getUTCFullYear();
-  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
+  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
 }
 async function getJson(url, headers){
   const r = await fetch(url, {headers: headers || {}});
@@ -128,7 +164,20 @@ async function espnFixtures(cfg){
   if(!seen.size && lastErr) throw lastErr;
   return [...seen.values()];
 }
+// v43: torneos que ESPN no publica (Copa Ecuador): partidos cargados a mano en copas-manual.json
+function manualFixtures(cfg){
+  let M = {}; try{ M = JSON.parse(fs.readFileSync('copas-manual.json','utf8')); }catch(e){ return null; }
+  const L = (M[cfg.id] && M[cfg.id].fx) || [];
+  const fx = L.filter(f=>f && f.h && f.a && f.d).map(f=>{
+    const d = String(f.d).slice(0,16), g = Array.isArray(f.g) && f.g.length===2 && f.g[0]!=null ? [+f.g[0], +f.g[1]] : [null,null];
+    return {i:'m'+cfg.id+d.replace(/\D/g,'')+String(f.h).replace(/[^A-Za-z]/g,'').slice(0,6), h:f.h, a:f.a, d, s: g[0]!=null ? 'FT' : (f.s||'NS'), g};
+  });
+  if(!fx.length){ log.push({name:cfg.name, ok:false, msg:'sin partidos cargados en copas-manual.json'}); return null; }
+  log.push({name:cfg.name, ok:true, msg:`${fx.length} partidos · cargados a mano`});
+  return {t:Date.now(), season:seasonYear(cfg.id), src:'manual', fx};
+}
 async function loadFixtures(cfg, prev){
+  if(cfg.manual) return manualFixtures(cfg);
   const order = cfg.primary==='espn' ? ['espn','fd'] : ['fd','espn'];
   const errs = [];
   for(const src of order){

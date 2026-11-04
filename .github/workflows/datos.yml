@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - 'fetch-data.js'
+      - 'copas-manual.json'
       - '.github/workflows/datos.yml'
 permissions:
   contents: write

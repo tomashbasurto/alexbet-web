@@ -1,0 +1,12 @@
+{
+  "_ayuda": "Partidos de torneos que ESPN no publica. Hora en UTC (Ecuador + 5 h). Pon el marcador en g cuando termine, ej. [2,1].",
+  "copaecu": {
+    "name": "Copa Ecuador",
+    "fx": [
+      {"h": "Delfín", "a": "Independiente del Valle", "d": "2026-10-29T00:00", "g": [0, 3]},
+      {"h": "Universidad Católica (Quito)", "a": "Liga de Quito", "d": "2026-10-30T00:00", "g": [2, 2]},
+      {"h": "Liga de Quito", "a": "Universidad Católica (Quito)", "d": "2026-11-05T00:00"},
+      {"h": "Independiente del Valle", "a": "Delfín", "d": "2026-11-06T00:00"}
+    ]
+  }
+}
