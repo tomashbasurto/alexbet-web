@@ -17,9 +17,9 @@ jobs:
           out=[]
           for s in open('slugs.txt').read().split():
               row={'slug':s}
-              for rng in ['20250815-20251110','20260115-20260415','20260801-20261103','20261104-20261215']:
+              for rng in ['202509','202510','202601','202602','202604','202605','202608','202609','202610','202611','202612']:
                   try:
-                      j=json.load(urllib.request.urlopen(urllib.request.Request(B+s+'/scoreboard?dates='+rng+'&limit=500',headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
+                      j=json.load(urllib.request.urlopen(urllib.request.Request(B+s+'/scoreboard?dates='+rng,headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
                       if not row.get('name'): row['name']=((j.get('leagues') or [{}])[0]).get('name')
                       L=(j.get('leagues') or [{}])[0]
                       row['name']=L.get('name') or L.get('abbreviation'); row[rng]=len(j.get('events',[]))
