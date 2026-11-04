@@ -8,15 +8,47 @@ jobs:
     steps:
       - run: |
           python3 - <<'PY'
-          import json, urllib.request
-          def g(u):
-              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=30))
-              except Exception as e: print('ERR',u,e); return {}
-          B='https://site.api.espn.com/apis/site/v2/sports/soccer/'
-          for u in [B+'ecu.1/teams/9283/schedule', B+'ecu.1/teams/9283/schedule?fixture=true', B+'ecu.1/teams/9283/schedule?season=2026', B+'all/teams/9283/schedule', B+'ecu.1/teams/9283/schedule?fixture=true&season=2026']:
-              j=g(u); ev=j.get('events',[])
-              print('URL',u,'events',len(ev))
-              for e in ev[-12:]:
-                  c=(e.get('competitions') or [{}])[0]
-                  print('  ',e.get('date','')[:16],e.get('name'),'|',(e.get('league') or {}).get('slug'),(e.get('league') or {}).get('name'),'|',(c.get('type') or {}).get('abbreviation'),'|',e.get('seasonType',{}).get('name') if isinstance(e.get('seasonType'),dict) else '', '|', (c.get('status') or {}).get('type',{}).get('name'))
+          import urllib.request, json, time
+          U=[
+           ('MLB oficial','https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=2026'),
+           ('MLB lesiones/transacciones','https://statsapi.mlb.com/api/v1/transactions?startDate=2026-10-01&endDate=2026-11-03&sportId=1'),
+           ('NHL oficial calendario','https://api-web.nhle.com/v1/schedule/now'),
+           ('NHL oficial tabla','https://api-web.nhle.com/v1/standings/now'),
+           ('NBA oficial CDN marcador','https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json'),
+           ('NBA oficial CDN calendario','https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json'),
+           ('NBA stats.nba.com','https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2026-27&SeasonType=Regular%20Season'),
+           ('ClubElo dia','http://api.clubelo.com/2026-11-04'),
+           ('ClubElo partidos','http://api.clubelo.com/Fixtures'),
+           ('OpenLigaDB Bundesliga','https://api.openligadb.de/getmatchdata/bl1/2026'),
+           ('OpenLigaDB DFB-Pokal','https://api.openligadb.de/getmatchdata/dfb/2026'),
+           ('TheSportsDB ligas Ecuador','https://www.thesportsdb.com/api/v1/json/123/search_all_leagues.php?c=Ecuador&s=Soccer'),
+           ('TheSportsDB próximos LigaPro','https://www.thesportsdb.com/api/v1/json/123/eventsnextleague.php?id=4429'),
+           ('FotMob buscar Copa Ecuador','https://www.fotmob.com/api/search/suggest?term=copa%20ecuador&lang=es'),
+           ('FotMob liga','https://www.fotmob.com/api/leagues?id=246'),
+           ('Sofascore','https://api.sofascore.com/api/v1/sport/football/scheduled-events/2026-11-04'),
+           ('Open-Meteo clima Quito','https://api.open-meteo.com/v1/forecast?latitude=-0.18&longitude=-78.47&hourly=precipitation_probability,temperature_2m&forecast_days=2'),
+           ('Understat xG EPL','https://understat.com/league/EPL'),
+           ('FBref','https://fbref.com/en/comps/9/Premier-League-Stats'),
+           ('Tenis Sackmann ATP 2026','https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_2026.csv'),
+           ('Tenis Sackmann ATP 2025','https://raw.githubusercontent.com/JeffSackmann/tennis_atp/master/atp_matches_2025.csv'),
+           ('Tennis-data.co.uk 2026','http://www.tennis-data.co.uk/2026/2026.xlsx'),
+           ('football-data.co.uk otras ligas (ARG,BRA,MEX...)','https://www.football-data.co.uk/new/ARG.csv'),
+           ('football-data.co.uk ECU?','https://www.football-data.co.uk/new/ECU.csv'),
+           ('ESPN cuotas (core)','https://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/events?limit=1'),
+           ('ESPN lesiones fútbol','https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/injuries'),
+           ('FEF Ecuador','https://www.fef.ec/'),
+           ('LigaPro web','https://ligapro.ec/'),
+           ('Euroleague (ya usada)','https://api-live.euroleague.net/v1/results?seasonCode=E2026&gameNumber=1'),
+           ('balldontlie sin clave','https://api.balldontlie.io/v1/games'),
+           ('API-Football sin clave','https://v3.football.api-sports.io/status'),
+           ('openfootball','https://raw.githubusercontent.com/openfootball/football.json/master/2025-26/en.1.json'),
+          ]
+          for n,u in U:
+              t=time.time()
+              try:
+                  r=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/124 Safari/537.36','Accept':'*/*','Referer':'https://www.nba.com/'}),timeout=25)
+                  b=r.read(); s=b[:300].decode('utf8','replace').replace('\n',' ')
+                  print(f'RES|{n}|{r.status}|{len(b)//1024}KB|{s[:220]}')
+              except Exception as e:
+                  print(f'RES|{n}|ERR|{str(e)[:90]}')
           PY
