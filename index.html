@@ -1509,7 +1509,7 @@ for(let i=-3;i<18;i++){ // incluye 3 días atrás para revisar aciertos
 }
 
 // ---------- Render ----------
-let activeLeague = LEAGUES[0].id;
+let activeLeague = 'c:ecu'; // v43.1: Ecuador completo (LigaPro + Copa Ecuador)
 let activeDate = 'all';
 
 let viewMode = 'matches';
@@ -4958,7 +4958,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v43 · copas nacionales';
+const APP_VERSION = 'v43.1 · copas nacionales';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
