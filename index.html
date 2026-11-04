@@ -861,7 +861,7 @@ function bestOptsHTML(league, f){
   return `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones<span class="lvl-key"><i style="background:var(--over)"></i>alta <i style="background:var(--mid)"></i>media <i style="background:var(--low)"></i>baja</span></h3>` +
     L.map(k=>`<div class="bo-row"><i style="background:${lvlC(k.prob)}"></i><div class="t">${k.label}<small>${k.why||''}</small></div><b style="color:${lvlC(k.prob)}">${k.prob}%</b>${pkBtn(pkReg('futbol', league.id, f[0], f[1], f[2], pkTs(f[2], league.utcOffset), null, k))}</div>`).join('') + `</div>`;
 }
-function abOddsLast(){ const ob = document.getElementById('oddBox'); if(ob && ob.parentNode) ob.parentNode.appendChild(ob); }
+function abOddsLast(){ const wx = document.getElementById('wxBox'); if(wx && wx.parentNode) wx.parentNode.appendChild(wx); const ob = document.getElementById('oddBox'); if(ob && ob.parentNode) ob.parentNode.appendChild(ob); }
 function cardPick(league, f){
   if(!PREM()) return abLockBtn('Mercados y mejor opción · Premium');
   let k = null; try{ const pk = matchPicks(league, f); k = pk && pk.picks && pk.picks[0]; }catch(e){}
@@ -1263,6 +1263,9 @@ const STATIC_LEAGUES = [
   },
   {
     id:'copaecu', name:'Copa Ecuador', color:'#facc15', utcOffset:-5, cup:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'supecu', name:'Supercopa Ecuador', color:'#fde68a', utcOffset:-5, cup:1, teams:{}, fixtures:[],
   },
   {
     id:'facup', name:'FA Cup', color:'#e11d48', utcOffset:0, cup:1, teams:{}, fixtures:[],
@@ -2289,6 +2292,7 @@ function usParseStandings(sp, j){
   walk(j);
   return out;
 }
+function spLine(x){ if(!x.of) return x.rec||''; return [x.era!=null?'ERA '+x.era.toFixed(2):'', x.fip!=null?'FIP '+x.fip.toFixed(2):'', x.ip?x.ip+' IP':''].filter(Boolean).join(' · '); }
 function mlbEra(pr){
   const S = pr.statistics || [], s = S.find(x=>/^era$/i.test(x.abbreviation||x.name||'')); let v = s ? parseFloat(s.displayValue!=null?s.displayValue:s.value) : NaN;
   if(isNaN(v)){ const m = String(pr.record||'').match(/(\d+\.\d{2})\)?\s*$/); if(m) v = parseFloat(m[1]); }
@@ -2338,6 +2342,14 @@ async function usLoad(sp, force){
   if(sp==='nba' && D.src!=='espejo'){ try{ const j = await webGet(`${US_API}/site/v2/sports/basketball/nba/injuries`); D.inj = nbaInjParse(j); }catch(e){ try{ const M = await mirrorGet('espn-nba.json'); if(M.inj) D.inj = M.inj; }catch(e2){} } }
   if((sp==='ncaa' || sp==='nhl') && (sp==='ncaa' || !Object.values(D.teams||{}).some(t=>t && t.pf!=null))){ try{ const E = await mirrorGet('equipos-'+sp+'.json'); if(E.prev) D.prev = E.prev; if(Object.keys(E.teams||{}).length || !Object.values(D.teams||{}).some(t=>t && t.pf!=null)){ D.teams = {}; Object.values(E.teams||{}).forEach(t=>{ D.teams[t.id] = t; D.teams['n:'+normName(t.name)] = t; }); } }catch(e){} }
   if(okBoards){ D.games = Object.values(into).sort((a,b)=>a.d.localeCompare(b.d)); D.t = Date.now(); D.retry = 0; }
+  if(okBoards && sp==='mlb'){ // v44: abridores con FIP y ERA de la API oficial de MLB
+    try{ const P = await mirrorGet('mlb-abridores.json'), G = (P && P.g) || {}, ix = {};
+      Object.keys(G).forEach(k=>{ const [d, h] = k.split('|'); ix[d+'|'+normName(h)] = G[k]; });
+      D.games.forEach(g=>{ const o = ix[g.d.slice(0,10)+'|'+normName(g.h.name)]; if(!o) return;
+        [['h','h'],['a','a']].forEach(([k])=>{ const x = o[k]; if(!x) return; const cur = g[k].sp || {};
+          g[k].sp = {name: x.n || cur.name, rec: cur.rec || '', era: x.era!=null ? x.era : cur.era, fip: x.fip, ip: x.ip, k9: x.k9, whip: x.whip, of: 1}; }); });
+    }catch(e){}
+  }
   else {
     D.err = lastErr || 'sin respuesta de ESPN';
     // Falla de red pasajera (p. ej. el celular recién despierta): reintenta solo hasta 2 veces.
@@ -2400,8 +2412,10 @@ function usPre(g){
     ph = []; pa = []; for(let k=0;k<=N;k++){ ph.push(poissonP(k,lh)); pa.push(poissonP(k,la)); }
   } else {
     // v35: lanzador abridor (ERA de la temporada, mitad hacia el promedio; el abridor cubre ~60% del partido)
-    const pm = e => e==null ? 1 : Math.max(0.8, Math.min(1.25, 1 + 0.6*((0.5*e + 0.5*4.2)/4.2 - 1)));
-    const mh = pm(g.a.sp && g.a.sp.era), ma = pm(g.h.sp && g.h.sp.era);
+    // v44: con datos oficiales se usa FIP (más estable que ERA) y se confía más cuantas más entradas lanzó
+    const q = s => { if(!s) return null; if(s.fip!=null && s.ip>0){ const e = s.era!=null ? 0.6*s.fip+0.4*s.era : s.fip, w = Math.min(0.6, s.ip/(s.ip+60)); return w*e + (1-w)*4.2; } return s.era!=null ? 0.5*s.era+0.5*4.2 : null; };
+    const pm = s => { const e = q(s); return e==null ? 1 : Math.max(0.8, Math.min(1.25, 1 + 0.6*(e/4.2 - 1))); };
+    const mh = pm(g.a.sp), ma = pm(g.h.sp);
     lh = (H.pf+A.pa)/2*1.03*mh; la = (A.pf+H.pa)/2*0.97*ma;
     // v34: binomial negativa (las carreras varían más que Poisson; la prueba con 2.430 partidos lo confirmó)
     N = 25; ph = nbDist(lh, 4, N); pa = nbDist(la, 4, N);
@@ -3150,7 +3164,7 @@ function usOpen(sp, id, keep){
     const ls = (sp==='nhl' ? [4.5,5.5,6.5,7.5,8.5] : [6.5,7.5,8.5,9.5,10.5]).map(L=>({L,p:pc(m.over(L))}));
     markets += `<div class="prob-card"><h3><span class="dot"></span>Total de ${US[sp].unit} (esperado ${m.tot.toFixed(1)})</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${ls.slice(1,4).map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Más de ${x.L}</div></div>`).join('')}</div>` + ls.map(x=>`<div class="pk-line"><div class="t">Menos de ${x.L}</div><div class="bar-track"><div class="bar-fill ${100-x.p>=70?'strong':''}" style="width:${100-x.p}%"></div></div><div class="v">${100-x.p}%</div></div>`).join('') + `</div>`;
     markets += `<div class="prob-card"><h3><span class="dot"></span>${sp==='nhl'?'Hándicap de goles':'Línea de carreras'} (1.5)</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-tile">${ringHTML(pc(m.homeM15), ringC(pc(m.homeM15)), 72)}<div class="l">${g.h.name} -1.5</div></div><div class="stat-tile">${ringHTML(pc(1-m.homeM15), ringC(pc(1-m.homeM15)), 72)}<div class="l">${g.a.name} +1.5</div></div><div class="stat-tile">${ringHTML(pc(m.awayM15), ringC(pc(m.awayM15)), 72)}<div class="l">${g.a.name} -1.5</div></div></div></div>`;
-    if(g.h.sp || g.a.sp) markets += `<div class="prob-card"><h3><span class="dot"></span>${sp==='nhl'?'Porteros probables':'Abridores probables'}</h3><div class="lv-stats" style="margin-top:0;"><span>${g.h.name}: <b>${g.h.sp?g.h.sp.name+' '+g.h.sp.rec:'por confirmar'}</b></span><span>${g.a.name}: <b>${g.a.sp?g.a.sp.name+' '+g.a.sp.rec:'por confirmar'}</b></span></div>${sp==='mlb'?'<div class="lv-stats">El modelo ya ajusta las carreras por el ERA de cada abridor.</div>':''}</div>`;
+    if(g.h.sp || g.a.sp) markets += `<div class="prob-card"><h3><span class="dot"></span>${sp==='nhl'?'Porteros probables':'Abridores probables'}</h3><div class="lv-stats" style="margin-top:0;"><span>${g.h.name}: <b>${g.h.sp?g.h.sp.name+' '+spLine(g.h.sp):'por confirmar'}</b></span><span>${g.a.name}: <b>${g.a.sp?g.a.sp.name+' '+spLine(g.a.sp):'por confirmar'}</b></span></div>${sp==='mlb'?`<div class="lv-stats">El modelo ajusta las carreras por cada abridor${(g.h.sp&&g.h.sp.of)||(g.a.sp&&g.a.sp.of)?' (FIP y ERA de la temporada, datos oficiales de MLB)':' (ERA de la temporada)'}.</div>`:''}</div>`;
   }
   const html = `
     <div class="matchup-hero"><div class="meta">${US[sp].name.toUpperCase()}${tag?' · '+tag.toUpperCase():''}</div>
@@ -3243,11 +3257,15 @@ async function vaFetch(sp){
   const rows = []; let fail = 0, total = 0, noOdds = 0, events = 0, err = '';
   try{
     if(sp==='futbol'){
+      // v44: primero las cuotas que el servidor copia de ESPN cada 30 min (una sola descarga)
+      let M = null; try{ M = await mirrorGet('espn-cuotas.json'); }catch(e){}
+      const byL = {}; if(M && M.ev && Date.now()-M.t < 3*3600e3) M.ev.forEach(x=>{ (byL[x.lid] = byL[x.lid]||[]).push(x.e); }); else M = null;
       await Promise.all(STATIC_LEAGUES.map(async sl=>{
         const cfg = SRC[sl.id]; if(!cfg||!cfg.espn || cupIdle(sl, -1, 8*24)) return; total++;
         try{
           let evs = []; let okN = 0;
-          for(const mo of vaMonths()){ try{ const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${mo}`); okN++; evs = evs.concat(j.events||[]); }catch(e){ err = e.message||String(e); } }
+          if(M){ evs = byL[sl.id]||[]; okN = 1; }
+          else for(const mo of vaMonths()){ try{ const j = await webGet(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${mo}`); okN++; evs = evs.concat(j.events||[]); }catch(e){ err = e.message||String(e); } }
           if(!okN) throw new Error(err||'sin respuesta');
           for(const ev of evs){
             const c = ev.competitions && ev.competitions[0]; if(!c) continue;
@@ -4076,7 +4094,7 @@ function ldModelHTML(m, D){
 
 // v36: ligas agrupadas por país (los países con varias ligas tienen la opción "Todas")
 const LG_GROUPS = [
-  ['🇪🇨 Ecuador', ['ecuador','copaecu'], 'ecu'],
+  ['🇪🇨 Ecuador', ['ecuador','copaecu','supecu'], 'ecu'],
   ['🏆 Copas de Sudamérica', ['lib','sud','recopa'], 'csa'],
   ['🇧🇷 Brasil', ['bra','bra2','cdb','supbra','paulista','carioca','mineiro','gaucho'], 'bra'],
   ['🇦🇷 Argentina', ['arg','copaarg','suparg','tdcarg'], 'arg'],
@@ -4773,6 +4791,7 @@ function openMatch(leagueId, idx){
     ${dtTabsHTML()}
     <div class="sec sec-p">
     <div class="prob-card" id="oddBox"></div>
+    <div class="prob-card" id="wxBox" style="display:none"></div>
     <div class="prob-card">
       <h3><span class="dot"></span>Resultado 1X2</h3>
       <div class="bar1x2">
@@ -4858,10 +4877,39 @@ function openMatch(leagueId, idx){
   window.scrollTo(0,0);
   ulInit(league, homeName, awayName, when);
   PB.hid = null; PB.kind = 'f'; h2hFutInit(league, homeName, awayName, when); pbRender();
+  wxInit(league, homeName, awayName, when);
   oddBoxInit('futbol', leagueId, homeName, awayName, (lb,row)=>{ if(lb==='Gana '+row.h) return p.winPct/100; if(lb==='Gana '+row.a) return p.lossPct/100; if(lb==='Empate') return p.drawPct/100; const t = lb.match(/^(Más|Menos) de ([\d.]+)/); if(t){ const o = poissonOverHalf(parseFloat(t[2]), p.lambdaTotal); return t[1]==='Más'?o:1-o; } return null; });
   { const sl = (SRC[league.id]||{}).espn; if(sl) posInit('posBox', 'soccer/'+sl, homeName, awayName, true); }
 }
 
+// v44: clima y altura del estadio (Open-Meteo, gratis y sin clave). Ciudad del estadio según ESPN.
+async function wxInit(league, h, a, when){
+  const box = document.getElementById('wxBox'); if(!box) return;
+  try{
+    const ts = Date.parse(String(when).slice(0,16)+':00Z'); if(isNaN(ts) || ts < Date.now()-3*3600e3 || ts > Date.now()+15*864e5) return;
+    let v = null; const fxOf = id => (LS.get('ab_fx_'+id,null)||{}).fx || [];
+    const mine = fxOf(league.id).find(f=>f.h===h && f.a===a && f.d===String(when).slice(0,16)); if(mine && mine.v) v = mine.v;
+    if(!v) for(const sl of STATIC_LEAGUES){ const f = fxOf(sl.id).filter(f=>f.h===h && f.v).pop(); if(f){ v = f.v; break; } } // sede habitual del local
+    if(!v) return;
+    const G = LS.get('ab_geo',{}); let g = G[v];
+    if(!g){ const [city, country] = v.split('|');
+      const j = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=5&language=es&name='+encodeURIComponent(city))).json();
+      const R = (j.results||[]), cn = normName(country||''); const r = R.find(x=>cn && (normName(x.country||'').includes(cn) || cn.includes(normName(x.country||'')) || normName(x.country_code||'')===cn)) || R[0]; if(!r) return;
+      g = G[v] = {la:r.latitude, lo:r.longitude, el:r.elevation, c:city}; LS.set('ab_geo', G); }
+    const day = new Date(ts).toISOString().slice(0,10);
+    const w = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.la}&longitude=${g.lo}&hourly=temperature_2m,precipitation_probability,precipitation,wind_speed_10m&start_date=${day}&end_date=${day}&timezone=UTC`)).json();
+    const H = w.hourly||{}, i = (H.time||[]).indexOf(new Date(Math.round(ts/3600e3)*3600e3).toISOString().slice(0,13)+':00'); if(i<0) return;
+    const T = H.temperature_2m[i], P = H.precipitation_probability[i], mm = H.precipitation[i], W = H.wind_speed_10m[i], el = g.el!=null ? g.el : w.elevation;
+    const notes = [];
+    if(P>=60 || mm>=1.5) notes.push('lluvia probable: el balón corre menos y suelen salir menos goles');
+    if(W>=30) notes.push('viento fuerte');
+    if(T>=32) notes.push('calor fuerte: el ritmo suele bajar en el segundo tiempo');
+    if(el>=2200) notes.push('partido en altura: suele favorecer al local acostumbrado');
+    box.innerHTML = `<h3><span class="dot"></span>Clima en ${escA(g.c)}</h3><div class="lv-stats" style="margin-top:0"><span>🌡 <b>${Math.round(T)}°C</b></span><span>🌧 <b>${P!=null?P:0}%</b> lluvia</span><span>💨 <b>${Math.round(W)}</b> km/h</span>${el!=null?`<span>⛰ <b>${Math.round(el).toLocaleString('es')}</b> m</span>`:''}</div>`+
+      (notes.length ? `<div class="lv-stats">${escA(notes.join(' · '))}. Es informativo: el modelo no lo usa en el cálculo.</div>` : `<div class="lv-stats">Pronóstico para la hora del partido (Open-Meteo).</div>`);
+    box.style.display = '';
+  }catch(e){}
+}
 function goHome(){
   ldStop();
   document.getElementById('detail').classList.remove('show');
@@ -4922,6 +4970,7 @@ const SRC = {
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
   copaecu:    {             primary:'manual'},
+  supecu:     {             primary:'manual'},
   facup:      {             espn:'eng.fa', primary:'espn'},
   eflcup:     {             espn:'eng.league_cup', primary:'espn'},
   efltrophy:  {             espn:'eng.trophy', primary:'espn'},
@@ -4958,7 +5007,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v43.1 · copas nacionales';
+const APP_VERSION = 'v44 · cuotas del servidor, clima, MLB oficial';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -4968,7 +5017,7 @@ function seasonYear(id){
   const o = parseInt(LS.get('ab_season',''),10);
   if(o) return o;
   const now = new Date(), y = now.getFullYear();
-  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
+  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','supecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
 }
 function friendlyErr(e){
   const m = String(e && e.message || e);

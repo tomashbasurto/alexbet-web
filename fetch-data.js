@@ -43,7 +43,8 @@ const LEAGUES = [
   {id:'scotchamp', name:'Championship (Escocia)', espn:'sco.2', csv:'SC1', primary:'espn'},
   {id:'belgium', name:'Pro League (Bélgica)', espn:'bel.1', csv:'B1', primary:'espn'},
   {id:'greece', name:'Super League (Grecia)', espn:'gre.1', csv:'G1', primary:'espn'},
-  {id:'copaecu', name:'Copa Ecuador', manual:1, primary:'manual', cup:1},
+  {id:'copaecu', name:'Copa Ecuador', manual:1, tsdb:'5636', primary:'manual', cup:1},
+  {id:'supecu', name:'Supercopa Ecuador', manual:1, tsdb:'5884', primary:'manual', cup:1},
   {id:'facup', name:'FA Cup', espn:'eng.fa', primary:'espn', cup:1},
   {id:'eflcup', name:'Copa de la Liga (Carabao Cup)', espn:'eng.league_cup', primary:'espn', cup:1},
   {id:'efltrophy', name:'EFL Trophy', espn:'eng.trophy', primary:'espn', cup:1},
@@ -87,7 +88,7 @@ let lastFd = 0, fdDead = !FD_KEY;
 
 function seasonYear(id){
   const now = new Date(), y = now.getUTCFullYear();
-  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
+  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','supecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
 }
 async function getJson(url, headers){
   const r = await fetch(url, {headers: headers || {}});
@@ -141,7 +142,8 @@ function mapEspn(j){
     if(st.completed) s = 'FT'; else if(st.state==='in') s = 'LIVE'; else if(/postpon|cancel|suspend|abandon/i.test((st.name||'')+(st.description||''))) s = 'PST';
     const num = v => { const n = parseInt(v,10); return isNaN(n) ? null : n; };
     out.push({i:'e'+ev.id, h:h.team.displayName||h.team.name, a:a.team.displayName||a.team.name,
-      d:String(ev.date).slice(0,16), s, g:s==='FT' ? [num(h.score),num(a.score)] : [null,null]});
+      d:String(ev.date).slice(0,16), s, g:s==='FT' ? [num(h.score),num(a.score)] : [null,null],
+      v: (c.venue && c.venue.address && c.venue.address.city) ? [c.venue.address.city, c.venue.address.country||''].join('|') : undefined});
   }
   return out;
 }
@@ -164,20 +166,50 @@ async function espnFixtures(cfg){
   if(!seen.size && lastErr) throw lastErr;
   return [...seen.values()];
 }
-// v43: torneos que ESPN no publica (Copa Ecuador): partidos cargados a mano en copas-manual.json
-function manualFixtures(cfg){
-  let M = {}; try{ M = JSON.parse(fs.readFileSync('copas-manual.json','utf8')); }catch(e){ return null; }
-  const L = (M[cfg.id] && M[cfg.id].fx) || [];
-  const fx = L.filter(f=>f && f.h && f.a && f.d).map(f=>{
-    const d = String(f.d).slice(0,16), g = Array.isArray(f.g) && f.g.length===2 && f.g[0]!=null ? [+f.g[0], +f.g[1]] : [null,null];
-    return {i:'m'+cfg.id+d.replace(/\D/g,'')+String(f.h).replace(/[^A-Za-z]/g,'').slice(0,6), h:f.h, a:f.a, d, s: g[0]!=null ? 'FT' : (f.s||'NS'), g};
-  });
-  if(!fx.length){ log.push({name:cfg.name, ok:false, msg:'sin partidos cargados en copas-manual.json'}); return null; }
-  log.push({name:cfg.name, ok:true, msg:`${fx.length} partidos · cargados a mano`});
+// v43/v44: torneos que ESPN no publica (Copa Ecuador): partidos de copas-manual.json + TheSportsDB (gratis)
+// TheSportsDB con la clave libre solo entrega el último jugado y el próximo, así que se van acumulando en datos.json.
+const TSDB = 'https://www.thesportsdb.com/api/v1/json/123/';
+const ALIAS = {'ldu quito':'Liga de Quito', 'liga deportiva universitaria':'Liga de Quito', 'universidad catolica del ecuador':'Universidad Católica (Quito)',
+  'universidad catolica':'Universidad Católica (Quito)', 'delfin sc':'Delfín', 'barcelona sporting club':'Barcelona SC', 'libertad fc':'Libertad (Ecuador)', 'libertad':'Libertad (Ecuador)',
+  'manta':'Manta F.C.', 'tecnico universitario':'Técnico Universitario', 'guayaquil city':'Guayaquil City FC', 'deportivo cuenca':'Deportivo Cuenca', 'macara':'Macará', 'cs emelec':'Emelec', 'sd aucas':'Aucas'};
+const plain = x => String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+function teamName(n, known){
+  const p = plain(n); if(ALIAS[p]) return ALIAS[p];
+  const k = known.find(x=>plain(x)===p) || known.find(x=>{ const q = plain(x).replace(/\b(fc|sc|cd|club)\b/g,'').trim(); return q.length>3 && (p.includes(q) || q.includes(p)); });
+  return k || n;
+}
+async function tsdbFixtures(cfg, known){
+  const out = [];
+  for(const q of ['eventspastleague.php?id=', 'eventsnextleague.php?id=']){
+    try{ const j = await getJson(TSDB+q+cfg.tsdb); (j.events||[]).forEach(e=>{
+      const d = String(e.strTimestamp || ((e.dateEvent||'')+'T'+(e.strTime||'00:00'))).slice(0,16); if(!/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(d)) return;
+      const hs = parseInt(e.intHomeScore,10), as = parseInt(e.intAwayScore,10), fin = /FT|AET|PEN|Match Finished/i.test(e.strStatus||'') && !isNaN(hs) && !isNaN(as);
+      out.push({h:teamName(e.strHomeTeam, known), a:teamName(e.strAwayTeam, known), d, g: fin ? [hs,as] : null, src:'tsdb'}); }); }
+    catch(e){ log.push({name:cfg.name+' (TheSportsDB)', ok:false, msg:e.message}); }
+    await sleep(2500); // la clave libre corta con muchas consultas seguidas
+  }
+  return out;
+}
+async function manualFixtures(cfg, prev, known){
+  let M = {}; try{ M = JSON.parse(fs.readFileSync('copas-manual.json','utf8')); }catch(e){}
+  const day = d => Math.floor(Date.parse(d+':00Z')/864e5), key = f => plain(f.h)+'|'+plain(f.a);
+  const all = [];
+  const put = (f, over) => {
+    const x = all.find(y=>key(y)===key(f) && Math.abs(day(y.d)-day(f.d))<=1);
+    if(!x){ all.push({...f}); return; }
+    if(over){ x.d = f.d; if(f.g) x.g = f.g; } else if(f.g && !x.g) x.g = f.g;
+  };
+  ((prev && prev.fx) || []).forEach(f=>put({h:f.h, a:f.a, d:f.d, g:f.g && f.g[0]!=null ? f.g : null, i:f.i}, false));
+  ((M[cfg.id] && M[cfg.id].fx) || []).filter(f=>f && f.h && f.a && f.d).forEach(f=>put({h:f.h, a:f.a, d:String(f.d).slice(0,16), g:Array.isArray(f.g)&&f.g[0]!=null ? [+f.g[0],+f.g[1]] : null}, true));
+  let nT = 0; if(cfg.tsdb) (await tsdbFixtures(cfg, known)).forEach(f=>{ nT++; put(f, false); });
+  const fx = all.map(f=>({i: f.i || 'm'+cfg.id+f.d.replace(/\D/g,'')+String(f.h).replace(/[^A-Za-z]/g,'').slice(0,6), h:f.h, a:f.a, d:f.d, s: f.g ? 'FT' : 'NS', g: f.g || [null,null]}))
+    .sort((x,y)=>x.d.localeCompare(y.d));
+  if(!fx.length){ log.push({name:cfg.name, ok:true, msg:'sin partidos por ahora'}); return null; }
+  log.push({name:cfg.name, ok:true, msg:`${fx.length} partidos · manual${cfg.tsdb?' + TheSportsDB ('+nT+' leídos)':''}`});
   return {t:Date.now(), season:seasonYear(cfg.id), src:'manual', fx};
 }
-async function loadFixtures(cfg, prev){
-  if(cfg.manual) return manualFixtures(cfg);
+async function loadFixtures(cfg, prev, known){
+  if(cfg.manual) return manualFixtures(cfg, prev, known||[]);
   const order = cfg.primary==='espn' ? ['espn','fd'] : ['fd','espn'];
   const errs = [];
   for(const src of order){
@@ -249,7 +281,8 @@ function applySummary(j, id, stats){
   const out = {v:1, t:Date.now(), fx:{}, sc:{}, stats:Object.assign({}, prev.stats||{}), log};
   // 1) partidos
   for(const cfg of LEAGUES){
-    const r = await loadFixtures(cfg, prev.fx && prev.fx[cfg.id]);
+    const known = cfg.manual ? [...new Set(((out.fx.ecuador||{}).fx||[]).flatMap(f=>[f.h,f.a]))] : null;
+    const r = await loadFixtures(cfg, prev.fx && prev.fx[cfg.id], known);
     if(r) out.fx[cfg.id] = r;
   }
   // 2) goleadores (football-data.org)
