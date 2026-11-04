@@ -10,13 +10,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          mkdir -p probe; rm -f probe/*
-          O="Origin: https://alexbetpro.web.app"
-          for u in "site/v2/sports/baseball/mlb/scoreboard?dates=20261031" "site/v2/sports/baseball/mlb/scoreboard?dates=20261030" "v2/sports/baseball/mlb/standings" "site/v2/sports/basketball/nba/scoreboard?dates=20261031" "site/v2/sports/tennis/atp/scoreboard"; do
-            echo "== $u" >> probe/out.txt
-            curl -sS -m 20 -D - -o /tmp/b -H "$O" "https://site.api.espn.com/apis/$u" | grep -iE '^HTTP|access-control|content-type' >> probe/out.txt
-            head -c 300 /tmp/b >> probe/out.txt; echo >> probe/out.txt
-            python3 -c "import json;j=json.load(open('/tmp/b'));print('events',len(j.get('events',[])))" >> probe/out.txt 2>&1 || true
-          done
+          cd probe; mkdir -p out
+          python3 - <<'PY'
+          import json, hashlib, urllib.request, concurrent.futures as cf
+          U=json.load(open('urls.json'))
+          def get(u):
+              ext='.img' if 'espncdn' in u else '.json'
+              try:
+                  r=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=20).read()
+                  open('out/'+hashlib.md5(u.encode()).hexdigest()+ext,'wb').write(r)
+              except Exception as e: print('fail',u,e)
+          with cf.ThreadPoolExecutor(16) as ex: list(ex.map(get,U))
+          PY
+          ls out | wc -l
           git config user.name probe-bot; git config user.email probe@users.noreply.github.com
-          git add -A probe; git commit -m "probe mlb" && git push
+          git add -A .; git commit -qm "probe cache" && git push
