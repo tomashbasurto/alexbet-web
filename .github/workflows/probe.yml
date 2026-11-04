@@ -9,16 +9,14 @@ jobs:
       - run: |
           python3 - <<'PY'
           import json, urllib.request
-          def g(u): return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=30))
-          j=g('https://sports.core.api.espn.com/v2/sports/soccer/leagues?limit=1000')
-          print('COUNT',j.get('count'))
-          import concurrent.futures as cf
-          refs=[i['$ref'] for i in j.get('items',[])]
-          def one(r):
-              try:
-                  L=g(r); return L.get('slug'),L.get('name')
-              except Exception as e: return r,'ERR'
-          with cf.ThreadPoolExecutor(20) as ex:
-              for s,n in ex.map(one,refs):
-                  if s and any(s.startswith(p) for p in ['ecu','por','bel','tur','gre','mex','col','arg','bra','usa','concacaf','conmebol','ned','sco','ita','ger','fra','esp','eng']): print('LG',s,'|',n)
+          def g(u):
+              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=30))
+              except Exception as e: print('ERR',u,e); return {}
+          B='https://site.api.espn.com/apis/site/v2/sports/soccer/'
+          for u in [B+'ecu.1/teams/9283/schedule', B+'ecu.1/teams/9283/schedule?fixture=true', B+'ecu.1/teams/9283/schedule?season=2026', B+'all/teams/9283/schedule', B+'ecu.1/teams/9283/schedule?fixture=true&season=2026']:
+              j=g(u); ev=j.get('events',[])
+              print('URL',u,'events',len(ev))
+              for e in ev[-12:]:
+                  c=(e.get('competitions') or [{}])[0]
+                  print('  ',e.get('date','')[:16],e.get('name'),'|',(e.get('league') or {}).get('slug'),(e.get('league') or {}).get('name'),'|',(c.get('type') or {}).get('abbreviation'),'|',e.get('seasonType',{}).get('name') if isinstance(e.get('seasonType'),dict) else '', '|', (c.get('status') or {}).get('type',{}).get('name'))
           PY
