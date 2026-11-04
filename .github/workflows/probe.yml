@@ -2,14 +2,25 @@ name: Probe ESPN tenis
 on:
   push:
     branches: [tenis-probe]
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - run: |
           python3 - <<'PY'
-          import urllib.request, json
-          u='https://statsapi.mlb.com/api/v1/people?personIds=805673,543037&hydrate=stats(group=[pitching],type=[season],season=2026)'
-          j=json.load(urllib.request.urlopen(u,timeout=30))
-          for p in j['people']: print('P',p['fullName'], json.dumps(p.get('stats'))[:900])
+          import urllib.request, hashlib, os, concurrent.futures as cf
+          os.makedirs('probe/out', exist_ok=True)
+          for f in os.listdir('probe/out'): os.remove('probe/out/'+f)
+          U=[l.strip() for l in open('probe/urls.txt') if l.strip()]
+          def one(u):
+              try:
+                  b=urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=25).read()
+                  open('probe/out/'+hashlib.md5(u.encode()).hexdigest()+'.json','wb').write(b); return 1
+              except Exception as e: return 0
+          with cf.ThreadPoolExecutor(10) as ex: print('ok',sum(ex.map(one,U)),'de',len(U))
           PY
+          git config user.name probe-bot; git config user.email probe@users.noreply.github.com
+          git add -A probe; git commit -qm "probe out" && git push
