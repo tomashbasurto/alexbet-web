@@ -3160,6 +3160,14 @@ function usOpen(sp, id, keep){
     markets += `<div class="prob-card"><h3><span class="dot"></span>Hándicap (${favN} favorito)</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${hl.map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Gana por ${Math.ceil(x.k)}+ (-${x.k})</div></div>`).join('')}</div></div>`;
     const lines = [-10,-5,0,5,10].map(d=>roundHalf(m.tot+d));
     markets += `<div class="prob-card"><h3><span class="dot"></span>Total de puntos</h3><div class="lv-stats" style="margin-top:0;">Proyectado: <b>${m.tot.toFixed(1)}</b> · rango probable (80%): <b>${Math.round(m.tot-1.28*US[sp].sdt)}–${Math.round(m.tot+1.28*US[sp].sdt)}</b></div>` + lines.map(L=>{ const p = pc(m.over(L)); return `<div class="pk-line"><div class="t">Más de ${L}</div><div class="bar-track"><div class="bar-fill ${p>=70?'strong':''}" style="width:${p}%"></div></div><div class="v">${p}%</div></div>`; }).join('') + `<div class="lv-stats">Compara estas líneas con la de tu casa de apuestas: la probabilidad de "Menos de" es 100% menos la de "Más de".</div></div>`;
+    // v45: margen de victoria por rangos y prórroga (misma curva del hándicap)
+    const sdl = US[sp].sdl, F = x => normCdf((x-am)/sdl), dogN = m.mu>=0 ? g.a.name : g.h.name;
+    const R = [[`${favN} por 1-5`, F(5.5)-F(0.5)], [`${favN} por 6-10`, F(10.5)-F(5.5)], [`${favN} por 11-15`, F(15.5)-F(10.5)], [`${favN} por 16 o más`, 1-F(15.5)], [`Gana ${dogN}`, F(-0.5)]];
+    // empate al final del tiempo regular: la curva normal lo subestima (al final los partidos parejos se cierran); x2 da ~6% en partidos parejos, como en la NBA real
+    const ot = Math.min(0.12, 2*(F(0.5)-F(-0.5)));
+    markets += `<div class="prob-card"><h3><span class="dot"></span>Margen de victoria</h3><div class="lv-stats" style="margin-top:0;">Margen esperado: <b>${am.toFixed(1)}</b> puntos para ${escA(favN)}</div>` + R.map(([t,p])=>{ const q = pc(Math.max(0,p)); return `<div class="pk-line"><div class="t">${escA(t)}</div><div class="bar-track"><div class="bar-fill" style="width:${q}%"></div></div><div class="v">${q}%</div></div>`; }).join('') +
+      (ot!=null ? `<div class="pk-line"><div class="t">Hay prórroga</div><div class="bar-track"><div class="bar-fill" style="width:${pc(ot)}%"></div></div><div class="v">${(ot*100).toFixed(1)}%</div></div>` : '') +
+      `<div class="lv-stats">Los rangos suman 100%. La prórroga es la probabilidad de empate al final del tiempo regular.</div></div>`;
   } else {
     const ls = (sp==='nhl' ? [4.5,5.5,6.5,7.5,8.5] : [6.5,7.5,8.5,9.5,10.5]).map(L=>({L,p:pc(m.over(L))}));
     markets += `<div class="prob-card"><h3><span class="dot"></span>Total de ${US[sp].unit} (esperado ${m.tot.toFixed(1)})</h3><div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">${ls.slice(1,4).map(x=>`<div class="stat-tile">${ringHTML(x.p, ringC(x.p), 72)}<div class="l">Más de ${x.L}</div></div>`).join('')}</div>` + ls.map(x=>`<div class="pk-line"><div class="t">Menos de ${x.L}</div><div class="bar-track"><div class="bar-fill ${100-x.p>=70?'strong':''}" style="width:${100-x.p}%"></div></div><div class="v">${100-x.p}%</div></div>`).join('') + `</div>`;
@@ -4492,7 +4500,13 @@ function crestHTML(name, lid, sz){
   const fb = `<span class="cr-sh" style="width:${sz}px;height:${Math.round(sz*1.1)}px;background:${hashColor(name||'?')};font-size:${Math.max(7, Math.round(sz*.34))}px">${ini}</span>`;
   return u ? `<span class="cr-im" style="width:${sz}px;height:${sz}px"><img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.outerHTML=this.parentNode.dataset.fb" ></span>`.replace('class="cr-im"', `class="cr-im" data-fb='${fb.replace(/'/g,'&#39;')}'`) : fb;
 }
-function pbSel(list, cur, fn){ return `<label class="pb-msel"><span class="sr">Estadística</span><select onchange="${fn}(+this.value)">${list.map((t,i)=>t==null?'':`<option value="${i}" ${i===cur?'selected':''}>${escA(t)}</option>`).join('')}</select></label>`; }
+function pbSel(list, cur, fn, groups){
+  const opt = (t,i) => t==null ? '' : `<option value="${i}" ${i===cur?'selected':''}>${escA(t)}</option>`;
+  let body;
+  if(groups){ const G = [...new Set(groups)]; body = G.map(g=>{ const o = list.map((t,i)=>groups[i]===g?opt(t,i):'').join(''); return o ? `<optgroup label="${escA(g)}">${o}</optgroup>` : ''; }).join(''); }
+  else body = list.map(opt).join('');
+  return `<label class="pb-msel"><span class="sr">Estadística</span><select onchange="${fn}(+this.value)">${body}</select></label>`;
+}
 function pbSeg(names, cur, fn, lid){
   return `<div class="pb-seg" style="grid-template-columns:repeat(${names.length},minmax(0,1fr))">${names.map((n,i)=>{ const both = i===2; const cr = both ? `<span class="cr-two">${crestHTML(names[0], lid, 16)}${crestHTML(names[1], lid, 16)}</span>` : crestHTML(n, lid, 20);
     const lab = (!lid && !both && String(n).split(' ').length>1 && String(n).length>11) ? String(n).split(' ').slice(-1)[0] : n;
@@ -4539,7 +4553,14 @@ function pbRender0(){
 // Cada mercado suma una o más estadísticas; "K|SO" = usa la primera que exista.
 const PJ_M = {
   futbol:[['Goles',['Goles']],['Remates totales',['Tiros']],['Remates al arco',['Tiros a puerta']],['Asistencias',['Asistencias']],['Goles + asist.',['Goles','Asistencias']],['Faltas cometidas',['Faltas cometidas']],['Faltas recibidas',['Faltas recibidas']],['Tarjetas',['Amarillas','Rojas']],['Paradas',['Paradas']],['Fueras de juego',['Fueras de juego']]],
-  bask:[['Puntos',['PTS']],['Rebotes',['REB']],['Asistencias',['AST']],['Triples',['3PT']],['Pts+Reb+Ast',['PTS','REB','AST']],['Pts+Reb',['PTS','REB']],['Pts+Ast',['PTS','AST']],['Reb+Ast',['REB','AST']],['Robos',['STL']],['Tapones',['BLK']],['Pérdidas',['TO']]],
+  // v45: mercados de NBA agrupados (3.er dato = grupo del menú). "X:a" = intentados (ESPN da "convertidos-intentados"); #DD/#TD = doble/triple-doble
+  bask:[['Puntos',['PTS'],'Jugador'],['Rebotes',['REB'],'Jugador'],['Asistencias',['AST'],'Jugador'],['Triples',['3PT'],'Jugador'],['Robos',['STL'],'Jugador'],['Tapones',['BLK'],'Jugador'],
+    ['Pérdidas',['TO'],'Jugador'],['Faltas',['PF'],'Jugador'],['Rebotes ofensivos',['OREB'],'Jugador'],['Rebotes defensivos',['DREB'],'Jugador'],
+    ['Pts+Reb+Ast',['PTS','REB','AST'],'Combinados'],['Pts+Reb',['PTS','REB'],'Combinados'],['Pts+Ast',['PTS','AST'],'Combinados'],['Reb+Ast',['REB','AST'],'Combinados'],
+    ['Robos+Tapones',['STL','BLK'],'Combinados'],['Pts+Ast+Tap',['PTS','AST','BLK'],'Combinados'],['Pts+Reb+Ast+Tap',['PTS','REB','AST','BLK'],'Combinados'],
+    ['Doble-doble',['#DD'],'Combinados'],['Triple-doble',['#TD'],'Combinados'],
+    ['Tiros de campo convertidos',['FG'],'Tiros'],['Tiros de campo intentados',['FG:a'],'Tiros'],['Triples intentados',['3PT:a'],'Tiros'],
+    ['Tiros libres convertidos',['FT'],'Tiros'],['Tiros libres intentados',['FT:a'],'Tiros']],
   mlbB:[['Hits',['H']],['Carreras',['R']],['Impulsadas',['RBI']],['Jonrones',['HR']],['Hits+Carreras+Impulsadas',['H','R','RBI']],['Bases por bola',['BB']],['Ponches',['K|SO']]],
   mlbP:[['Ponches',['K|SO']],['Outs',['IP']],['Hits permitidos',['H']],['Carreras limpias',['ER']],['Bases por bola',['BB']]],
   nhlS:[['Puntos',['G','A']],['Goles',['G']],['Asistencias',['A']],['Tiros a puerta',['SOG|S']],['Tiros bloqueados',['BS']],['Golpes',['HT']]],
@@ -4551,12 +4572,18 @@ let PJ_KEYS = [];
 let PJ = {key:'', t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
 function pjNum(v, lab){
   if(v==null || v==='') return null; const s = String(v).trim(); if(s==='--' || s==='-') return null;
+  if(/:a$/.test(lab||'')){ const m = String(s).match(/^\d+\s*-\s*(\d+)/); return m ? +m[1] : null; }
   if(lab==='IP'){ const f = parseFloat(s); if(isNaN(f)) return null; const w = Math.floor(f); return w*3 + Math.round((f-w)*10); }
   const m = s.match(/^-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : null;
 }
 function pjVal(S, comps){
+  if(comps[0]==='#DD' || comps[0]==='#TD'){ // cuántas de puntos, rebotes, asistencias, robos y tapones llegaron a 10
+    const v = ['PTS','REB','AST','STL','BLK'].map(l=>pjNum(S[l], l)); if(v[0]==null) return null;
+    return v.filter(x=>x!=null && x>=10).length >= (comps[0]==='#DD' ? 2 : 3) ? 1 : 0;
+  }
   let tot = 0, any = false;
-  comps.forEach(c=>{ const lab = c.split('|').find(l=>pjNum(S[l], l)!=null); if(lab!=null){ tot += pjNum(S[lab], lab); any = true; } });
+  const base = l => l.replace(/:a$/,'');
+  comps.forEach(c=>{ const lab = c.split('|').find(l=>pjNum(S[base(l)], l)!=null); if(lab!=null){ tot += pjNum(S[base(lab)], lab); any = true; } });
   return any ? tot : null;
 }
 function pjKind(sp, p){
@@ -4653,10 +4680,14 @@ function pjRender0(){
   const S = [];
   L.forEach(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); if(!p) return; const v = pjVal(p.S, comps); if(v==null) return; S.push({id:g.id, ts:g.ts, v, opp:g.opp, h2:g.oppId===String(op), ctx:g.ctx}); });
   const avail = MK.map((x,i)=>i).filter(i=>L.some(g=>{ const p = (PJE[g.id][g.side]||[]).find(x=>x.id+'|'+x.k===pid); return p && pjVal(p.S, MK[i][1])!=null; }));
-  b = `<div class="pb-head"><h3><span class="dot"></span>Estadísticas por jugador</h3>${pbSel(MK.map((x,i)=>avail.includes(i)||i===PJ.m?x[0]:null), PJ.m, "pjPick.bind(null,'m')")}</div>` + segJ + chips;
+  b = `<div class="pb-head"><h3><span class="dot"></span>Estadísticas por jugador</h3>${pbSel(MK.map((x,i)=>avail.includes(i)||i===PJ.m?x[0]:null), PJ.m, "pjPick.bind(null,'m')", MK[0][2] ? MK.map(x=>x[2]) : null)}</div>` + segJ + chips;
   if(!S.length){ el.innerHTML = b + `<div class="pl-none">ESPN no tiene ${mName.toLowerCase()} de ${escA(cur.name)} en estos partidos.</div>${PJ.prog?`<div class="lv-stats">${PJ.prog}</div>`:''}`; return; }
-  const lam = pbAvg(S.slice(0,10).map(x=>x.v)), big = lam>=8, sd = big ? Math.max(pbSd(S.slice(0,20).map(x=>x.v))||0, Math.sqrt(lam)) : 0;
-  const prob = ln => big ? 1-pbNorm((ln-lam)/sd) : pbPois(lam, ln);
+  const bin = comps[0][0]==='#';
+  const lam = pbAvg(S.slice(0,10).map(x=>x.v)), big = !bin && lam>=8, sd = big ? Math.max(pbSd(S.slice(0,20).map(x=>x.v))||0, Math.sqrt(lam)) : 0;
+  // doble/triple-doble: frecuencia de los últimos 20 (los 10 últimos pesan el doble), con un poco de prudencia hacia el 50%
+  const binP = () => { const a = S.slice(0,20), w = a.map((x,i)=>i<10?2:1), k = a.reduce((t,x,i)=>t+x.v*w[i],0), n = w.reduce((t,x)=>t+x,0); return (k+1)/(n+2); };
+  const prob = ln => bin ? binP() : big ? 1-pbNorm((ln-lam)/sd) : pbPois(lam, ln);
+  if(bin) PJ.ln = 0.5;
   if(PJ.ln==null) PJ.ln = Math.max(0.5, Math.floor(lam)-0.5);
   const ln = PJ.ln, over = x => x>ln, pr = Math.round((0.5 + (Math.min(0.99, Math.max(0.01, prob(ln)))-0.5)*0.9)*100);
   const sets = {L5:S.slice(0,5), L10:S.slice(0,10), L20:S.slice(0,20), H2H:S.filter(g=>g.h2), Todos:S};
@@ -4664,10 +4695,16 @@ function pjRender0(){
   const shown = (sets[PJ.per]||sets.L10).slice(0,20).slice().reverse(), mx = Math.max(ln+1, ...shown.map(g=>g.v)), mn = lam>=15 ? Math.max(0, Math.min(ln, ...shown.map(g=>g.v)) - 6) : 0;
   const hgt = v => Math.max(3, (v-mn)/(mx-mn)*108);
   const curSetJ = (sets[PJ.per]||sets.L10), uJ = pjHead(spJ, cur.key);
-  b += pbLineRow(`<span class="pj-ava big">${uJ?`<img src="${uJ}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(cur.name))}</i></span>`, mName.toLowerCase(), 'de '+escA(plShort(cur.name)), ln, 'pjPick');
-  b += pbTiles(pr, lam.toFixed(1), 'Promedio L10', curSetJ.length ? curSetJ.filter(g=>over(g.v)).length+'/'+curSetJ.length : '-');
+  const avaJ = `<span class="pj-ava big">${uJ?`<img src="${uJ}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(cur.name))}</i></span>`;
+  if(bin){
+    b += `<div class="pb-line2">${avaJ}<span class="tx"><b>${escA(plShort(cur.name))}</b> hace ${mName.toLowerCase()}<small>10 o más en ${comps[0]==='#DD'?'dos':'tres'} de: puntos, rebotes, asistencias, robos, tapones</small></span></div>`;
+    b += pbTiles(pr, S.slice(0,10).filter(x=>x.v).length+'/'+Math.min(10,S.length), 'Lo hizo L10', S.length ? S.filter(x=>x.v).length+'/'+S.length : '-');
+  } else {
+    b += pbLineRow(avaJ, mName.toLowerCase(), 'de '+escA(plShort(cur.name)), ln, 'pjPick');
+    b += pbTiles(pr, lam.toFixed(1), 'Promedio L10', curSetJ.length ? curSetJ.filter(g=>over(g.v)).length+'/'+curSetJ.length : '-');
+  }
   if(!shown.length) b += `<div class="pl-none">No se enfrentó a este rival en los partidos cargados.</div>`;
-  else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b${over(g.v)?' ok':''}" onclick="mhOpen(${mhReg(g.ctx)})"><span>${g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--miss)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"><em>${ln.toFixed(1)}</em></div></div>` + pbLabs(shown);
+  else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b${over(g.v)?' ok':''}" onclick="mhOpen(${mhReg(g.ctx)})"><span>${bin?(g.v?'Sí':'No'):g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--miss)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"><em>${ln.toFixed(1)}</em></div></div>` + pbLabs(shown);
   b += `<div class="pb-per">${Object.keys(sets).map(k=>`<button type="button" class="${PJ.per===k?'on':''}" onclick="pjPick('p','${k}')">${k}<b>${pct(sets[k])}</b></button>`).join('')}</div>
     ${PJ.prog?`<div class="lv-stats">${PJ.prog}</div>`:''}${PB_NOTE}`;
   el.innerHTML = b;
@@ -5007,7 +5044,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v44.1 · fueras de juego';
+const APP_VERSION = 'v45 · más mercados NBA';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
