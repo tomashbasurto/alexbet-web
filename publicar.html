@@ -155,14 +155,14 @@ async function cargar(){
         else if(m.t==='win' || m.t==='line'){ const G = (m.s==='a' ? ga : gh).slice(0, 10); if(G.length < 4) return;
           const sm = String(p.label).match(/([+-]\d+(?:\.\d+)?)\s*$/), sv = m.t==='line' ? (sm ? parseFloat(sm[1]) : m.L) : 0;
           const v = G.map(g => g[1]-g[2]), lv = -sv;
-          Object.assign(p, {vals:v, ln:lv, diff:1, n:v.length, hit:v.filter(a => a > lv).length, sub:'últimos '+v.length+' de '+(m.s==='a'?p.a:p.h).split(' ').pop(), passTxt: m.t==='win' ? 'los ganó' : 'cubrió la línea'}); }
+          Object.assign(p, {vals:v, ln:lv, diff:1, n:v.length, hit:v.filter(a => a > lv).length, sub:'últimos '+v.length, passTxt: m.t==='win' ? 'partidos ganados' : 'cubrió la línea'}); }
       } else if(p.sp==='tenis'){
         const J = rtn.j || {}, lb = String(p.label);
         let mm;
         if((mm = lb.match(/^(.+) gana al menos un set$/))){ const L = (fnd(J, mm[1]) || []).slice(0, 10); if(L.length < 4) return; const v = L.map(x=>x[2]);
           Object.assign(p, {vals:v, ln:0.5, n:v.length, hit:v.filter(a=>a>0.5).length, sub:'sets ganados', passTxt:'ganó un set o más'}); }
         else if((mm = lb.match(/^Gana (.+)$/))){ const L = (fnd(J, mm[1]) || []).slice(0, 10); if(L.length < 4) return; const v = L.map(x=>x[2]-x[3]);
-          Object.assign(p, {vals:v, ln:0, diff:1, n:v.length, hit:L.filter(x=>x[1]).length, sub:'sets a favor − en contra', passTxt:'los ganó'}); }
+          Object.assign(p, {vals:v, ln:0, diff:1, n:v.length, hit:L.filter(x=>x[1]).length, sub:'últimos '+v.length, passTxt:'partidos ganados'}); }
         else if((mm = lb.match(/^(Más|Menos) de ([\d.]+) juegos/))){ const N = parseFloat(mm[2]), un = mm[1]==='Menos';
           const v = mix((fnd(J, p.h)||[]).map(x=>x[4]), (fnd(J, p.a)||[]).map(x=>x[4])); if(v.length < 5) return;
           Object.assign(p, {vals:v, ln:N, under:un, n:v.length, hit:v.filter(a => un ? a < N : a > N).length, sub:'5 de cada jugador'}); }
@@ -363,11 +363,14 @@ async function tarjeta(c, p, x, y, w, h){
     if(p.ln){ const ly = y0 - (p.ln/mx)*half; c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]); }
   }
   if(v.length && bh > 40 && !p.diff){
-    const bw = w - 48 - 140, mx = Math.max(Math.max(...v), (p.ln||0) + 1), n = v.length, gp = 6, bwi = (bw - gp*(n-1)) / n;
-    v.forEach((a, k) => { const hh = Math.max(6, a/mx*(bh-22)), bx = px + k*(bwi+gp);
+    const bw = w - 48 - 140, mx0 = Math.max(Math.max(...v), (p.ln||0) + 1), n = v.length, gp = 6, bwi = (bw - gp*(n-1)) / n;
+    // números grandes (puntos de básquet, juegos de tenis): la escala empieza cerca del mínimo para que se vea la diferencia
+    const lo = Math.min(...v, p.ln||0), base = p.ln > 20 ? Math.max(0, Math.floor(lo - (mx0 - lo) * 0.35)) : 0, mx = mx0 - base;
+    const big = v.some(a => a >= 100);
+    v.forEach((a, k) => { const hh = Math.max(6, (a-base)/mx*(bh-22)), bx = px + k*(bwi+gp);
       rr(c, bx, by - hh, bwi, hh, 5); c.fillStyle = (p.under ? a < p.ln : a > p.ln) ? A : '#3a4652'; c.fill();
-      c.font = '700 13px Orbitron'; c.fillStyle = '#9fb3ac'; c.textAlign = 'center'; c.fillText(String(a), bx + bwi/2, by - hh - 6); c.textAlign = 'left'; });
-    const ly = by - (p.ln/mx)*(bh-22); c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]);
+      c.font = `700 ${big ? 10 : 13}px Orbitron`; c.fillStyle = '#9fb3ac'; c.textAlign = 'center'; c.fillText(String(a), bx + bwi/2, by - hh - 6); c.textAlign = 'left'; });
+    const ly = by - ((p.ln-base)/mx)*(bh-22); c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]);
   }
   if(v.length && bh > 40){
     c.textAlign = 'center'; c.font = '900 34px Orbitron'; c.fillStyle = INK; c.fillText(`${p.hit}/${p.n}`, x + w - 24 - 64, by - 44);
