@@ -117,7 +117,13 @@ const RGROUPS = [
 let SPF = 'all', LGF = 'all';
 let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
 
-async function getJ(f){ const r = await fetch(MIRROR + f + '?t=' + Math.floor(Date.now()/60000), {cache:'no-cache'}); if(!r.ok) throw new Error(f + ' ' + r.status); return r.json(); }
+// primero GitHub Pages; si el archivo aún no llegó ahí (las publicaciones de Pages a veces se atrasan), directo del repositorio
+const RAW = 'https://raw.githubusercontent.com/tomashbasurto/alexbet-web/main/';
+async function getJ(f){
+  const q = '?t=' + Math.floor(Date.now()/60000);
+  try{ const r = await fetch(MIRROR + f + q, {cache:'no-cache'}); if(r.ok) return await r.json(); }catch(e){}
+  const r = await fetch(RAW + f + q, {cache:'no-cache'}); if(!r.ok) throw new Error(f + ' ' + r.status); return r.json();
+}
 async function cargar(){
   $('app').innerHTML = '<div class="msg">Cargando sugerencias…</div>';
   try{
