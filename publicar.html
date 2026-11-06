@@ -328,7 +328,7 @@ async function tarjeta(c, p, x, y, w, h){
   rr(c, x, y, w, h, 28); c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.5; c.stroke();
   c.save(); rr(c, x, y, w, h, 28); c.clip(); c.fillStyle = p.color || A; c.fillRect(x, y, w, 6); c.restore();
   const px = x + 24; let cy = y + 30;
-  c.font = '600 19px Inter'; const lg = fit(c, lugar(p), w - 170), lw = c.measureText(lg).width + 28;
+  c.font = '600 19px Inter'; const lg = fit(c, lugar(p), w - 48 - 190), lw = c.measureText(lg).width + 28;
   rr(c, px, cy, lw, 38, 19); c.fillStyle = 'rgba(255,255,255,.06)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1; c.stroke();
   c.fillStyle = '#cfe0da'; c.fillText(lg, px + 14, cy + 26);
   c.textAlign = 'right'; c.font = '700 25px Orbitron'; c.fillStyle = INK; c.fillText(hora(p.ts), x + w - 64, cy + 28);
