@@ -23,6 +23,9 @@
   .days button, .days input{ min-height:38px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--dim); font:600 13px Inter; cursor:pointer; }
   .days button.on{ border-color:var(--accent); color:var(--accent); }
   .days input{ color:var(--ink); background:var(--surface-2); color-scheme:dark; }
+  .flt{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px; }
+  .flt label span{ display:block; font-size:12px; font-weight:700; color:var(--dim); margin-bottom:5px; }
+  .flt select{ width:100%; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13.5px Inter; padding:0 10px; color-scheme:dark; }
   label.h{ display:block; font-size:13px; font-weight:700; margin:14px 0 8px; }
   .groups{ display:flex; gap:6px; flex-wrap:wrap; }
   .groups button{ min-height:38px; padding:0 12px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:600 13px Inter; cursor:pointer; }
@@ -111,13 +114,14 @@ const RGROUPS = [
   {k:'rbj',  t:'Básquet jugadores',  ic:'⛹️', f:p => ['nba','ncaa','eul'].includes(p.sp) && p.kind==='player'},
   {k:'rnhl', t:'NHL',                ic:'🏒', f:p => p.sp==='nhl'},
 ];
+let SPF = 'all', LGF = 'all';
 let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
 
 async function getJ(f){ const r = await fetch(MIRROR + f + '?t=' + Math.floor(Date.now()/60000), {cache:'no-cache'}); if(!r.ok) throw new Error(f + ' ' + r.status); return r.json(); }
 async function cargar(){
   $('app').innerHTML = '<div class="msg">Cargando sugerencias…</div>';
   try{
-    const [h, e, o] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({})), getJ('oportunidades.json').catch(()=>({items:[]}))]);
+    const [h, e, o, st, dt] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({})), getJ('oportunidades.json').catch(()=>({items:[]})), getJ('stats-futbol.json').catch(()=>({ev:{}})), getJ('datos.json').catch(()=>({fx:{}}))]);
     PICKS = (h.picks || []).slice(); ESC = e || {};
     OPS = (o.items || []).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
@@ -127,6 +131,19 @@ async function cargar(){
     // las sugerencias de la app que coinciden con una racha muestran también sus barras
     PICKS.forEach(p => { const m = p.mkt || {}; if(m.t!=='tot' || m.o!==1) return; const mk = {g:'goles', c:'córners', k:'tarjetas'}[m.k] || (p.sp!=='futbol' && m.k==='p' ? 'puntos' : null); if(!mk) return;
       const x = (o.items || []).find(x => x.h===p.h && x.a===p.a && x.kind==='team' && x.who==='Partido' && x.mk===mk && x.ln===m.L); if(x){ p.vals = x.vals; p.hit = x.hit; p.n = x.n; p.ln = x.ln; p.color = x.color; } });
+    // el resto de las sugerencias de fútbol (goles, córners, tarjetas, más o menos): últimos 5 partidos de cada equipo
+    const BY = {}; Object.values(st.ev || {}).forEach(r => { if(!Array.isArray(r) || !r[6] || !r[7]) return; [r[4], r[5]].forEach(n => (BY[n] = BY[n] || []).push(r)); });
+    const byN = {}; Object.keys(BY).forEach(k => { const q = nrm(k); (byN[q] = byN[q] || []).push(...BY[k]); });
+    // goles: de los partidos jugados en datos.json (mismos nombres que la app); córners y tarjetas: de stats-futbol.json
+    const GB = {}; Object.values(dt.fx || {}).forEach(L => (L.fx || []).forEach(f => { if(f.s!=='FT' || !f.g || f.g[0]==null) return; const r = [Date.parse(f.d+':00Z'), 0, 0, 0, f.h, f.a, [f.g[0]], [f.g[1]]]; [f.h, f.a].forEach(n => (GB[n] = GB[n] || []).push(r)); }));
+    const rowsOf = (n, k) => k==='g' ? (GB[n] || []) : (BY[n] || byN[nrm(n)] || []);
+    const tot = (k, r) => k==='g' ? r[6][0]+r[7][0] : k==='k' ? r[6][1]+r[7][1] : (r[6][4]+r[6][5]+r[7][4]+r[7][5]);
+    PICKS.forEach(p => { const m = p.mkt || {}; if(p.vals || p.sp!=='futbol' || m.t!=='tot' || !['g','k','c'].includes(m.k)) return;
+      const last = n => rowsOf(n, m.k).filter(r => r[0] < p.ts - 3600e3).sort((a,b)=>b[0]-a[0]).slice(0,5).map(r => tot(m.k, r)).filter(v => v!=null && !isNaN(v));
+      const vh = last(p.h), va = last(p.a); if(vh.length + va.length < 5) return;
+      const v = []; for(let i = 0; i < 5; i++){ if(vh[i]!=null) v.push(vh[i]); if(va[i]!=null) v.push(va[i]); }
+      p.vals = v; p.ln = m.L; p.under = m.o===0; p.n = v.length; p.hit = v.filter(a => p.under ? a < m.L : a > m.L).length; p.note = 'de sus últimos partidos';
+    });
     pintar();
   }catch(err){ $('app').innerHTML = `<div class="msg err">No se pudieron leer las sugerencias (${esc(err.message)}).</div>`; }
 }
@@ -136,13 +153,18 @@ const lugar = p => p.where || LGN[p.sp] || SPN[p.sp] || '';
 
 // ---------- pantalla ----------
 function pintar(){
-  const all = dayPicks();
+  const all0 = dayPicks();
+  // filtros de deporte y liga
+  const sps = [...new Set(all0.map(p => p.sp))]; if(SPF!=='all' && !sps.includes(SPF)) SPF = 'all';
+  const all1 = all0.filter(p => SPF==='all' || p.sp===SPF);
+  const lgs = [...new Set(all1.map(lugar))].sort((a,b)=>a.localeCompare(b,'es')); if(LGF!=='all' && !lgs.includes(LGF)) LGF = 'all';
+  const all = all1.filter(p => LGF==='all' || lugar(p)===LGF);
   const base = MODE === 'res' ? all.filter(p => p.res === 0 || p.res === 1) : all;
   const gs = GL().map(g => ({...g, n: base.filter(g.f).length})).filter(g => g.n || g.k === 'top');
   if(!gs.find(g => g.k === GRP)) GRP = 'top';
   const G = GL().find(g => g.k === GRP);
   const list = base.filter(G.f).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob));
-  const key = MODE + DAY + GRP;
+  const key = MODE + DAY + GRP + SPF + LGF;
   if(!SEL[key]){ SEL[key] = {};
     let pre = (MODE === 'res' ? list.slice(0, 5) : list.slice(0, 4));
     if(MODE === 'res' && list.length > 5){ // por defecto, la misma proporción de aciertos y fallos que el balance real
@@ -159,6 +181,10 @@ function pintar(){
       <button data-d="${hoy()}" class="${DAY===hoy()?'on':''}">Hoy</button>
       <button data-d="${sumDay(hoy(),1)}" class="${DAY===sumDay(hoy(),1)?'on':''}">Mañana</button>
       <input type="date" id="dd" value="${DAY}">
+    </div>
+    <div class="flt">
+      <label><span>Deporte</span><select id="fSp"><option value="all">Todos (${all0.length})</option>${sps.map(k => `<option value="${k}" ${SPF===k?'selected':''}>${esc(SPN[k]||k)} (${all0.filter(p=>p.sp===k).length})</option>`).join('')}</select></label>
+      <label><span>Liga</span><select id="fLg"><option value="all">Todas (${all1.length})</option>${lgs.map(k => `<option value="${esc(k)}" ${LGF===k?'selected':''}>${esc(k)} (${all1.filter(p=>lugar(p)===k).length})</option>`).join('')}</select></label>
     </div>
     <label class="h">Mercado</label>
     <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>
@@ -177,6 +203,8 @@ function pintar(){
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
   document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DAY = b.dataset.d; OUT=[]; pintar(); });
   $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
+  $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; OUT=[]; pintar(); };
+  $('fLg').onchange = e => { LGF = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
   document.querySelectorAll('.row').forEach(r => r.onclick = () => { const id = r.dataset.id; if(S[id]) delete S[id]; else { if(MODE==='res' && nSel>=maxN) return; S[id] = 1; } pintar(); });
   $('gen').onclick = () => generar(list.filter(p => S[p.id]), base.filter(G.f), G);
@@ -304,11 +332,11 @@ async function tarjeta(c, p, x, y, w, h){
   if(v.length && bh > 40){
     const bw = w - 48 - 140, mx = Math.max(Math.max(...v), (p.ln||0) + 1), n = v.length, gp = 6, bwi = (bw - gp*(n-1)) / n;
     v.forEach((a, k) => { const hh = Math.max(6, a/mx*(bh-22)), bx = px + k*(bwi+gp);
-      rr(c, bx, by - hh, bwi, hh, 5); c.fillStyle = a > p.ln ? A : '#3a4652'; c.fill();
+      rr(c, bx, by - hh, bwi, hh, 5); c.fillStyle = (p.under ? a < p.ln : a > p.ln) ? A : '#3a4652'; c.fill();
       c.font = '700 13px Orbitron'; c.fillStyle = '#9fb3ac'; c.textAlign = 'center'; c.fillText(String(a), bx + bwi/2, by - hh - 6); c.textAlign = 'left'; });
     const ly = by - (p.ln/mx)*(bh-22); c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]);
     c.textAlign = 'center'; c.font = '900 34px Orbitron'; c.fillStyle = INK; c.fillText(`${p.hit}/${p.n}`, x + w - 24 - 64, by - 44);
-    c.font = '500 14px Inter'; c.fillStyle = DIM; c.fillText('últimos ' + p.n, x + w - 24 - 64, by - 22); c.fillText('superó la línea', x + w - 24 - 64, by - 4); c.textAlign = 'left';
+    c.font = '500 14px Inter'; c.fillStyle = DIM; c.fillText(p.note ? '5 de cada equipo' : 'últimos ' + p.n, x + w - 24 - 64, by - 22); c.fillText(p.under ? 'quedó debajo' : 'superó la línea', x + w - 24 - 64, by - 4); c.textAlign = 'left';
   }
 }
 async function lienzo(fn){
@@ -327,7 +355,7 @@ async function generar(sel, todos, G){
       const pages = []; for(let i = 0; i < sel.length; i += 4) pages.push(sel.slice(i, i+4));
       for(const [k, L] of pages.entries()){
         const r = await lienzo(async c => {
-          await cabecera(c, MODE==='rac' ? 'RACHAS' : 'SUGERENCIAS', 'DEL DÍA', G.k==='top' ? 'Hora de Ecuador' : G.ic + ' ' + G.t);
+          await cabecera(c, MODE==='rac' ? 'RACHAS' : 'SUGERENCIAS', 'DEL DÍA', LGF!=='all' ? LGF : SPF!=='all' ? (SPN[SPF]||SPF) + (G.k==='top' ? '' : ' · ' + G.t) : G.k==='top' ? 'Hora de Ecuador' : G.ic + ' ' + G.t);
           const top = 340, gap = 22, cw = (W-120-gap)/2, ch = Math.floor((H-190-top-gap)/2);
           for(const [i, p] of L.entries()) await tarjeta(c, p, 60 + (i%2)*(cw+gap), top + Math.floor(i/2)*(ch+gap), cw, ch);
           pie(c);
