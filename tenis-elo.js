@@ -28,7 +28,7 @@ function tnSurface(name, iso) {
       const cs = (c.competitors||[]).slice().sort((p,q)=>(p.order||0)-(q.order||0)); if(cs.length!==2) return;
       const w = cs.findIndex(x=>x.winner===true); if(w<0) return;
       const sets = cs.map(x => (x.linescores || []).map(q => Math.round(q.value || 0)));
-      M[c.id] = {d:c.date, a:String(cs[0].id), b:String(cs[1].id), w, s:tnSurface(e.name || e.shortName, c.date), ev:(e.name || e.shortName || '').slice(0, 40), rd:((c.round && c.round.displayName) || '').slice(0, 20), sets};
+      M[c.id] = {d:c.date, a:String(cs[0].id), b:String(cs[1].id), na:(cs[0].athlete && cs[0].athlete.displayName) || '', nb:(cs[1].athlete && cs[1].athlete.displayName) || '', w, s:tnSurface(e.name || e.shortName, c.date), ev:(e.name || e.shortName || '').slice(0, 40), rd:((c.round && c.round.displayName) || '').slice(0, 20), sets};
     }))));
   }
   const L = Object.values(M).sort((x,y)=>x.d.localeCompare(y.d)), E = {}, N = {}, ES = {}, NS = {}, H2H = {};
@@ -48,5 +48,12 @@ function tnSurface(name, iso) {
   const h2h = {}; Object.entries(H2H).forEach(([k,v])=>{ if(v[0]+v[1]>=2) h2h[k] = [v[0], v[1], v[2].slice(-6).reverse()]; });
   if(Object.keys(r).length < 100){ console.log('muy pocos jugadores, no se guarda', Object.keys(r).length); return; }
   fs.writeFileSync('elo-tenis.json', JSON.stringify({t:now, partidos:L.length, r, h2h}));
+  // v46: últimos 10 partidos de cada jugador (fecha, ganó, sets a favor, sets en contra, juegos totales) para el panel de publicaciones
+  const RT = {};
+  for(const m of L){ [[m.na, 0], [m.nb, 1]].forEach(([n, k]) => { if(!n) return; const mine = m.sets[k], his = m.sets[1-k];
+    const sw = mine.filter((v,i)=>v > (his[i]??0)).length, sl = his.filter((v,i)=>v > (mine[i]??0)).length, gt = mine.reduce((t,v)=>t+v,0) + his.reduce((t,v)=>t+v,0);
+    (RT[n] = RT[n] || []).push([m.d.slice(0,10), m.w===k ? 1 : 0, sw, sl, gt]); }); }
+  Object.values(RT).forEach(x => { x.reverse(); x.splice(10); });
+  fs.writeFileSync('recientes-tenis.json', JSON.stringify({t:now, j:RT}));
   console.log('elo-tenis.json', L.length, 'partidos', Object.keys(r).length, 'jugadores');
 })();

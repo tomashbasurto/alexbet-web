@@ -121,7 +121,7 @@ async function getJ(f){ const r = await fetch(MIRROR + f + '?t=' + Math.floor(Da
 async function cargar(){
   $('app').innerHTML = '<div class="msg">Cargando sugerencias…</div>';
   try{
-    const [h, e, o, st, dt] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({})), getJ('oportunidades.json').catch(()=>({items:[]})), getJ('stats-futbol.json').catch(()=>({ev:{}})), getJ('datos.json').catch(()=>({fx:{}}))]);
+    const [h, e, o, st, dt, rus, rtn] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({})), getJ('oportunidades.json').catch(()=>({items:[]})), getJ('stats-futbol.json').catch(()=>({ev:{}})), getJ('datos.json').catch(()=>({fx:{}})), getJ('recientes-us.json').catch(()=>({})), getJ('recientes-tenis.json').catch(()=>({j:{}}))]);
     PICKS = (h.picks || []).slice(); ESC = e || {};
     OPS = (o.items || []).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
@@ -142,7 +142,31 @@ async function cargar(){
       const last = n => rowsOf(n, m.k).filter(r => r[0] < p.ts - 3600e3).sort((a,b)=>b[0]-a[0]).slice(0,5).map(r => tot(m.k, r)).filter(v => v!=null && !isNaN(v));
       const vh = last(p.h), va = last(p.a); if(vh.length + va.length < 5) return;
       const v = []; for(let i = 0; i < 5; i++){ if(vh[i]!=null) v.push(vh[i]); if(va[i]!=null) v.push(va[i]); }
-      p.vals = v; p.ln = m.L; p.under = m.o===0; p.n = v.length; p.hit = v.filter(a => p.under ? a < m.L : a > m.L).length; p.note = 'de sus últimos partidos';
+      p.vals = v; p.ln = m.L; p.under = m.o===0; p.n = v.length; p.hit = v.filter(a => p.under ? a < m.L : a > m.L).length; p.sub = '5 de cada equipo';
+    });
+    // básquet y hockey: últimos partidos de cada equipo (recientes-us.json); tenis: de cada jugador (recientes-tenis.json)
+    const fnd = (M, n) => { if(!M) return null; if(M[n]) return M[n]; const q = nrm(n), k = Object.keys(M).find(x => nrm(x) === q); return k ? M[k] : null; };
+    const mix = (a, b) => { const v = []; for(let i = 0; i < 5; i++){ if(a[i]!=null) v.push(a[i]); if(b[i]!=null) v.push(b[i]); } return v; };
+    PICKS.forEach(p => { if(p.vals) return; const m = p.mkt || {};
+      if(['nba','ncaa','nhl'].includes(p.sp)){
+        const R = rus[p.sp], gh = (fnd(R, p.h) || []).filter(g => g[0] < p.ts - 3600e3), ga = (fnd(R, p.a) || []).filter(g => g[0] < p.ts - 3600e3);
+        if(m.t==='tot'){ const v = mix(gh.map(g=>g[1]+g[2]), ga.map(g=>g[1]+g[2])); if(v.length < 5) return;
+          Object.assign(p, {vals:v, ln:m.L, under:m.o===0, n:v.length, hit:v.filter(a => m.o===0 ? a < m.L : a > m.L).length, sub:'5 de cada equipo'}); }
+        else if(m.t==='win' || m.t==='line'){ const G = (m.s==='a' ? ga : gh).slice(0, 10); if(G.length < 4) return;
+          const sm = String(p.label).match(/([+-]\d+(?:\.\d+)?)\s*$/), sv = m.t==='line' ? (sm ? parseFloat(sm[1]) : m.L) : 0;
+          const v = G.map(g => g[1]-g[2]), lv = -sv;
+          Object.assign(p, {vals:v, ln:lv, diff:1, n:v.length, hit:v.filter(a => a > lv).length, sub:'últimos '+v.length+' de '+(m.s==='a'?p.a:p.h).split(' ').pop(), passTxt: m.t==='win' ? 'los ganó' : 'cubrió la línea'}); }
+      } else if(p.sp==='tenis'){
+        const J = rtn.j || {}, lb = String(p.label);
+        let mm;
+        if((mm = lb.match(/^(.+) gana al menos un set$/))){ const L = (fnd(J, mm[1]) || []).slice(0, 10); if(L.length < 4) return; const v = L.map(x=>x[2]);
+          Object.assign(p, {vals:v, ln:0.5, n:v.length, hit:v.filter(a=>a>0.5).length, sub:'sets ganados', passTxt:'ganó un set o más'}); }
+        else if((mm = lb.match(/^Gana (.+)$/))){ const L = (fnd(J, mm[1]) || []).slice(0, 10); if(L.length < 4) return; const v = L.map(x=>x[2]-x[3]);
+          Object.assign(p, {vals:v, ln:0, diff:1, n:v.length, hit:L.filter(x=>x[1]).length, sub:'sets a favor − en contra', passTxt:'los ganó'}); }
+        else if((mm = lb.match(/^(Más|Menos) de ([\d.]+) juegos/))){ const N = parseFloat(mm[2]), un = mm[1]==='Menos';
+          const v = mix((fnd(J, p.h)||[]).map(x=>x[4]), (fnd(J, p.a)||[]).map(x=>x[4])); if(v.length < 5) return;
+          Object.assign(p, {vals:v, ln:N, under:un, n:v.length, hit:v.filter(a => un ? a < N : a > N).length, sub:'5 de cada jugador'}); }
+      }
     });
     pintar();
   }catch(err){ $('app').innerHTML = `<div class="msg err">No se pudieron leer las sugerencias (${esc(err.message)}).</div>`; }
@@ -329,14 +353,25 @@ async function tarjeta(c, p, x, y, w, h){
     c.font = '500 18px Inter'; c.fillStyle = DIM; c.fillText('Cuota mínima para que valga la pena', px, by - 18);
     c.textAlign = 'right'; c.font = '900 30px Orbitron'; c.fillStyle = INK; c.fillText((100/Math.max(1,p.prob)).toFixed(2), px + bw, by - 14); c.textAlign = 'left';
   }
-  if(v.length && bh > 40){
+  if(v.length && bh > 40 && p.diff){ // barras hacia arriba y abajo (margen del partido o sets a favor − en contra)
+    const bw = w - 48 - 140, mx = Math.max(1, ...v.map(Math.abs), Math.abs(p.ln) + 1), n = v.length, gp = 6, bwi = (bw - gp*(n-1)) / n;
+    const half = (bh - 30) / 2, y0 = by - half - 4;
+    c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(px - 4, y0); c.lineTo(px + bw + 4, y0); c.stroke();
+    v.forEach((a, k) => { const hh = Math.max(4, Math.abs(a)/mx*half), bx = px + k*(bwi+gp), up = a >= 0;
+      rr(c, bx, up ? y0 - hh : y0, bwi, hh, 4); c.fillStyle = a > p.ln ? A : '#3a4652'; c.fill();
+      c.font = '700 12px Orbitron'; c.fillStyle = '#9fb3ac'; c.textAlign = 'center'; c.fillText((a>0?'+':'') + a, bx + bwi/2, up ? y0 - hh - 5 : y0 + hh + 14); c.textAlign = 'left'; });
+    if(p.ln){ const ly = y0 - (p.ln/mx)*half; c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]); }
+  }
+  if(v.length && bh > 40 && !p.diff){
     const bw = w - 48 - 140, mx = Math.max(Math.max(...v), (p.ln||0) + 1), n = v.length, gp = 6, bwi = (bw - gp*(n-1)) / n;
     v.forEach((a, k) => { const hh = Math.max(6, a/mx*(bh-22)), bx = px + k*(bwi+gp);
       rr(c, bx, by - hh, bwi, hh, 5); c.fillStyle = (p.under ? a < p.ln : a > p.ln) ? A : '#3a4652'; c.fill();
       c.font = '700 13px Orbitron'; c.fillStyle = '#9fb3ac'; c.textAlign = 'center'; c.fillText(String(a), bx + bwi/2, by - hh - 6); c.textAlign = 'left'; });
     const ly = by - (p.ln/mx)*(bh-22); c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]);
+  }
+  if(v.length && bh > 40){
     c.textAlign = 'center'; c.font = '900 34px Orbitron'; c.fillStyle = INK; c.fillText(`${p.hit}/${p.n}`, x + w - 24 - 64, by - 44);
-    c.font = '500 14px Inter'; c.fillStyle = DIM; c.fillText(p.note ? '5 de cada equipo' : 'últimos ' + p.n, x + w - 24 - 64, by - 22); c.fillText(p.under ? 'quedó debajo' : 'superó la línea', x + w - 24 - 64, by - 4); c.textAlign = 'left';
+    c.font = '500 14px Inter'; c.fillStyle = DIM; c.fillText(fit(c, p.sub || 'últimos ' + p.n, 130), x + w - 24 - 64, by - 22); c.fillText(p.passTxt || (p.under ? 'quedó debajo' : 'superó la línea'), x + w - 24 - 64, by - 4); c.textAlign = 'left';
   }
 }
 async function lienzo(fn){
