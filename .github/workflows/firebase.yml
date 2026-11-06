@@ -9,6 +9,7 @@ on:
       - 'combinadas.js'
       - 'oficial.js'
       - 'admin.html'
+      - 'publicar.html'
       - 'sw.js'
       - 'manifest.webmanifest'
       - '*.png'
