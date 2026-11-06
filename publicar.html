@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Publicaciones AlexBet</title>
+<meta name="theme-color" content="#050b0a">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#050b0a; --surface:#0f1b18; --surface-2:#16251f; --line:#22352f; --ink:#eef5f2; --dim:#8aa39b; --accent:#c6ff00; --on:#061006; --ok:#c6ff00; --bad:#ff5d6c; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:Inter,system-ui,sans-serif; }
+  main{ max-width:640px; margin:0 auto; padding:calc(16px + env(safe-area-inset-top,0px)) 16px 48px; }
+  .top{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:14px; }
+  h1{ font:900 20px Orbitron,sans-serif; margin:0; letter-spacing:1px; } h1 span{ color:var(--accent); }
+  .who{ font-size:12px; color:var(--dim); text-align:right; }
+  .seg{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:4px; margin-bottom:12px; }
+  .seg button{ min-height:42px; border:0; border-radius:10px; background:transparent; color:var(--dim); font:600 14px Inter; cursor:pointer; }
+  .seg button.on{ background:#24330f; color:var(--accent); }
+  .days{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; align-items:center; }
+  .days button, .days input{ min-height:38px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--dim); font:600 13px Inter; cursor:pointer; }
+  .days button.on{ border-color:var(--accent); color:var(--accent); }
+  .days input{ color:var(--ink); background:var(--surface-2); color-scheme:dark; }
+  label.h{ display:block; font-size:13px; font-weight:700; margin:14px 0 8px; }
+  .groups{ display:flex; gap:6px; flex-wrap:wrap; }
+  .groups button{ min-height:38px; padding:0 12px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--ink); font:600 13px Inter; cursor:pointer; }
+  .groups button.on{ border-color:var(--accent); background:#1b2a0b; color:var(--accent); }
+  .groups button small{ color:var(--dim); font-weight:500; margin-left:4px; }
+  .list{ background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .row{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-top:1px solid var(--line); cursor:pointer; }
+  .row:first-child{ border-top:0; }
+  .row input{ width:20px; height:20px; accent-color:var(--accent); flex:none; }
+  .row .tx{ flex:1; min-width:0; }
+  .row .tx b{ display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .tx small{ display:block; font-size:12px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .p{ font:900 16px Orbitron; color:var(--accent); flex:none; }
+  .row .r{ flex:none; font-size:16px; }
+  .note{ font-size:12.5px; color:var(--dim); line-height:1.5; margin:8px 2px; }
+  .empty{ text-align:center; color:var(--dim); font-size:13px; padding:22px 10px; }
+  .btn{ width:100%; min-height:50px; border-radius:14px; border:0; background:var(--accent); color:var(--on); font:800 15px Inter; cursor:pointer; margin-top:12px; }
+  .btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btns{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .prev{ margin-top:16px; display:grid; gap:14px; }
+  .pv{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:10px; }
+  .pv img{ width:100%; display:block; border-radius:10px; }
+  .pv textarea{ width:100%; min-height:150px; margin-top:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:13px/1.45 Inter; padding:10px; resize:vertical; }
+  .msg{ font-size:13px; color:var(--dim); line-height:1.5; margin:12px 0; }
+  .err{ color:var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1>PUBLICA<span>CIONES</span></h1>
+    <div class="who" id="who"></div>
+  </div>
+  <div id="app"><div class="msg">Cargando…</div></div>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+const ADMIN = 'tomashbasurto@gmail.com';
+const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
+const app = initializeApp({
+  apiKey: 'AIzaSyDDHOsOOBNQ68M2wLx5Ii2mzQ2dftgewew',
+  authDomain: 'alexbet-e14aa.firebaseapp.com',
+  projectId: 'alexbet-e14aa',
+  storageBucket: 'alexbet-e14aa.firebasestorage.app',
+  messagingSenderId: '788954789258',
+  appId: '1:788954789258:web:525b424b674d597da58473'
+});
+const auth = getAuth(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ---------- datos ----------
+const ECU = -5 * 3600e3;
+const dayOf = ts => new Date(ts + ECU).toISOString().slice(0, 10);
+const hora = ts => new Date(ts + ECU).toISOString().slice(11, 16);
+const hoy = () => dayOf(Date.now());
+const sumDay = (d, k) => new Date(Date.parse(d + 'T12:00:00Z') + k * 864e5).toISOString().slice(0, 10);
+const DIAS = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'], MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+const fechaTxt = d => { const x = new Date(d + 'T12:00:00Z'); return `${DIAS[x.getUTCDay()]} ${x.getUTCDate()} ${MESES[x.getUTCMonth()]}`; };
+
+const SPN = {futbol:'Fútbol', nba:'NBA', ncaa:'NCAA', nhl:'NHL', eul:'Euroliga', tenis:'Tenis', mlb:'MLB'};
+const LGN = {nba:'NBA', ncaa:'NCAA', nhl:'NHL', eul:'Euroliga', mlb:'MLB'};
+// grupos de mercado para las imágenes
+const GROUPS = [
+  {k:'top',  t:'Top del día',         ic:'⭐', f:p => true},
+  {k:'gol',  t:'Goles',               ic:'⚽', f:p => p.sp==='futbol' && p.cat==='goles'},
+  {k:'ct',   t:'Córners y tarjetas',  ic:'🚩', f:p => p.sp==='futbol' && (p.cat==='corn' || p.cat==='tarj')},
+  {k:'fres', t:'Fútbol · resultado',  ic:'⚽', f:p => p.sp==='futbol' && !['goles','corn','tarj'].includes(p.cat)},
+  {k:'bas',  t:'Básquet',             ic:'🏀', f:p => ['nba','ncaa','eul'].includes(p.sp)},
+  {k:'nhl',  t:'NHL',                 ic:'🏒', f:p => p.sp==='nhl'},
+  {k:'mlb',  t:'MLB',                 ic:'⚾', f:p => p.sp==='mlb'},
+  {k:'ten',  t:'Tenis',               ic:'🎾', f:p => p.sp==='tenis'},
+];
+let PICKS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
+
+async function getJ(f){ const r = await fetch(MIRROR + f + '?t=' + Math.floor(Date.now()/60000), {cache:'no-cache'}); if(!r.ok) throw new Error(f + ' ' + r.status); return r.json(); }
+async function cargar(){
+  $('app').innerHTML = '<div class="msg">Cargando sugerencias…</div>';
+  try{
+    const [h, e] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({}))]);
+    PICKS = (h.picks || []).slice(); ESC = e || {};
+    pintar();
+  }catch(err){ $('app').innerHTML = `<div class="msg err">No se pudieron leer las sugerencias (${esc(err.message)}).</div>`; }
+}
+const dayPicks = () => PICKS.filter(p => dayOf(p.ts) === DAY);
+const lugar = p => p.where || LGN[p.sp] || SPN[p.sp] || '';
+
+// ---------- pantalla ----------
+function pintar(){
+  const all = dayPicks();
+  const base = MODE === 'res' ? all.filter(p => p.res === 0 || p.res === 1) : all;
+  const gs = GROUPS.map(g => ({...g, n: base.filter(g.f).length})).filter(g => g.n || g.k === 'top');
+  if(!gs.find(g => g.k === GRP)) GRP = 'top';
+  const G = GROUPS.find(g => g.k === GRP);
+  const list = base.filter(G.f).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob));
+  const key = MODE + DAY + GRP;
+  if(!SEL[key]){ SEL[key] = {};
+    let pre = list.slice(0, 5);
+    if(MODE === 'res' && list.length > 5){ // por defecto, la misma proporción de aciertos y fallos que el balance real
+      const okL = list.filter(p=>p.res===1).sort((a,b)=>b.prob-a.prob), badL = list.filter(p=>p.res===0).sort((a,b)=>b.prob-a.prob);
+      const nOk = Math.min(okL.length, Math.round(5 * okL.length / list.length)); pre = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b)=>a.ts-b.ts);
+    }
+    pre.forEach(p => SEL[key][p.id] = 1); }
+  const S = SEL[key], nSel = list.filter(p => S[p.id]).length, maxN = MODE === 'res' ? 5 : 6;
+  const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
+  $('app').innerHTML = `
+    <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
+    <div class="days">
+      <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
+      <button data-d="${hoy()}" class="${DAY===hoy()?'on':''}">Hoy</button>
+      <button data-d="${sumDay(hoy(),1)}" class="${DAY===sumDay(hoy(),1)?'on':''}">Mañana</button>
+      <input type="date" id="dd" value="${DAY}">
+    </div>
+    <label class="h">Mercado</label>
+    <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>
+    <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige hasta 6 por imagen'} · ${nSel} elegidas</label>
+    <div class="list">${list.length ? list.map(p => `
+      <div class="row" data-id="${esc(p.id)}">
+        <input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1">
+        <div class="tx"><b>${esc(p.label)}</b><small>${esc(p.h)} vs ${esc(p.a)} · ${esc(lugar(p))} · ${hora(p.ts)}</small></div>
+        ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}<span class="p">${p.prob}%</span>
+      </div>`).join('') : `<div class="empty">${MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
+    </div>
+    ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Las sugerencias son las mismas que publica la app ese día. Si eliges más de ${maxN}, se arma más de una imagen.</div>`}
+    <button class="btn" id="gen" ${nSel?'':'disabled style="opacity:.5"'}>Crear ${MODE==='res'?'imagen de resultados':'imágenes'}</button>
+    <div class="prev" id="prev"></div>
+    <button class="btn ghost" id="out">Cerrar sesión</button>`;
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE==='pro' && DAY<hoy()) DAY = hoy(); OUT=[]; pintar(); });
+  document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DAY = b.dataset.d; OUT=[]; pintar(); });
+  $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
+  document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
+  document.querySelectorAll('.row').forEach(r => r.onclick = () => { const id = r.dataset.id; if(S[id]) delete S[id]; else { if(MODE==='res' && nSel>=maxN) return; S[id] = 1; } pintar(); });
+  $('gen').onclick = () => generar(list.filter(p => S[p.id]), base.filter(G.f), G);
+  $('out').onclick = () => signOut(auth);
+  pintarOut();
+}
+function pintarOut(){
+  const box = $('prev'); if(!box) return;
+  box.innerHTML = OUT.map((o, i) => `<div class="pv"><img src="${o.url}" alt="Imagen ${i+1}">
+    <div class="btns"><button class="btn" data-sh="${i}">Compartir</button><button class="btn ghost" data-dl="${i}">Descargar</button></div>
+    <textarea readonly>${esc(o.txt)}</textarea><button class="btn ghost" data-cp="${i}">Copiar texto</button></div>`).join('');
+  box.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => { const o = OUT[+b.dataset.dl]; const a = document.createElement('a'); a.href = o.url; a.download = o.name; a.click(); });
+  box.querySelectorAll('[data-sh]').forEach(b => b.onclick = async () => {
+    const o = OUT[+b.dataset.sh]; const file = new File([o.blob], o.name, {type:'image/png'});
+    try{ if(navigator.canShare && navigator.canShare({files:[file]})) await navigator.share({files:[file], text:o.txt}); else { const a = document.createElement('a'); a.href = o.url; a.download = o.name; a.click(); } }catch(e){}
+  });
+  box.querySelectorAll('[data-cp]').forEach(b => b.onclick = async () => { try{ await navigator.clipboard.writeText(OUT[+b.dataset.cp].txt); b.textContent = 'Texto copiado ✓'; }catch(e){ b.textContent = 'No se pudo copiar'; } });
+}
+
+// ---------- dibujo ----------
+const W = 1080, H = 1350, A = '#c6ff00', INK = '#eef5f2', DIM = '#8aa39b', BAD = '#ff5d6c';
+const imgCache = {};
+function loadImg(src){
+  if(imgCache[src]) return imgCache[src];
+  return imgCache[src] = new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+}
+const crest = n => ESC[n] ? loadImg(MIRROR + 'escudos/' + ESC[n]) : Promise.resolve(null);
+function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x+r, y); c.arcTo(x+w, y, x+w, y+h, r); c.arcTo(x+w, y+h, x, y+h, r); c.arcTo(x, y+h, x, y, r); c.arcTo(x, y, x+w, y, r); c.closePath(); }
+function fit(c, t, w){ t = String(t); if(c.measureText(t).width <= w) return t; while(t.length > 1 && c.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; }
+function initials(n){ return String(n).split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
+function drawCrest(c, im, name, x, y, s){
+  if(im){ c.drawImage(im, x, y, s, s); return; }
+  c.fillStyle = '#1f2f2a'; c.beginPath(); c.arc(x+s/2, y+s/2, s/2, 0, Math.PI*2); c.fill();
+  c.fillStyle = INK; c.font = `800 ${Math.round(s*0.36)}px Inter`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(initials(name), x+s/2, y+s/2+1); c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+}
+function fondo(c){
+  c.fillStyle = '#040807'; c.fillRect(0, 0, W, H);
+  let g = c.createRadialGradient(920, -40, 10, 920, -40, 760); g.addColorStop(0, 'rgba(198,255,0,.17)'); g.addColorStop(1, 'rgba(198,255,0,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  g = c.createRadialGradient(-80, 1420, 10, -80, 1420, 820); g.addColorStop(0, 'rgba(34,211,238,.14)'); g.addColorStop(1, 'rgba(34,211,238,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.strokeStyle = 'rgba(255,255,255,.025)'; c.lineWidth = 1;
+  for(let x = 0; x < W; x += 54){ c.beginPath(); c.moveTo(x+.5, 0); c.lineTo(x+.5, H); c.stroke(); }
+  for(let y = 0; y < H; y += 54){ c.beginPath(); c.moveTo(0, y+.5); c.lineTo(W, y+.5); c.stroke(); }
+}
+async function cabecera(c, t1, t2, sub){
+  const logo = await loadImg('icon-512.png');
+  if(logo){ c.save(); rr(c, 60, 52, 84, 84, 20); c.clip(); c.drawImage(logo, 60, 52, 84, 84); c.restore(); }
+  c.font = '900 46px Orbitron'; c.fillStyle = INK; c.fillText('ALEX', 162, 112); const wA = c.measureText('ALEX').width; c.fillStyle = A; c.fillText('BET', 162 + wA, 112);
+  c.textAlign = 'right'; c.font = '700 24px Orbitron'; c.fillStyle = A; c.fillText(fechaTxt(DAY), W-60, 92);
+  c.font = '500 22px Inter'; c.fillStyle = DIM; c.fillText(sub, W-60, 124); c.textAlign = 'left';
+  c.font = '900 64px Orbitron'; c.fillStyle = INK; c.fillText(t1, 60, 236);
+  c.fillStyle = A; c.fillText(t2, 60, 308);
+}
+function pie(c){
+  rr(c, 60, H-150, 470, 104, 22); c.fillStyle = A; c.fill();
+  c.fillStyle = '#061006'; c.font = '900 31px Orbitron'; c.fillText('alexbetpro.web.app', 88, H-96);
+  c.font = '600 18px Inter'; c.fillStyle = '#21330a'; c.fillText('Prueba gratis 15 días · análisis de cada partido', 88, H-66);
+  c.textAlign = 'right';
+  c.strokeStyle = INK; c.lineWidth = 2.5; rr(c, W-60-74, H-150, 74, 44, 10); c.stroke();
+  c.fillStyle = INK; c.font = '900 25px Orbitron'; c.textAlign = 'center'; c.fillText('+18', W-60-37, H-118); c.textAlign = 'right';
+  c.font = '500 18px Inter'; c.fillStyle = DIM; c.fillText('Son probabilidades, no garantías.', W-60, H-74); c.fillText('Juega con responsabilidad.', W-60, H-48);
+  c.textAlign = 'left';
+}
+async function fila(c, p, y, h, res){
+  rr(c, 60, y, W-120, h-14, 24); c.fillStyle = 'rgba(17,30,27,.94)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.5; c.stroke();
+  c.save(); rr(c, 60, y, W-120, h-14, 24); c.clip(); c.fillStyle = res==null ? A : (res ? A : BAD); c.fillRect(60, y, 7, h-14); c.restore();
+  const x0 = 92, cy = y + (h-14)/2, hasC = p.sp !== 'tenis';
+  // escudos
+  let xT = x0;
+  if(hasC){ const [ih, ia] = await Promise.all([crest(p.h), crest(p.a)]); drawCrest(c, ih, p.h, x0, cy-46, 44); drawCrest(c, ia, p.a, x0, cy+4, 44); xT = x0 + 60; }
+  const rightW = res==null ? 190 : 120, tw = W - 60 - rightW - xT - 20;
+  c.font = '600 19px Inter'; c.fillStyle = DIM; c.fillText(fit(c, `${lugar(p)} · ${hora(p.ts)}`, tw), xT, cy-26);
+  c.font = '700 25px Inter'; c.fillStyle = INK; c.fillText(fit(c, `${p.h} vs ${p.a}`, tw), xT, cy+6);
+  c.font = '800 27px Inter'; c.fillStyle = res===0 ? '#ffb3ba' : A; c.fillText(fit(c, p.label, tw), xT, cy+42);
+  if(res==null){
+    c.textAlign = 'right'; c.font = '900 56px Orbitron'; c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.35)'; c.shadowBlur = 24; c.fillText(p.prob + '%', W-88, cy+14); c.shadowBlur = 0;
+    c.font = '500 16px Inter'; c.fillStyle = DIM; c.fillText('probabilidad', W-88, cy+42); c.textAlign = 'left';
+  } else {
+    const cx = W-60-62; c.beginPath(); c.arc(cx, cy, 34, 0, Math.PI*2); c.fillStyle = res ? A : BAD; c.fill();
+    c.strokeStyle = '#061006'; c.lineWidth = 8; c.lineCap = 'round'; c.lineJoin = 'round'; c.beginPath();
+    if(res){ c.moveTo(cx-15, cy+1); c.lineTo(cx-4, cy+12); c.lineTo(cx+16, cy-11); } else { c.moveTo(cx-11, cy-11); c.lineTo(cx+11, cy+11); c.moveTo(cx+11, cy-11); c.lineTo(cx-11, cy+11); }
+    c.stroke();
+  }
+}
+async function lienzo(fn){
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  await Promise.all([document.fonts.load('900 64px Orbitron'), document.fonts.load('700 24px Orbitron'), document.fonts.load('700 25px Inter'), document.fonts.load('800 27px Inter')]).catch(()=>{});
+  fondo(c); await fn(c);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  return {blob, url: URL.createObjectURL(blob)};
+}
+const GT = g => g.k === 'top' ? '' : ' · ' + g.t.toUpperCase();
+async function generar(sel, todos, G){
+  const b = $('gen'); b.disabled = true; b.textContent = 'Creando…';
+  OUT.forEach(o => URL.revokeObjectURL(o.url)); OUT = [];
+  try{
+    if(MODE === 'pro'){
+      const pages = []; for(let i = 0; i < sel.length; i += 6) pages.push(sel.slice(i, i+6));
+      for(const [k, L] of pages.entries()){
+        const r = await lienzo(async c => {
+          await cabecera(c, 'PRONÓSTICOS', 'DEL DÍA', G.k==='top' ? 'Hora de Ecuador' : G.ic + ' ' + G.t);
+          const top = 350, h = Math.min(150, Math.floor((H-180-top)/L.length));
+          for(const [i, p] of L.entries()) await fila(c, p, top + i*h, h, null);
+          pie(c);
+        });
+        const txt = `📊 PRONÓSTICOS DEL DÍA${GT(G)} · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map(p => `${p.sp==='futbol'?'⚽':p.sp==='tenis'?'🎾':p.sp==='nhl'?'🏒':p.sp==='mlb'?'⚾':'🏀'} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
+          `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`;
+        OUT.push(Object.assign(r, {txt, name: `alexbet-pronosticos-${DAY}${G.k==='top'?'':'-'+G.k}${pages.length>1?'-'+(k+1):''}.png`}));
+      }
+    } else {
+      const ok = todos.filter(p => p.res === 1).length, n = todos.length, pct = n ? Math.round(ok/n*100) : 0;
+      const L = sel.slice(0, 5);
+      const r = await lienzo(async c => {
+        await cabecera(c, 'RESULTADOS', DAY===sumDay(hoy(),-1) ? 'DE AYER' : 'DEL DÍA', G.k==='top' ? 'Sugerencias de la app' : G.ic + ' ' + G.t);
+        // balance
+        rr(c, 60, 340, W-120, 150, 26); c.fillStyle = 'rgba(198,255,0,.08)'; c.fill(); c.strokeStyle = 'rgba(198,255,0,.35)'; c.lineWidth = 2; c.stroke();
+        c.font = '900 86px Orbitron'; c.fillStyle = A; c.fillText(`${ok}/${n}`, 96, 450);
+        const w1 = c.measureText(`${ok}/${n}`).width;
+        c.font = '800 30px Inter'; c.fillStyle = INK; c.fillText('ACERTADAS', 96 + w1 + 28, 418);
+        c.font = '500 22px Inter'; c.fillStyle = DIM; c.fillText(`${n-ok} falladas · sin esconder nada`, 96 + w1 + 28, 454);
+        c.textAlign = 'right'; c.font = '900 64px Orbitron'; c.fillStyle = INK; c.fillText(pct + '%', W-96, 446); c.textAlign = 'left';
+        const top = 516, h = Math.min(140, Math.floor((H-180-top)/Math.max(1, L.length)));
+        for(const [i, p] of L.entries()) await fila(c, p, top + i*h, h, p.res);
+        pie(c);
+      });
+      const txt = `✅ RESULTADOS ${DAY===sumDay(hoy(),-1)?'DE AYER':'DEL ' + fechaTxt(DAY).toLowerCase()}${GT(G)}\n\n${ok} de ${n} sugerencias acertadas (${pct}%)\n\n` +
+        L.map(p => `${p.res ? '✅' : '❌'} ${p.label} · ${p.h} vs ${p.a}`).join('\n') +
+        `\n\nAsí nos fue, aciertos y fallos. En la app puedes revisar el calendario día por día.\nLas de hoy ya están listas 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`;
+      OUT.push(Object.assign(r, {txt, name: `alexbet-resultados-${DAY}${G.k==='top'?'':'-'+G.k}.png`}));
+    }
+  }catch(e){ alert('No se pudo crear la imagen: ' + e.message); }
+  b.disabled = false; b.textContent = MODE==='res' ? 'Crear imagen de resultados' : 'Crear imágenes';
+  pintarOut(); const pv = $('prev'); if(pv && pv.firstChild) pv.firstChild.scrollIntoView({behavior:'smooth'});
+}
+
+// ---------- acceso ----------
+function login(msg){
+  $('who').textContent = '';
+  $('app').innerHTML = `<div class="msg ${msg ? 'err' : ''}">${esc(msg || 'Entra con tu cuenta de administrador.')}</div><button class="btn" id="goG">Entrar con Google</button>`;
+  $('goG').onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => login('No se pudo entrar: ' + (e.code || e.message)));
+}
+onAuthStateChanged(auth, u => {
+  if(!u) return login();
+  if((u.email || '').toLowerCase() !== ADMIN){ signOut(auth); return login('Esa cuenta no es la de administrador.'); }
+  $('who').textContent = u.email;
+  cargar();
+});
+</script>
+</body>
+</html>

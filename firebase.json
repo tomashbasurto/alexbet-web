@@ -16,6 +16,7 @@
       "push-send.js",
       "push-prueba.js",
       "equipos.js",
+      "escudos.js",
       "node_modules/**"
     ],
     "headers": [
