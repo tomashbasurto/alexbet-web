@@ -13,6 +13,10 @@ const MAP = read(DIR + '/escudos.json') || {};
 // nombre -> url del escudo
 const url = {};
 Object.entries(D.logos || {}).forEach(([n, u]) => { if (u) url[n] = u; });
+Object.values(D.logosLg || {}).forEach(m => Object.entries(m || {}).forEach(([n, u]) => { if (u && !url[n]) url[n] = u; }));
+// nombres cortos y alternos de cada equipo (HSV, M'gladbach…) con el escudo de su id de ESPN
+Object.values(D.teamsLg || {}).forEach(L => (L || []).forEach(r => { if (!Array.isArray(r) || !r[0]) return;
+  const u = `https://a.espncdn.com/i/teamlogos/soccer/500/${r[0]}.png`; r.slice(1).forEach(n => { if (typeof n === 'string' && n && !url[n]) url[n] = u; }); }));
 for (const f of ['espn-nba.json', 'espn-ncaa.json', 'espn-nhl.json']) {
   const j = read(f); if (!j) continue;
   (j.boards || []).forEach(b => (b.events || []).forEach(e => ((e.competitions || [])[0] || {competitors: []}).competitors.forEach(c => {

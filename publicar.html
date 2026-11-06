@@ -99,40 +99,61 @@ const GROUPS = [
   {k:'mlb',  t:'MLB',                 ic:'⚾', f:p => p.sp==='mlb'},
   {k:'ten',  t:'Tenis',               ic:'🎾', f:p => p.sp==='tenis'},
 ];
-let PICKS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
+// grupos de las rachas (oportunidades: equipos y jugadores que superaron la línea en sus últimos partidos)
+const RGROUPS = [
+  {k:'top',  t:'Top equipos',        ic:'⭐', f:p => p.kind==='team'},
+  {k:'rgol', t:'Goles',              ic:'⚽', f:p => p.sp==='futbol' && p.kind==='team' && p.mk==='goles'},
+  {k:'rcor', t:'Córners',            ic:'🚩', f:p => p.sp==='futbol' && p.kind==='team' && p.mk==='córners'},
+  {k:'rtar', t:'Tarjetas',           ic:'🟨', f:p => p.sp==='futbol' && p.kind==='team' && p.mk==='tarjetas'},
+  {k:'rrem', t:'Remates al arco',    ic:'🎯', f:p => p.sp==='futbol' && p.kind==='team' && p.mk==='remates al arco'},
+  {k:'rjug', t:'Jugadores fútbol',   ic:'👟', f:p => p.sp==='futbol' && p.kind==='player'},
+  {k:'rbe',  t:'Básquet equipos',    ic:'🏀', f:p => ['nba','ncaa','eul'].includes(p.sp) && p.kind==='team'},
+  {k:'rbj',  t:'Básquet jugadores',  ic:'⛹️', f:p => ['nba','ncaa','eul'].includes(p.sp) && p.kind==='player'},
+  {k:'rnhl', t:'NHL',                ic:'🏒', f:p => p.sp==='nhl'},
+];
+let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
 
 async function getJ(f){ const r = await fetch(MIRROR + f + '?t=' + Math.floor(Date.now()/60000), {cache:'no-cache'}); if(!r.ok) throw new Error(f + ' ' + r.status); return r.json(); }
 async function cargar(){
   $('app').innerHTML = '<div class="msg">Cargando sugerencias…</div>';
   try{
-    const [h, e] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({}))]);
+    const [h, e, o] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({})), getJ('oportunidades.json').catch(()=>({items:[]}))]);
     PICKS = (h.picks || []).slice(); ESC = e || {};
+    OPS = (o.items || []).map((x, i) => {
+      const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
+      const label = `${who ? who + ' · ' : ''}Más de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
+      return {id:'op'+i, sp:x.sp, kind:x.kind, mk:x.mk, h:x.h, a:x.a, ts:x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
+    });
+    // las sugerencias de la app que coinciden con una racha muestran también sus barras
+    PICKS.forEach(p => { const m = p.mkt || {}; if(m.t!=='tot' || m.o!==1) return; const mk = {g:'goles', c:'córners', k:'tarjetas'}[m.k] || (p.sp!=='futbol' && m.k==='p' ? 'puntos' : null); if(!mk) return;
+      const x = (o.items || []).find(x => x.h===p.h && x.a===p.a && x.kind==='team' && x.who==='Partido' && x.mk===mk && x.ln===m.L); if(x){ p.vals = x.vals; p.hit = x.hit; p.n = x.n; p.ln = x.ln; p.color = x.color; } });
     pintar();
   }catch(err){ $('app').innerHTML = `<div class="msg err">No se pudieron leer las sugerencias (${esc(err.message)}).</div>`; }
 }
-const dayPicks = () => PICKS.filter(p => dayOf(p.ts) === DAY);
+const dayPicks = () => (MODE==='rac' ? OPS : PICKS).filter(p => dayOf(p.ts) === DAY);
+const GL = () => MODE==='rac' ? RGROUPS : GROUPS;
 const lugar = p => p.where || LGN[p.sp] || SPN[p.sp] || '';
 
 // ---------- pantalla ----------
 function pintar(){
   const all = dayPicks();
   const base = MODE === 'res' ? all.filter(p => p.res === 0 || p.res === 1) : all;
-  const gs = GROUPS.map(g => ({...g, n: base.filter(g.f).length})).filter(g => g.n || g.k === 'top');
+  const gs = GL().map(g => ({...g, n: base.filter(g.f).length})).filter(g => g.n || g.k === 'top');
   if(!gs.find(g => g.k === GRP)) GRP = 'top';
-  const G = GROUPS.find(g => g.k === GRP);
+  const G = GL().find(g => g.k === GRP);
   const list = base.filter(G.f).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob));
   const key = MODE + DAY + GRP;
   if(!SEL[key]){ SEL[key] = {};
-    let pre = list.slice(0, 5);
+    let pre = (MODE === 'res' ? list.slice(0, 5) : list.slice(0, 4));
     if(MODE === 'res' && list.length > 5){ // por defecto, la misma proporción de aciertos y fallos que el balance real
       const okL = list.filter(p=>p.res===1).sort((a,b)=>b.prob-a.prob), badL = list.filter(p=>p.res===0).sort((a,b)=>b.prob-a.prob);
       const nOk = Math.min(okL.length, Math.round(5 * okL.length / list.length)); pre = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b)=>a.ts-b.ts);
     }
     pre.forEach(p => SEL[key][p.id] = 1); }
-  const S = SEL[key], nSel = list.filter(p => S[p.id]).length, maxN = MODE === 'res' ? 5 : 6;
+  const S = SEL[key], nSel = list.filter(p => S[p.id]).length, maxN = MODE === 'res' ? 5 : 4;
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
   $('app').innerHTML = `
-    <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
+    <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="rac" class="${MODE==='rac'?'on':''}">Rachas</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
     <div class="days">
       <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
       <button data-d="${hoy()}" class="${DAY===hoy()?'on':''}">Hoy</button>
@@ -141,7 +162,7 @@ function pintar(){
     </div>
     <label class="h">Mercado</label>
     <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>
-    <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige hasta 6 por imagen'} · ${nSel} elegidas</label>
+    <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige las que quieras (4 por imagen)'} · ${nSel} elegidas</label>
     <div class="list">${list.length ? list.map(p => `
       <div class="row" data-id="${esc(p.id)}">
         <input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1">
@@ -149,11 +170,11 @@ function pintar(){
         ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}<span class="p">${p.prob}%</span>
       </div>`).join('') : `<div class="empty">${MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
     </div>
-    ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Las sugerencias son las mismas que publica la app ese día. Si eliges más de ${maxN}, se arma más de una imagen.</div>`}
+    ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">${MODE==='rac' ? 'Rachas: equipos y jugadores que superaron la línea en sus últimos partidos (pestaña Oportunidades de la app).' : 'Las sugerencias son las mismas que publica la app ese día.'} Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
     <button class="btn" id="gen" ${nSel?'':'disabled style="opacity:.5"'}>Crear ${MODE==='res'?'imagen de resultados':'imágenes'}</button>
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
-  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE==='pro' && DAY<hoy()) DAY = hoy(); OUT=[]; pintar(); });
+  document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
   document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DAY = b.dataset.d; OUT=[]; pintar(); });
   $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
@@ -180,9 +201,15 @@ const W = 1080, H = 1350, A = '#c6ff00', INK = '#eef5f2', DIM = '#8aa39b', BAD =
 const imgCache = {};
 function loadImg(src){
   if(imgCache[src]) return imgCache[src];
-  return imgCache[src] = new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+  return imgCache[src] = new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => { delete imgCache[src]; res(null); }; im.src = src; });
 }
-const crest = n => ESC[n] ? loadImg(MIRROR + 'escudos/' + ESC[n]) : Promise.resolve(null);
+const nrm = x => String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(fc|sc|cf|ac|afc|cd|club|de)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+function escudo(n){ // nombre exacto, o el parecido (Venezia FC ↔ Venezia, PEC Zwolle ↔ Zwolle)
+  if(ESC[n]) return ESC[n]; const q = nrm(n); if(!q) return null;
+  const ks = Object.keys(ESC); let k = ks.find(x => nrm(x) === q) || ks.find(x => { const z = nrm(x); return z.length > 3 && q.length > 3 && (z.includes(q) || q.includes(z)); });
+  return k ? ESC[k] : null;
+}
+const crest = n => { const f = escudo(n); return f ? loadImg(MIRROR + 'escudos/' + f) : Promise.resolve(null); };
 function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x+r, y); c.arcTo(x+w, y, x+w, y+h, r); c.arcTo(x+w, y+h, x, y+h, r); c.arcTo(x, y+h, x, y, r); c.arcTo(x, y, x+w, y, r); c.closePath(); }
 function fit(c, t, w){ t = String(t); if(c.measureText(t).width <= w) return t; while(t.length > 1 && c.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; }
 function initials(n){ return String(n).split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
@@ -239,6 +266,51 @@ async function fila(c, p, y, h, res){
     c.stroke();
   }
 }
+function wrap(c, t, w, maxL){
+  const words = String(t).split(' '), L = []; let cur = '';
+  for(const wd of words){ const tt = cur ? cur + ' ' + wd : wd; if(c.measureText(tt).width <= w) cur = tt; else { if(cur) L.push(cur); cur = wd; } }
+  if(cur) L.push(cur); if(L.length > maxL){ L.length = maxL; L[maxL-1] = fit(c, L[maxL-1] + '…', w); } return L;
+}
+async function tarjeta(c, p, x, y, w, h){
+  const g = c.createLinearGradient(0, y, 0, y+h); g.addColorStop(0, 'rgba(20,34,31,.95)'); g.addColorStop(1, 'rgba(12,22,20,.95)');
+  rr(c, x, y, w, h, 28); c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.5; c.stroke();
+  c.save(); rr(c, x, y, w, h, 28); c.clip(); c.fillStyle = p.color || A; c.fillRect(x, y, w, 6); c.restore();
+  const px = x + 24; let cy = y + 30;
+  c.font = '600 19px Inter'; const lg = fit(c, lugar(p), w - 170), lw = c.measureText(lg).width + 28;
+  rr(c, px, cy, lw, 38, 19); c.fillStyle = 'rgba(255,255,255,.06)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1; c.stroke();
+  c.fillStyle = '#cfe0da'; c.fillText(lg, px + 14, cy + 26);
+  c.textAlign = 'right'; c.font = '700 25px Orbitron'; c.fillStyle = INK; c.fillText(hora(p.ts), x + w - 64, cy + 28);
+  c.font = '600 14px Inter'; c.fillStyle = DIM; c.fillText('ECU', x + w - 24, cy + 28); c.textAlign = 'left';
+  cy += 64; const hasC = p.sp !== 'tenis';
+  const [ih, ia] = hasC ? await Promise.all([crest(p.h), crest(p.a)]) : [null, null];
+  const nameW = w - 24 - 190;
+  [[p.h, ih], [p.a, ia]].forEach(([n, im], k) => {
+    const yy = cy + k*56; if(hasC) drawCrest(c, im, n, px, yy, 44);
+    c.font = '700 25px Inter'; c.fillStyle = INK; c.fillText(fit(c, n, nameW - (hasC ? 58 : 0)), px + (hasC ? 58 : 0), yy + 31);
+  });
+  c.textAlign = 'center'; c.font = '900 60px Orbitron'; c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.35)'; c.shadowBlur = 28;
+  c.fillText(p.prob + '%', x + w - 100, cy + 60); c.shadowBlur = 0; c.font = '500 16px Inter'; c.fillStyle = DIM; c.fillText('probabilidad', x + w - 100, cy + 88); c.textAlign = 'left';
+  cy += 126; c.font = '600 23px Inter'; const ls = wrap(c, p.label, w - 48, 2);
+  ls.forEach((t, k) => { c.fillStyle = '#dbe7e3'; c.fillText(t, px, cy + 26 + k*31); });
+  const v = (p.vals || []).slice(0, 10).reverse();
+  const by = y + h - 26, bh = Math.min(130, by - (cy + 26 + (ls.length-1)*31 + 34));
+  if(!v.length){ // sin racha guardada: barra de probabilidad y cuota mínima
+    const bw = w - 48, yb = by - 74;
+    rr(c, px, yb, bw, 16, 8); c.fillStyle = '#26332f'; c.fill();
+    rr(c, px, yb, Math.max(16, bw * p.prob/100), 16, 8); c.fillStyle = A; c.fill();
+    c.font = '500 18px Inter'; c.fillStyle = DIM; c.fillText('Cuota mínima para que valga la pena', px, by - 18);
+    c.textAlign = 'right'; c.font = '900 30px Orbitron'; c.fillStyle = INK; c.fillText((100/Math.max(1,p.prob)).toFixed(2), px + bw, by - 14); c.textAlign = 'left';
+  }
+  if(v.length && bh > 40){
+    const bw = w - 48 - 140, mx = Math.max(Math.max(...v), (p.ln||0) + 1), n = v.length, gp = 6, bwi = (bw - gp*(n-1)) / n;
+    v.forEach((a, k) => { const hh = Math.max(6, a/mx*(bh-22)), bx = px + k*(bwi+gp);
+      rr(c, bx, by - hh, bwi, hh, 5); c.fillStyle = a > p.ln ? A : '#3a4652'; c.fill();
+      c.font = '700 13px Orbitron'; c.fillStyle = '#9fb3ac'; c.textAlign = 'center'; c.fillText(String(a), bx + bwi/2, by - hh - 6); c.textAlign = 'left'; });
+    const ly = by - (p.ln/mx)*(bh-22); c.setLineDash([8, 6]); c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.beginPath(); c.moveTo(px - 4, ly); c.lineTo(px + bw + 4, ly); c.stroke(); c.setLineDash([]);
+    c.textAlign = 'center'; c.font = '900 34px Orbitron'; c.fillStyle = INK; c.fillText(`${p.hit}/${p.n}`, x + w - 24 - 64, by - 44);
+    c.font = '500 14px Inter'; c.fillStyle = DIM; c.fillText('últimos ' + p.n, x + w - 24 - 64, by - 22); c.fillText('superó la línea', x + w - 24 - 64, by - 4); c.textAlign = 'left';
+  }
+}
 async function lienzo(fn){
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
   await Promise.all([document.fonts.load('900 64px Orbitron'), document.fonts.load('700 24px Orbitron'), document.fonts.load('700 25px Inter'), document.fonts.load('800 27px Inter')]).catch(()=>{});
@@ -251,16 +323,16 @@ async function generar(sel, todos, G){
   const b = $('gen'); b.disabled = true; b.textContent = 'Creando…';
   OUT.forEach(o => URL.revokeObjectURL(o.url)); OUT = [];
   try{
-    if(MODE === 'pro'){
-      const pages = []; for(let i = 0; i < sel.length; i += 6) pages.push(sel.slice(i, i+6));
+    if(MODE !== 'res'){
+      const pages = []; for(let i = 0; i < sel.length; i += 4) pages.push(sel.slice(i, i+4));
       for(const [k, L] of pages.entries()){
         const r = await lienzo(async c => {
-          await cabecera(c, 'PRONÓSTICOS', 'DEL DÍA', G.k==='top' ? 'Hora de Ecuador' : G.ic + ' ' + G.t);
-          const top = 350, h = Math.min(150, Math.floor((H-180-top)/L.length));
-          for(const [i, p] of L.entries()) await fila(c, p, top + i*h, h, null);
+          await cabecera(c, MODE==='rac' ? 'RACHAS' : 'SUGERENCIAS', 'DEL DÍA', G.k==='top' ? 'Hora de Ecuador' : G.ic + ' ' + G.t);
+          const top = 340, gap = 22, cw = (W-120-gap)/2, ch = Math.floor((H-190-top-gap)/2);
+          for(const [i, p] of L.entries()) await tarjeta(c, p, 60 + (i%2)*(cw+gap), top + Math.floor(i/2)*(ch+gap), cw, ch);
           pie(c);
         });
-        const txt = `📊 PRONÓSTICOS DEL DÍA${GT(G)} · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map(p => `${p.sp==='futbol'?'⚽':p.sp==='tenis'?'🎾':p.sp==='nhl'?'🏒':p.sp==='mlb'?'⚾':'🏀'} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
+        const txt = `📊 ${MODE==='rac'?'RACHAS':'SUGERENCIAS'} DEL DÍA${GT(G)} · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map(p => `${p.sp==='futbol'?'⚽':p.sp==='tenis'?'🎾':p.sp==='nhl'?'🏒':p.sp==='mlb'?'⚾':'🏀'} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
           `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`;
         OUT.push(Object.assign(r, {txt, name: `alexbet-pronosticos-${DAY}${G.k==='top'?'':'-'+G.k}${pages.length>1?'-'+(k+1):''}.png`}));
       }
