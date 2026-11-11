@@ -119,6 +119,8 @@ const RGROUPS = [
   {k:'rbe',  t:'Básquet equipos',    ic:'🏀', f:p => ['nba','ncaa','eul'].includes(p.sp) && p.kind==='team'},
   {k:'rbj',  t:'Básquet jugadores',  ic:'⛹️', f:p => ['nba','ncaa','eul'].includes(p.sp) && p.kind==='player'},
   {k:'rnhl', t:'NHL',                ic:'🏒', f:p => p.sp==='nhl'},
+  {k:'rten', t:'Tenis',              ic:'🎾', f:p => p.sp==='tenis'},
+  {k:'rmlb', t:'MLB',                ic:'⚾', f:p => p.sp==='mlb'},
 ];
 let SPF = 'all', LGF = 'all';
 let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
@@ -138,7 +140,7 @@ async function cargar(){
     OPS = (o.items || []).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
       const label = `${who ? who + ' · ' : ''}Más de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
-      return {id:'op'+i, sp:x.sp, kind:x.kind, mk:x.mk, h:x.h, a:x.a, ts:x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
+      return {id:'op'+i, sp:x.sp, kind:x.kind, mk:x.mk, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
     });
     // las sugerencias de la app que coinciden con una racha muestran también sus barras
     PICKS.forEach(p => { const m = p.mkt || {}; if(m.t!=='tot' || m.o!==1) return; const mk = {g:'goles', c:'córners', k:'tarjetas'}[m.k] || (p.sp!=='futbol' && m.k==='p' ? 'puntos' : null); if(!mk) return;
@@ -183,7 +185,9 @@ async function cargar(){
     pintar();
   }catch(err){ $('app').innerHTML = `<div class="msg err">No se pudieron leer las sugerencias (${esc(err.message)}).</div>`; }
 }
-const dayPicks = () => (MODE==='rac' ? OPS : PICKS).filter(p => dayOf(p.ts) === DAY);
+// Rachas: las de Oportunidades + las sugerencias de deportes que no salen ahí (tenis, MLB) cuando tienen su racha
+const racPool = () => OPS.concat(PICKS.filter(p => p.vals && !['futbol','nba','ncaa','nhl','eul'].includes(p.sp)).map(p => Object.assign({}, p, {kind:'team'})));
+const dayPicks = () => (MODE==='rac' ? racPool() : PICKS).filter(p => dayOf(p.ts) === DAY);
 const GL = () => MODE==='rac' ? RGROUPS : GROUPS;
 const lugar = p => p.where || LGN[p.sp] || SPN[p.sp] || '';
 

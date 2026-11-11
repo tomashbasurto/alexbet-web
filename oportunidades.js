@@ -111,7 +111,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
         await Promise.allSettled([rcTeam(sp, g.h), rcTeam(sp, g.a)]);
         const C = id => (RC.sched[sp + '|' + String(id)] || {}).all || [];
         const Hs = C(g.h.id).slice().reverse(), As = C(g.a.id).slice().reverse(); if (Hs.length < 8 || As.length < 8) continue;
-        const base = {sp, lid: sp, lname: US[sp].name, color: US[sp].color, gid: g.id, h: g.h.name, a: g.a.name, when: g.d, ts: Date.parse(g.d)};
+        const base = {sp, lid: sp, lname: US[sp].name, color: US[sp].color, gid: g.id, h: g.h.name, a: g.a.name, when: g.d, ts: Date.parse(g.d + ':00Z')};
         const pts = usPts(sp), unit = US[sp].unit, tc = [];
         [[0, g.h.name, Hs, As], [1, g.a.name, As, Hs]].forEach(([t, nm, me, op]) => {
           const v = me.slice(0, 10).map(m => m.us), c = op.slice(0, 10).map(m => m.them), lam = (avg(v) + avg(c)) / 2;
