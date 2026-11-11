@@ -186,9 +186,34 @@ async function cargar(){
   }catch(err){ $('app').innerHTML = `<div class="msg err">No se pudieron leer las sugerencias (${esc(err.message)}).</div>`; }
 }
 // Rachas: las de Oportunidades + las sugerencias de deportes que no salen ahí (tenis, MLB) cuando tienen su racha
-const racPool = () => OPS.concat(PICKS.filter(p => p.vals && !['futbol','nba','ncaa','nhl','eul'].includes(p.sp)).map(p => Object.assign({}, p, {kind:'team'})));
-const dayPicks = () => (MODE==='rac' ? racPool() : PICKS).filter(p => dayOf(p.ts) === DAY);
-const GL = () => MODE==='rac' ? RGROUPS : GROUPS;
+// Pronósticos = sugerencias de la app + rachas de Oportunidades (sin repetir el mismo partido, mercado y línea)
+let TYPE = 'team';
+const MKN = {g:'goles', k:'córners', c:'tarjetas', p:'puntos'};
+function proPool(){
+  const P = PICKS.map(p => Object.assign({}, p, {kind:'team'}));
+  const seen = new Set(P.map(p => { const m = p.mkt || {}; return m.t==='tot' && m.o===1 ? `${p.h}|${p.a}|${MKN[m.k]||''}|${m.L}` : ''; }).filter(Boolean));
+  return P.concat(OPS.filter(o => !(o.kind==='team' && /en el partido$/.test(o.label) && seen.has(`${o.h}|${o.a}|${o.mk}|${o.ln}`))));
+}
+const dayPicks = () => (MODE==='res' ? PICKS : proPool().filter(p => p.kind === TYPE)).filter(p => dayOf(p.ts) === DAY);
+// mercados: fijos para equipos; para jugadores, uno por cada mercado que haya ese día (puntos, rebotes, faltas…)
+const TGROUPS = [
+  {k:'top', t:'Top del día', ic:'⭐', f:p => true},
+  {k:'gol', t:'Goles', ic:'⚽', f:p => p.sp==='futbol' && (p.cat==='goles' || p.mk==='goles')},
+  {k:'cor', t:'Córners', ic:'🚩', f:p => p.sp==='futbol' && (p.cat==='corn' || p.mk==='córners')},
+  {k:'tar', t:'Tarjetas', ic:'🟨', f:p => p.sp==='futbol' && (p.cat==='tarj' || p.mk==='tarjetas')},
+  {k:'rem', t:'Remates al arco', ic:'🎯', f:p => p.sp==='futbol' && p.mk==='remates al arco'},
+  {k:'fres', t:'Fútbol · resultado', ic:'⚽', f:p => p.sp==='futbol' && !p.mk && !['goles','corn','tarj'].includes(p.cat)},
+  {k:'bas', t:'Básquet', ic:'🏀', f:p => ['nba','ncaa','eul'].includes(p.sp)},
+  {k:'nhl', t:'NHL', ic:'🏒', f:p => p.sp==='nhl'},
+  {k:'mlb', t:'MLB', ic:'⚾', f:p => p.sp==='mlb'},
+  {k:'ten', t:'Tenis', ic:'🎾', f:p => p.sp==='tenis'},
+];
+function GL(){
+  if(MODE==='res') return GROUPS;
+  if(TYPE==='team') return TGROUPS;
+  const mks = [...new Set(OPS.filter(o => o.kind==='player' && dayOf(o.ts)===DAY).map(o => o.mk))].sort((a,b)=>a.localeCompare(b,'es'));
+  return [{k:'top', t:'Top del día', ic:'⭐', f:p => true}].concat(mks.map(m => ({k:'m:'+m, t:m.charAt(0).toUpperCase()+m.slice(1), ic:'👤', f:p => p.mk===m})));
+}
 const lugar = p => p.where || LGN[p.sp] || SPN[p.sp] || '';
 
 // ---------- pantalla ----------
@@ -214,18 +239,19 @@ function pintar(){
     }
     pre.forEach(p => SEL[key][p.id] = 1); }
   const S = SEL[key], maxN = MODE === 'res' ? 5 : 4;
-  const pool = MODE === 'res' ? all0.filter(p => p.res === 0 || p.res === 1) : all0;
+  const pool = MODE === 'res' ? all0.filter(p => p.res === 0 || p.res === 1) : proPool().filter(p => dayOf(p.ts) === DAY); // equipos y jugadores juntos
   const chosen = pool.filter(p => S[p.id]).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob)), nSel = chosen.length;
   const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
   $('app').innerHTML = `
-    <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="rac" class="${MODE==='rac'?'on':''}">Rachas</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
+    <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
     <div class="days">
       <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
       <button data-d="${hoy()}" class="${DAY===hoy()?'on':''}">Hoy</button>
       <button data-d="${sumDay(hoy(),1)}" class="${DAY===sumDay(hoy(),1)?'on':''}">Mañana</button>
       <input type="date" id="dd" value="${DAY}">
     </div>
+    ${MODE!=='res' ? `<div class="seg"><button data-t="team" class="${TYPE==='team'?'on':''}">Equipos y partidos</button><button data-t="player" class="${TYPE==='player'?'on':''}">Jugadores</button></div>` : ''}
     <div class="flt">
       <label><span>Deporte</span><select id="fSp"><option value="all">Todos (${all0.length})</option>${sps.map(k => `<option value="${k}" ${SPF===k?'selected':''}>${esc(SPN[k]||k)} (${all0.filter(p=>p.sp===k).length})</option>`).join('')}</select></label>
       <label><span>Liga</span><select id="fLg"><option value="all">Todas (${all1.length})</option>${lgs.map(k => `<option value="${esc(k)}" ${LGF===k?'selected':''}>${esc(k)} (${all1.filter(p=>lugar(p)===k).length})</option>`).join('')}</select></label>
@@ -240,7 +266,7 @@ function pintar(){
         ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}<span class="p">${p.prob}%</span>
       </div>`).join('') : `<div class="empty">${MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
     </div>
-    ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">${MODE==='rac' ? 'Rachas: equipos y jugadores que superaron la línea en sus últimos partidos (pestaña Oportunidades de la app).' : 'Las sugerencias son las mismas que publica la app ese día.'} Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
+    ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Están todas: las sugerencias de la app y las rachas de Oportunidades (equipos y jugadores que superaron la línea en sus últimos partidos). Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
     <div class="chosen"><div class="ch-h"><b>Elegidas: ${nSel}</b>${nSel ? '<button id="clr">Quitar todas</button>' : ''}</div>
       ${nSel ? chosen.map(p => `<div class="ch" data-x="${esc(p.id)}"><span>${ico(p.sp)}</span><em>${esc(p.label)} <small>· ${esc(p.h)} vs ${esc(p.a)}</small></em><i>✕</i></div>`).join('') : '<div class="note" style="margin:4px 0 0">Marca sugerencias de cualquier deporte; se juntan aquí.</div>'}
     </div>
@@ -250,6 +276,7 @@ function pintar(){
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
   document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DAY = b.dataset.d; OUT=[]; pintar(); });
   $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
+  document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TYPE = b.dataset.t; GRP = 'top'; OUT=[]; pintar(); });
   $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; OUT=[]; pintar(); };
   $('fLg').onchange = e => { LGF = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
@@ -420,15 +447,17 @@ async function generar(sel, todos, G){
   OUT.forEach(o => URL.revokeObjectURL(o.url)); OUT = [];
   try{
     if(MODE !== 'res'){
-      const pages = []; for(let i = 0; i < sel.length; i += 4) pages.push(sel.slice(i, i+4));
+      // reparto parejo: 6 elegidas = 3 + 3, no 4 + 2
+      const nP = Math.ceil(sel.length / 4), per = Math.ceil(sel.length / Math.max(1, nP)), pages = []; for(let i = 0; i < sel.length; i += per) pages.push(sel.slice(i, i+per));
       for(const [k, L] of pages.entries()){
         const r = await lienzo(async c => {
-          await cabecera(c, MODE==='rac' ? 'RACHAS' : 'SUGERENCIAS', 'DEL DÍA', subOf(sel));
+          await cabecera(c, 'PRONÓSTICOS', 'DEL DÍA', subOf(L));
           const top = 340, gap = 22, cw = (W-120-gap)/2, ch = Math.floor((H-190-top-gap)/2);
-          for(const [i, p] of L.entries()) await tarjeta(c, p, 60 + (i%2)*(cw+gap), top + Math.floor(i/2)*(ch+gap), cw, ch);
+          if(L.length <= 2){ for(const [i, p] of L.entries()) await tarjeta(c, p, 60, top + i*(ch+gap), W-120, ch); } // 1 o 2: una debajo de otra, a lo ancho
+          else for(const [i, p] of L.entries()) await tarjeta(c, p, 60 + (i%2)*(cw+gap), top + Math.floor(i/2)*(ch+gap), cw, ch);
           pie(c);
         });
-        const txt = `📊 ${MODE==='rac'?'RACHAS':'SUGERENCIAS'} DEL DÍA${GT(G)} · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map(p => `${p.sp==='futbol'?'⚽':p.sp==='tenis'?'🎾':p.sp==='nhl'?'🏒':p.sp==='mlb'?'⚾':'🏀'} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
+        const txt = `📊 PRONÓSTICOS DEL DÍA${GT(G)} · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map(p => `${p.sp==='futbol'?'⚽':p.sp==='tenis'?'🎾':p.sp==='nhl'?'🏒':p.sp==='mlb'?'⚾':'🏀'} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
           `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`;
         OUT.push(Object.assign(r, {txt, name: `alexbet-pronosticos-${DAY}${G.k==='top'?'':'-'+G.k}${pages.length>1?'-'+(k+1):''}.png`}));
       }
