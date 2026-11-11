@@ -23,6 +23,12 @@
   .days button, .days input{ min-height:38px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--dim); font:600 13px Inter; cursor:pointer; }
   .days button.on{ border-color:var(--accent); color:var(--accent); }
   .days input{ color:var(--ink); background:var(--surface-2); color-scheme:dark; }
+  .chosen{ margin-top:12px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 12px; }
+  .ch-h{ display:flex; justify-content:space-between; align-items:center; font-size:14px; margin-bottom:6px; }
+  .ch-h button{ border:0; background:transparent; color:var(--bad); font:600 13px Inter; cursor:pointer; }
+  .ch{ display:flex; align-items:center; gap:8px; padding:7px 0; border-top:1px solid var(--line); font-size:13px; cursor:pointer; }
+  .ch em{ flex:1; font-style:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .ch em small{ color:var(--dim); }
+  .ch i{ font-style:normal; color:var(--dim); padding:0 4px; }
   .flt{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px; }
   .flt label span{ display:block; font-size:12px; font-weight:700; color:var(--dim); margin-bottom:5px; }
   .flt select{ width:100%; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13.5px Inter; padding:0 10px; color-scheme:dark; }
@@ -194,7 +200,8 @@ function pintar(){
   if(!gs.find(g => g.k === GRP)) GRP = 'top';
   const G = GL().find(g => g.k === GRP);
   const list = base.filter(G.f).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob));
-  const key = MODE + DAY + GRP + SPF + LGF;
+  // lo elegido se guarda por pestaña y día: se puede cambiar de deporte, liga o mercado y seguir sumando
+  const key = MODE + DAY;
   if(!SEL[key]){ SEL[key] = {};
     let pre = (MODE === 'res' ? list.slice(0, 5) : list.slice(0, 4));
     if(MODE === 'res' && list.length > 5){ // por defecto, la misma proporción de aciertos y fallos que el balance real
@@ -202,7 +209,10 @@ function pintar(){
       const nOk = Math.min(okL.length, Math.round(5 * okL.length / list.length)); pre = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b)=>a.ts-b.ts);
     }
     pre.forEach(p => SEL[key][p.id] = 1); }
-  const S = SEL[key], nSel = list.filter(p => S[p.id]).length, maxN = MODE === 'res' ? 5 : 4;
+  const S = SEL[key], maxN = MODE === 'res' ? 5 : 4;
+  const pool = MODE === 'res' ? all0.filter(p => p.res === 0 || p.res === 1) : all0;
+  const chosen = pool.filter(p => S[p.id]).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob)), nSel = chosen.length;
+  const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
   $('app').innerHTML = `
     <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="rac" class="${MODE==='rac'?'on':''}">Rachas</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
@@ -218,7 +228,7 @@ function pintar(){
     </div>
     <label class="h">Mercado</label>
     <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>
-    <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige las que quieras (4 por imagen)'} · ${nSel} elegidas</label>
+    <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige las que quieras (4 por imagen)'} · puedes mezclar deportes y ligas</label>
     <div class="list">${list.length ? list.map(p => `
       <div class="row" data-id="${esc(p.id)}">
         <input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1">
@@ -227,6 +237,9 @@ function pintar(){
       </div>`).join('') : `<div class="empty">${MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
     </div>
     ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">${MODE==='rac' ? 'Rachas: equipos y jugadores que superaron la línea en sus últimos partidos (pestaña Oportunidades de la app).' : 'Las sugerencias son las mismas que publica la app ese día.'} Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
+    <div class="chosen"><div class="ch-h"><b>Elegidas: ${nSel}</b>${nSel ? '<button id="clr">Quitar todas</button>' : ''}</div>
+      ${nSel ? chosen.map(p => `<div class="ch" data-x="${esc(p.id)}"><span>${ico(p.sp)}</span><em>${esc(p.label)} <small>· ${esc(p.h)} vs ${esc(p.a)}</small></em><i>✕</i></div>`).join('') : '<div class="note" style="margin:4px 0 0">Marca sugerencias de cualquier deporte; se juntan aquí.</div>'}
+    </div>
     <button class="btn" id="gen" ${nSel?'':'disabled style="opacity:.5"'}>Crear ${MODE==='res'?'imagen de resultados':'imágenes'}</button>
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
@@ -237,7 +250,11 @@ function pintar(){
   $('fLg').onchange = e => { LGF = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
   document.querySelectorAll('.row').forEach(r => r.onclick = () => { const id = r.dataset.id; if(S[id]) delete S[id]; else { if(MODE==='res' && nSel>=maxN) return; S[id] = 1; } pintar(); });
-  $('gen').onclick = () => generar(list.filter(p => S[p.id]), base.filter(G.f), G);
+  document.querySelectorAll('[data-x]').forEach(r => r.onclick = () => { delete S[r.dataset.x]; pintar(); });
+  if($('clr')) $('clr').onclick = () => { Object.keys(S).forEach(k => delete S[k]); pintar(); };
+  // balance de resultados: todas las del día en los deportes elegidos
+  const sps2 = [...new Set(chosen.map(p => p.sp))];
+  $('gen').onclick = () => generar(chosen, pool.filter(p => sps2.includes(p.sp)), G);
   $('out').onclick = () => signOut(auth);
   pintarOut();
 }
@@ -390,7 +407,10 @@ async function lienzo(fn){
   const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
   return {blob, url: URL.createObjectURL(blob)};
 }
-const GT = g => g.k === 'top' ? '' : ' · ' + g.t.toUpperCase();
+// subtítulo según lo elegido: una liga, un deporte o varios
+function subOf(sel, def){ const sp = [...new Set(sel.map(p => p.sp))], lg = [...new Set(sel.map(lugar))];
+  if(lg.length === 1) return lg[0]; if(sp.length === 1) return SPN[sp[0]] || sp[0]; return def || sp.map(k => SPN[k] || k).join(' · '); }
+const GT = g => '';
 async function generar(sel, todos, G){
   const b = $('gen'); b.disabled = true; b.textContent = 'Creando…';
   OUT.forEach(o => URL.revokeObjectURL(o.url)); OUT = [];
@@ -399,7 +419,7 @@ async function generar(sel, todos, G){
       const pages = []; for(let i = 0; i < sel.length; i += 4) pages.push(sel.slice(i, i+4));
       for(const [k, L] of pages.entries()){
         const r = await lienzo(async c => {
-          await cabecera(c, MODE==='rac' ? 'RACHAS' : 'SUGERENCIAS', 'DEL DÍA', LGF!=='all' ? LGF : SPF!=='all' ? (SPN[SPF]||SPF) + (G.k==='top' ? '' : ' · ' + G.t) : G.k==='top' ? 'Hora de Ecuador' : G.ic + ' ' + G.t);
+          await cabecera(c, MODE==='rac' ? 'RACHAS' : 'SUGERENCIAS', 'DEL DÍA', subOf(sel));
           const top = 340, gap = 22, cw = (W-120-gap)/2, ch = Math.floor((H-190-top-gap)/2);
           for(const [i, p] of L.entries()) await tarjeta(c, p, 60 + (i%2)*(cw+gap), top + Math.floor(i/2)*(ch+gap), cw, ch);
           pie(c);
@@ -412,7 +432,7 @@ async function generar(sel, todos, G){
       const ok = todos.filter(p => p.res === 1).length, n = todos.length, pct = n ? Math.round(ok/n*100) : 0;
       const L = sel.slice(0, 5);
       const r = await lienzo(async c => {
-        await cabecera(c, 'RESULTADOS', DAY===sumDay(hoy(),-1) ? 'DE AYER' : 'DEL DÍA', G.k==='top' ? 'Sugerencias de la app' : G.ic + ' ' + G.t);
+        await cabecera(c, 'RESULTADOS', DAY===sumDay(hoy(),-1) ? 'DE AYER' : 'DEL DÍA', subOf(sel, 'Sugerencias de la app'));
         // balance
         rr(c, 60, 340, W-120, 150, 26); c.fillStyle = 'rgba(198,255,0,.08)'; c.fill(); c.strokeStyle = 'rgba(198,255,0,.35)'; c.lineWidth = 2; c.stroke();
         c.font = '900 86px Orbitron'; c.fillStyle = A; c.fillText(`${ok}/${n}`, 96, 450);
