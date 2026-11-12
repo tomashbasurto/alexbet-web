@@ -27,6 +27,9 @@ jobs:
         run: |
           npm i --no-save --no-package-lock playwright@1.47.2
           npx playwright install --with-deps chromium
+      - name: Programa de video
+        if: inputs.modo == 'reel'
+        run: which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Publicar
         run: node facebook.js "${{ inputs.modo }}" ${{ inputs.prueba == 'si' && '--prueba' || '' }}
         env:

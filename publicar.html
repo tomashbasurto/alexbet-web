@@ -607,7 +607,9 @@ if(new URLSearchParams(location.search).has('bot')){
         const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
         if(m === 'pro') SELB = variado(pool.filter(p => p.kind === 'team'), 4, 2).sort((a,b) => b.prob - a.prob);
         else {
-          SELB = variado(pool.filter(p => p.kind === 'team' && p.vals), 2, 1).concat(variado(pool.filter(p => p.kind === 'player' && p.vals && p.role !== 'alt'), 2, 2));
+          // jugadores: primero los titulares de básquet (puntos, rebotes, asistencias, triples); si no hay, otros con línea de verdad (1.5 o más)
+          const pl = pool.filter(p => p.kind === 'player' && p.vals), plTop = pl.filter(p => p.role === 'top').sort((a,b) => b.prob - a.prob), plOtros = pl.filter(p => !p.role && p.ln >= 1.5 && !/falta|tarjeta/i.test(p.mk || ''));
+          SELB = variado(pool.filter(p => p.kind === 'team' && p.vals), 2, 1).concat(variado(plTop.length ? plTop : plOtros, 2, 2));
           if(SELB.length < 4) SELB = SELB.concat(variado(pool.filter(p => !SELB.includes(p) && p.vals), 4 - SELB.length, 4));
         }
         TODOS = SELB;
