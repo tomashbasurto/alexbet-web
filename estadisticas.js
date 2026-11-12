@@ -85,7 +85,7 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
     const nt = [];
     Object.entries(NATC).forEach(([lg, code]) => (((D.fx || {})[lg] || {}).fx || []).forEach(f => {
       if (f.s !== 'FT' || !/^e\d+$/.test(f.i || '')) return; const id = f.i.slice(1), t = Date.parse(f.d + ':00Z'); if (t < lim) return;
-      if (S.ev[id] && (S.ev[id][6] || []).length >= KEYS.length) return; nt.push([code, id, t]); }));
+      if (S.ev[id] && (S.ev[id][6] || []).length >= KEYS.length) { S.ev[id][8] = code; return; } nt.push([code, id, t]); })); // [8] = competencia exacta (para pedir jugadores a ESPN)
     nt.sort((x, y) => y[2] - x[2]);
     let nok = 0;
     for (let i = 0; i < nt.length; i += 8) {
@@ -97,7 +97,7 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
         const row = cmp => { const tt = bt.find(x => x.team && String(x.team.id) === String(cmp.team.id)), st = (tt && tt.statistics) || [];
           return KEYS.map((k, i) => { if (!i) return sc(cmp); const s0 = st.find(x => k.includes(x.name)); if (!s0) return null; const v = parseFloat(s0.displayValue ?? s0.value); return isNaN(v) ? null : v; }); };
         const nm = x => { const n = x.team.displayName || x.team.name; return NAT_ES[n] || n; };
-        S.ev[id] = [t, 'sel', H.team.id, A.team.id, nm(H), nm(A), row(H), row(A)]; nok++;
+        S.ev[id] = [t, 'sel', H.team.id, A.team.id, nm(H), nm(A), row(H), row(A), code]; nok++;
       }));
     }
     console.log('Selecciones: partidos por pedir', nt.length, '· con estadísticas nuevas', nok);

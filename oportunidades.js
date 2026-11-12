@@ -111,7 +111,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
       tc.sort((p, q) => q.p - p.p || q.hit - p.hit).slice(0, 2).forEach(c => out.push(Object.assign({}, base, {kind: 'team'}, c)));
       // jugadores
       for (const [t, id] of [[0, hid], [1, aid]]) {
-        const G = pbGames(id).slice(0, 10).map(g => { const slug = (SRC[g.lid] || {}).espn; return {id: g.id, sp: 'futbol', side: g.home ? 'h' : 'a', url: slug ? `${ESPN_BASE}/${slug}/summary?event=${g.id}` : null}; });
+        const G = pbGames(id).slice(0, 10).map(g => { const slug = g.slug; return {id: g.id, sp: 'futbol', side: g.home ? 'h' : 'a', url: slug ? `${ESPN_BASE}/${slug}/summary?event=${g.id}` : null}; });
         await summaries(G);
         players('futbol', G).forEach(c => out.push(Object.assign({}, base, {kind: 'player', t, team: t ? an : hn}, c)));
       }
