@@ -195,14 +195,14 @@ async function cargar(){
 }
 // Rachas: las de Oportunidades + las sugerencias de deportes que no salen ahí (tenis, MLB) cuando tienen su racha
 // Pronósticos = sugerencias de la app + rachas de Oportunidades (sin repetir el mismo partido, mercado y línea)
-let TYPE = 'team';
+let TYPE = 'team', ROLE = 'all'; // v48 · jugadores de básquet: titulares o suplentes (como en Oportunidades de la app)
 const MKN = {g:'goles', k:'córners', c:'tarjetas', p:'puntos'};
 function proPool(){
   const P = PICKS.map(p => Object.assign({}, p, {kind:'team'}));
   const seen = new Set(P.map(p => { const m = p.mkt || {}; return m.t==='tot' && m.o===1 ? `${p.h}|${p.a}|${MKN[m.k]||''}|${m.L}` : ''; }).filter(Boolean));
   return P.concat(OPS.filter(o => !(o.kind==='team' && /en el partido$/.test(o.label) && seen.has(`${o.h}|${o.a}|${o.mk}|${o.ln}`))));
 }
-const dayPicks = () => (MODE==='res' ? PICKS : proPool().filter(p => p.kind === TYPE)).filter(p => dayOf(p.ts) === DAY);
+const dayPicks = () => (MODE==='res' ? PICKS : proPool().filter(p => p.kind === TYPE && (TYPE !== 'player' || ROLE === 'all' || p.role === ROLE))).filter(p => dayOf(p.ts) === DAY);
 // mercados: fijos para equipos; para jugadores, uno por cada mercado que haya ese día (puntos, rebotes, faltas…)
 const TGROUPS = [
   {k:'top', t:'Top del día', ic:'⭐', f:p => true},
@@ -262,6 +262,8 @@ function pintar(){
       <input type="date" id="dd" value="${DAY}">
     </div>
     ${MODE!=='res' ? `<div class="seg"><button data-t="team" class="${TYPE==='team'?'on':''}">Equipos y partidos</button><button data-t="player" class="${TYPE==='player'?'on':''}">Jugadores</button></div>` : ''}
+    ${MODE!=='res' && TYPE==='player' ? (() => { const P = proPool().filter(p => p.kind === 'player' && dayOf(p.ts) === DAY), n = r => r === 'all' ? P.length : P.filter(p => p.role === r).length;
+      return `<div class="seg">${[['all','Todos'],['top','Titulares'],['alt','Suplentes']].map(([k,t]) => `<button data-r="${k}" class="${ROLE===k?'on':''}">${t} <small style="opacity:.7">${n(k)}</small></button>`).join('')}</div>`; })() : ''}
     <div class="flt">
       <label><span>Deporte</span><select id="fSp"><option value="all">Todos (${all0.length})</option>${sps.map(k => `<option value="${k}" ${SPF===k?'selected':''}>${esc(SPN[k]||k)} (${all0.filter(p=>p.sp===k).length})</option>`).join('')}</select></label>
       <label><span>Liga</span><select id="fLg"><option value="all">Todas (${all1.length})</option>${lgs.map(k => `<option value="${esc(k)}" ${LGF===k?'selected':''}>${esc(k)} (${all1.filter(p=>lugar(p)===k).length})</option>`).join('')}</select></label>
@@ -295,6 +297,7 @@ function pintar(){
   document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DAY = b.dataset.d; OUT=[]; pintar(); });
   $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
   document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TYPE = b.dataset.t; GRP = 'top'; OUT=[]; pintar(); });
+  document.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { ROLE = b.dataset.r; GRP = 'top'; SPF = 'all'; LGF = 'all'; OUT=[]; pintar(); });
   $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; OUT=[]; pintar(); };
   $('fLg').onchange = e => { LGF = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
