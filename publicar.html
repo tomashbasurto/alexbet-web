@@ -517,7 +517,7 @@ async function generar(sel, todos, G){
 }
 
 // ---------- video con voz ----------
-const VZ = {id: 'es_MX-ald-medium', tono: 0.92, vel: 1.1, voz: null, busy: false, out: null, cv: null};
+const VZ = {id: 'es_ES-sharvard-medium', tono: 1, vel: 1, voz: null, busy: false, out: null, cv: null};
 const vmsg = (t, pct) => { const m = $('vMsg'); if(m) m.innerHTML = esc(t) + (pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''); };
 async function precargar(){ // si la voz ya está guardada, se prepara en segundo plano
   if(VZ.voz || VZ.pre) return; if(!(await vozGuardada(VZ.id))) return;
@@ -631,7 +631,7 @@ if(new URLSearchParams(location.search).has('bot')){
         .map(([t, f]) => { const L = R.filter(f); return L.length ? `${t}: ${L.filter(p => p.res === 1).length} de ${L.length}` : ''; }).filter(Boolean);
       return `✅ RESULTADOS DE AYER · ${fechaTxt(d).toLowerCase()}\n\n${ok} de ${R.length} sugerencias acertadas (${R.length ? Math.round(ok / R.length * 100) : 0}%)\n\n${G.join('\n')}\n\nAciertos y fallos, sin esconder nada. Todas, día por día 👉 alexbetpro.web.app/resultados.html\nLas de hoy ya están listas 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`; },
     async video(){
-      VZ.id = 'es_MX-ald-medium'; VZ.tono = 0.92; VZ.vel = 1.1;
+      VZ.id = 'es_ES-sharvard-medium'; VZ.tono = 1; VZ.vel = 1; // voz elegida por Alexander: España · hombre 2, tono y velocidad normales
       const voz = await vozLista(), logo = await loadImg('icon-512.png');
       const r = await crearVideo(SELB, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
       const a = document.createElement('a'); a.href = r.url; a.download = `alexbet-reel-${DAY}.${r.ext}`; document.body.appendChild(a); a.click();
