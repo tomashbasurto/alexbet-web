@@ -38,9 +38,23 @@ async function bajar(u) {
   return null;
 }
 
+// fotos de los jugadores de Oportunidades (para los videos): clave "j:<id de ESPN>"
+const O = read('oportunidades.json') || {items: []};
+const HS = {nba: 'nba', ncaa: 'mens-college-basketball', nhl: 'nhl', futbol: 'soccer', mlb: 'mlb'};
+const fotos = {};
+(O.items || []).filter(x => x.kind === 'player' && x.pid && HS[x.sp]).forEach(x => { const id = String(x.pid).split('|')[0]; if (/^\d+$/.test(id)) fotos['j:' + id] = `https://a.espncdn.com/i/headshots/${HS[x.sp]}/players/full/${id}.png`; });
+
 (async () => {
   fs.mkdirSync(DIR, {recursive: true});
-  let nuevos = 0;
+  let nuevos = 0, nf = 0;
+  for (const [k, u] of Object.entries(fotos)) {
+    if (MAP[k] === '-' || (MAP[k] && fs.existsSync(DIR + '/' + MAP[k]))) continue;
+    const f = 'j' + crypto.createHash('md5').update(u).digest('hex').slice(0, 11) + '.png';
+    const r = await (async () => { for (let i = 0; i < 2; i++) { try { const x = await fetch(`https://a.espncdn.com/combiner/i?img=${u.replace('https://a.espncdn.com', '')}&w=350&h=254`, {headers: {'User-Agent': 'Mozilla/5.0 AlexBet'}}); if (x.ok) return Buffer.from(await x.arrayBuffer()); if (x.status === 404) return null; } catch (e) {} await new Promise(z => setTimeout(z, 800)); } return null; })();
+    if (!r) { MAP[k] = '-'; continue; } // sin foto en ESPN: no se vuelve a intentar
+    fs.writeFileSync(DIR + '/' + f, r); MAP[k] = f; nf++;
+  }
+  console.log('fotos de jugadores nuevas', nf);
   for (const n of nombres) {
     const u = url[n]; if (!u) continue;
     const f = crypto.createHash('md5').update(u).digest('hex').slice(0, 12) + '.png';

@@ -10,6 +10,7 @@ on:
       - 'oficial.js'
       - 'admin.html'
       - 'publicar.html'
+      - 'video.js'
       - 'resultados.html'
       - 'sw.js'
       - 'manifest.webmanifest'
