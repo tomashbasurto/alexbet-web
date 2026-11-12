@@ -57,6 +57,9 @@
   .pv textarea{ width:100%; min-height:150px; margin-top:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:13px/1.45 Inter; padding:10px; resize:vertical; }
   .msg{ font-size:13px; color:var(--dim); line-height:1.5; margin:12px 0; }
   .err{ color:var(--bad); }
+  .rlink{ display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:12px; }
+  .rlink > div{ flex:1; min-width:0; } .rlink b{ display:block; font-size:14px; } .rlink small{ display:block; font-size:11.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rl-b{ flex:none; min-height:38px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--accent); font:700 13px Inter; text-decoration:none; display:inline-flex; align-items:center; cursor:pointer; }
   .vbox{ margin-top:12px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; }
   .vbox canvas, .vbox video{ display:block; width:100%; max-width:340px; margin:10px auto 0; border-radius:14px; background:#000; }
   .vbox textarea{ width:100%; min-height:130px; margin-top:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:13px/1.45 Inter; padding:10px; }
@@ -249,6 +252,8 @@ function pintar(){
   const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
   $('app').innerHTML = `
+    <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
+      <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
     <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
     <div class="days">
       <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
@@ -300,6 +305,8 @@ function pintar(){
   const sps2 = [...new Set(chosen.map(p => p.sp))];
   $('gen').onclick = () => generar(chosen, pool.filter(p => sps2.includes(p.sp)), G);
   $('out').onclick = () => signOut(auth);
+  $('rlCp').onclick = async () => { const u = 'https://alexbetpro.web.app/resultados.html', b = $('rlCp');
+    try{ if(navigator.share && /iPhone|Android/i.test(navigator.userAgent)) await navigator.share({url: u, text: 'Resultados reales de AlexBet: aciertos y fallos de todas las sugerencias 👇'}); else { await navigator.clipboard.writeText(u); b.textContent = 'Copiado ✓'; } }catch(e){} };
   if($('vGen')){
     $('vVoz').onchange = e => { VZ.id = e.target.value; VZ.voz = null; VZ.pre = null; precargar(); };
     precargar();
