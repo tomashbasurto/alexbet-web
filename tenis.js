@@ -236,6 +236,18 @@ function tnLive(m, base) {
 
 // ---------- Pantallas ----------
 const tnPc = x => Math.round(Math.max(0, Math.min(1, x)) * 100);
+// v47 · foto del jugador (ESPN) con la bandera en la esquina; si no hay foto, bandera grande
+function tnPhoto(s) { return /^\d+$/.test(s.id || '') ? `https://a.espncdn.com/combiner/i?img=/i/headshots/tennis/players/full/${s.id}.png&w=120&h=120&scale=crop&cquality=80&location=origin` : ''; }
+function tnAv(s, big) {
+  const ini = escA(initials(s.name || '?')), ph = tnPhoto(s);
+  const fl = s.flag ? `<img class="tn-fl" src="${escA(s.flag)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '';
+  return `<span class="tn-av${big ? ' big' : ''}${ph ? '' : ' nf'}"><i class="tn-ini" style="background:${hashColor(s.name || '?')}">${ini}</i>${ph ? `<img class="tn-ph" src="${ph}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('nf');this.remove()">` : ''}${fl}</span>`;
+}
+function tnMini(s) {
+  const ph = tnPhoto(s), bg = hashColor(s.name || '?'), ini = escA(initials(s.name || '?'));
+  const fb = s.flag ? `this.onerror=function(){var p=this.parentNode;p.style.background='${bg}';p.textContent='${ini}'};this.src='${escA(s.flag)}'` : `var p=this.parentNode;p.style.background='${bg}';p.textContent='${ini}'`;
+  return ph ? `<i class="cm ph"><img src="${ph}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="${fb}"></i>` : s.flag ? `<i class="cm ph"><img src="${escA(s.flag)}" alt="" loading="lazy"></i>` : `<i class="cm" style="background:${bg}">${ini}</i>`;
+}
 function tnFlag(s) { return s.flag ? `<img src="${escA(s.flag)}" alt="" width="16" height="11" style="vertical-align:-1px;margin-right:5px;border-radius:2px;object-fit:cover">` : ''; }
 function tnRankTag(X) { return X.rank ? `<small style="color:var(--ink-dim);font-weight:500"> #${X.rank}</small>` : ''; }
 function tnList() {
@@ -251,7 +263,8 @@ function tnHeader() {
 function tnEmpty(what) {
   if (TN.loading && !TN.t) return `<div class="empty-state">Cargando tenis…</div>`;
   if (TN.err && !TN.t) return `<div class="empty-state">No pude conectar con ESPN para tenis (${escA(TN.err)}).<br><br><button class="btn primary" onclick="tnLoad(true)">Reintentar</button></div>`;
-  return `<div class="empty-state">No hay partidos de tenis ${what}. Prueba otro día.</div>`;
+  if (/en vivo|terminad/.test(what)) return `<div class="empty-state">No hay partidos de tenis ${what}. Prueba otro día.</div>`;
+  return emptyDay({ic: 'tenis', titleToday: 'Hoy no hay tenis', title: 'No hay partidos de tenis ese día', next: edNext(tnList().filter(m => m.state === 'pre').map(m => isoDateOnlyEcuador(m.d, 0)))});
 }
 function tnScore(m) {
   const n = Math.max(m.p[0].sets.length, m.p[1].sets.length);
@@ -261,7 +274,7 @@ function tnScore(m) {
 }
 function tnTime(m, f) { return m.tv ? f.time : 'Por conf.'; }
 function tnRow(m, M, mid) {
-  const pl = (s, X, right) => `<div class="team${right ? ' away' : ''}">${badgeHTML(s.name, false)}<div class="team-name">${tnFlag(s)}${escA(abCompact() ? s.short : s.name)}${tnRankTag(X)}${abCompact() ? '' : favStar(s.name)}</div></div>`;
+  const pl = (s, X, right) => `<div class="team${right ? ' away' : ''}">${tnAv(s)}<div class="team-name">${escA(abCompact() ? s.short : s.name)}${tnRankTag(X)}${abCompact() ? '' : favStar(s.name)}</div></div>`;
   return `<div class="teams-row">${pl(m.p[0], M.A)}${mid}${pl(m.p[1], M.B, true)}</div>`;
 }
 function tnMeta(m, f) {
@@ -325,7 +338,7 @@ function tnRenderPicks() {
   const top = rows.slice(0, 10);
   list.innerHTML = tnHeader() + cbx + `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones de tenis</h3>` + (top.length ? top.map(x => {
     const f = fmtParts(x.m.d, 0);
-    return `<div class="pick-row" onclick="tnOpen('${x.m.id}')"><div class="pick-main"><b>${escA(x.k.label)}</b><small>${escA(x.m.p[0].name)} vs ${escA(x.m.p[1].name)} · ${tnTime(x.m, f)} · ${TN_TOURS[x.m.tour].name} ${escA(x.m.ev)}${x.M.est ? ' · (est.)' : ''}</small></div><div class="pick-pct"><b>${x.k.prob}%</b></div></div>`;
+    return `<div class="pick-row" onclick="tnOpen('${x.m.id}')"><span class="pk-duo" aria-hidden="true">${tnMini(x.m.p[0])}${tnMini(x.m.p[1])}</span><div class="pick-main"><b>${escA(x.k.label)}</b><small>${escA(x.m.p[0].name)} vs ${escA(x.m.p[1].name)} · ${tnTime(x.m, f)} · ${TN_TOURS[x.m.tour].name} ${escA(x.m.ev)}${x.M.est ? ' · (est.)' : ''}</small></div><div class="pick-pct"><b>${x.k.prob}%</b></div></div>`;
   }).join('') : `<div class="pl-none">Ningún mercado pasa el filtro de confianza hoy.</div>`) + `</div>` +
   `<div class="foot-note">Sugerencias de tenis: mercados con 60% o más según el modelo (ranking y forma). Solo se sugieren partidos con ambos jugadores en el ranking. Los totales de juegos son estimaciones: dependen mucho del saque de cada jugador.</div>`;
 }
@@ -407,9 +420,9 @@ function tnOpen(id, keep) {
   const html = `
     <div class="matchup-hero hero-plain"><div class="meta">${TN_TOURS[m.tour].name} · ${escA(m.ev).toUpperCase()}${m.round ? ' · ' + escA(m.round).toUpperCase() : ''}</div>
       <div class="row">
-        <div class="team-big">${badgeHTML(A.name, true)}<div class="name">${tnFlag(A)}${escA(A.name)}${favStar(A.name)}</div></div>
+        <div class="team-big">${tnAv(A, true)}<div class="name">${escA(A.name)}${favStar(A.name)}</div></div>
         <div class="center-vs"><div class="ko-big">${m.state === 'pre' ? tnTime(m, f) : `<span style="font-size:17px;white-space:nowrap">${sc.pairs || '-'}</span>`}<small>${f.date} Ecuador${m.state === 'post' ? ' · Final' : m.state === 'in' ? ' · En vivo' : ''}${m.court ? ' · ' + escA(m.court) : ''}</small></div></div>
-        <div class="team-big">${badgeHTML(B.name, true)}<div class="name">${tnFlag(B)}${escA(B.name)}${favStar(B.name)}</div></div>
+        <div class="team-big">${tnAv(B, true)}<div class="name">${escA(B.name)}${favStar(B.name)}</div></div>
       </div></div>
     <div class="prob-card"><h3><span class="dot"></span>Quién gana${L ? ' (con el marcador actual)' : ''}</h3>
       <div class="bar1x2"><span style="width:${pA}%; background:var(--over);"></span><span style="width:${pB}%; background:var(--accent);"></span></div>

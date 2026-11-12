@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AlexBet</title>
+<meta name="description" content="Pronósticos diarios con probabilidades: fútbol, NBA, MLB, NHL y tenis. Resultados reales y públicos.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AlexBet">
+<meta property="og:title" content="AlexBet · pronósticos con probabilidades">
+<meta property="og:description" content="Fútbol, NBA, MLB, NHL y tenis: probabilidades cada día y resultados reales y públicos.">
+<meta property="og:image" content="https://alexbetpro.web.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://alexbetpro.web.app/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://alexbetpro.web.app/og.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -745,6 +756,51 @@ details.fn > summary::-webkit-details-marker{ display:none; } details.fn[open] >
 .al-cb.on{ background:var(--accent) !important; } .al-cb.on::after{ left:18px !important; background:var(--on-accent); }
 details.bt-bk > summary{ list-style:none; cursor:pointer; } details.bt-bk > summary::-webkit-details-marker{ display:none; } details.bt-bk:not([open]) > summary::after{ content:'Toca para abrir'; display:block; font-size:11.5px; color:var(--ink-dim); margin-top:4px; }
 .pk-line .bar-track{ background:var(--track); }
+
+/* v47 · mejoras visuales aprobadas en las maquetas */
+.sp .ic{ width:20px; height:20px; flex:none; box-sizing:content-box; padding:5px; margin:-3px 0 -2px; border-radius:9px; }
+.sp.active .ic{ background:var(--accent); color:var(--on-accent); }
+.sp{ min-height:58px; }
+.tb-icw{ position:relative; display:grid; place-items:center; }
+.tb-icw .live-dot{ position:absolute; top:50%; left:50%; width:8px; height:8px; margin:-4px 0 0 -4px; animation:ldRing 1.6s infinite; }
+@keyframes ldRing{ 0%{ box-shadow:0 0 0 0 rgba(255,77,94,.7); } 70%{ box-shadow:0 0 0 7px rgba(255,77,94,0); } 100%{ box-shadow:0 0 0 0 rgba(255,77,94,0); } }
+/* nombres completos: el escudo arriba y el nombre debajo, sin cortar palabras */
+#matchList .teams-row{ align-items:flex-start; }
+#matchList .teams-row > .ko, #matchList .teams-row > .vs, #matchList .teams-row > div:not(.team){ align-self:center; }
+#matchList .team, #matchList .team.away{ flex-direction:column; align-items:center; text-align:center; gap:6px; }
+.team-name{ word-break:normal; overflow-wrap:break-word; hyphens:manual; }
+#matchList .team-name{ -webkit-line-clamp:3; font-size:14px; font-weight:700; line-height:1.22; text-align:center; }
+#matchList .badge.logo{ width:40px; height:40px; } #matchList .badge{ width:36px; height:40px; }
+/* sugerencias con escudos */
+.pk-duo{ position:relative; width:46px; height:38px; flex:none; }
+.pk-duo .cm{ position:absolute; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.94); display:grid; place-items:center; overflow:hidden; font:800 10px var(--font-head); color:#fff; font-style:normal; box-shadow:0 0 0 2px var(--surface); }
+.pk-duo .cm:first-child{ left:0; top:0; } .pk-duo .cm:last-child{ right:0; bottom:0; }
+.pk-duo .cm img{ width:80%; height:80%; object-fit:contain; display:block; }
+.pk-duo .cm.ph{ background:#1b2724; } .pk-duo .cm.ph img{ width:100%; height:100%; object-fit:cover; object-position:top; }
+/* tenis: foto + bandera */
+.tn-av{ position:relative; width:42px; height:42px; flex:none; display:block; }
+.tn-av.big{ width:66px; height:66px; }
+.tn-av .tn-ini{ position:absolute; inset:0; border-radius:50%; display:grid; place-items:center; font:800 13px var(--font-head); color:#fff; font-style:normal; }
+.tn-av .tn-ph{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:top; background:#1b2724; box-shadow:inset 0 0 0 2px var(--line); border:2px solid var(--line); box-sizing:border-box; }
+.tn-av .tn-fl{ position:absolute; right:-3px; bottom:-2px; width:18px; height:18px; border-radius:50%; object-fit:cover; border:2px solid var(--surface); z-index:2; }
+.tn-av.big .tn-fl{ width:24px; height:24px; }
+.team.away .tn-av .tn-fl{ right:auto; left:-3px; }
+.tn-av.nf .tn-fl{ inset:0; width:100%; height:100%; border:2px solid var(--line); box-sizing:border-box; }
+/* estados vacíos */
+.empty-day{ text-align:center; padding:26px 18px 22px; background:var(--surface); border:1px solid var(--line); border-radius:18px; }
+.empty-day .ed-ic{ width:96px; height:96px; margin:0 auto; border-radius:50%; position:relative; display:grid; place-items:center; background:radial-gradient(circle at 50% 40%, var(--surface-2), var(--bg) 75%); border:1px solid var(--line); color:#c4b5fd; }
+.empty-day .ed-ic .ed-moon{ position:absolute; top:6px; right:2px; width:28px; height:28px; border-radius:50%; background:var(--bg); border:1px solid var(--line); display:grid; place-items:center; color:var(--accent); }
+.empty-day h3{ margin:16px 0 0; font-size:18px; font-weight:800; }
+.empty-day p{ margin:7px 0 0; font-size:13.5px; line-height:1.5; color:var(--ink-dim); }
+.empty-day p b{ color:var(--ink); }
+.empty-day .btn{ width:100%; margin-top:14px; }
+.empty-day .btn + .btn{ margin-top:8px; }
+.ed-steps{ margin-top:16px; display:flex; flex-direction:column; gap:12px; text-align:left; padding:14px; border-radius:14px; background:var(--surface-2); border:1px solid var(--line); }
+.ed-steps > div{ display:flex; gap:11px; align-items:flex-start; }
+.ed-steps i{ width:24px; height:24px; flex:none; border-radius:50%; display:grid; place-items:center; font:800 11px var(--font-head); font-style:normal; color:var(--accent); background:var(--accent-dim); border:1px solid var(--accent); }
+.ed-steps b{ display:block; font-size:13.5px; } .ed-steps small{ display:block; font-size:12px; color:var(--ink-dim); margin-top:1px; line-height:1.35; }
+.matchup-hero .team-big{ flex:none; } .matchup-hero .center-vs{ flex:1 1 auto; min-width:0; } .matchup-hero .ko-big small{ white-space:normal; }
+.ed-note{ margin-top:10px; font-size:11.5px; color:var(--ink-dim); }
 </style>
 </head>
 <body>
@@ -763,11 +819,11 @@ details.bt-bk > summary{ list-style:none; cursor:pointer; } details.bt-bk > summ
 
   <div id="home">
     <div class="sports" id="sports">
-      <button class="sp active" id="sp_futbol" onclick="setSport('futbol')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.2 2.3-1.2 3.8h-4l-1.2-3.8z"/><path d="M12 7.5V3.2M15.2 9.8l4.2-1.4M14 13.6l2.6 3.6M10 13.6l-2.6 3.6M8.8 9.8L4.6 8.4"/></svg> Fútbol</button>
-      <button class="sp" id="sp_nba" onclick="setSport(LS.get('ab_bk','nba'))"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/><path d="M5.6 5.6c3.2 3.4 3.2 9.4 0 12.8M18.4 5.6c-3.2 3.4-3.2 9.4 0 12.8"/></svg> Básquet</button>
-      <button class="sp" id="sp_mlb" onclick="setSport('mlb')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="9"/><path d="M6.2 5.4c2.6 2.6 2.6 10.6 0 13.2M17.8 5.4c-2.6 2.6-2.6 10.6 0 13.2"/><path d="M8.4 9.2l1.5.5M8.6 12.2l1.6.1M8.4 15l1.5-.5M15.6 9.2l-1.5.5M15.4 12.2l-1.6.1M15.6 15l-1.5-.5"/></svg> MLB</button>
-      <button class="sp" id="sp_nhl" onclick="setSport('nhl')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l7 12"/><path d="M20 4l-7 12"/><ellipse cx="12" cy="19" rx="4" ry="1.6"/></svg> NHL</button>
-      <button class="sp" id="sp_tenis" onclick="setSport('tenis')"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.2 3.2 3.2 9.6 0 12.8M18.4 5.6c-3.2 3.2-3.2 9.6 0 12.8"/></svg>Tenis</button>
+      <button class="sp active" id="sp_futbol" onclick="setSport('futbol')"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.6l3.3 2.4-1.3 3.9H10l-1.3-3.9z" fill="currentColor"/><path d="M12 3v4.6M15.3 10l4.4-1.3M14 13.9l2.6 3.8M10 13.9l-2.6 3.8M8.7 10L4.3 8.7"/></svg><span>Fútbol</span></button>
+      <button class="sp" id="sp_nba" onclick="setSport(LS.get('ab_bk','nba'))"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.7 5.7c3.4 3.1 3.4 9.5 0 12.6M18.3 5.7c-3.4 3.1-3.4 9.5 0 12.6"/></svg><span>Básquet</span></button>
+      <button class="sp" id="sp_mlb" onclick="setSport('mlb')"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M7.4 4.4c2 2.1 3 4.6 3 7.6s-1 5.5-3 7.6M16.6 4.4c-2 2.1-3 4.6-3 7.6s1 5.5 3 7.6"/><path d="M8.2 7.6l1.6-.6M9.6 11.2h1.6M8.2 16.4l1.6.6M15.8 7.6l-1.6-.6M14.4 11.2h-1.6M15.8 16.4l-1.6.6"/></svg><span>MLB</span></button>
+      <button class="sp" id="sp_nhl" onclick="setSport('nhl')"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3l4.6 12.4c.3.8 1 1.3 1.9 1.3H20"/><path d="M20 14.2v5"/><ellipse cx="6.5" cy="18.6" rx="3.3" ry="1.5"/><path d="M3.2 18.6v1.2c0 .8 1.5 1.5 3.3 1.5s3.3-.7 3.3-1.5v-1.2"/></svg><span>NHL</span></button>
+      <button class="sp" id="sp_tenis" onclick="setSport('tenis')"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M4.4 8.2c4.8.4 8.2 3.3 8.6 7.9M11 3.2c.4 4.6 3.8 7.5 8.6 7.9"/></svg><span>Tenis</span></button>
     </div>
     <div class="lg-row"><div id="leagueChips"></div></div>
     <div class="dates" id="dateChips"></div>
@@ -791,11 +847,11 @@ details.bt-bk > summary{ list-style:none; cursor:pointer; } details.bt-bk > summ
     <div id="leagueList"></div></div>
 </div>
 <nav class="tabs" id="tabs" aria-label="Secciones">
-  <button class="tab active" id="tabMatches" onclick="abNav('matches')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14H4zM4 10h16M9 5v14"/></svg><span class="tb-l">Partidos</span></button>
-  <button class="tab" id="tabPicks" onclick="abNav('picks')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg><span class="tb-l">Sugerencias</span></button>
-  <button class="tab" id="tabLive" onclick="abNav('live')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7 7a7 7 0 0 0 0 10M17 7a7 7 0 0 1 0 10"/></svg><span class="tb-l"><span class="live-dot"></span>En vivo<span id="liveCount"></span></span></button>
-  <button class="tab" id="tabBets" onclick="abNav('bets')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM9 10h6M9 14h6M9 18h4"/></svg><span class="tb-l">Mis jugadas<span id="btCount"></span></span></button>
-  <button class="tab" id="tabMore" onclick="moreOpen()"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg><span class="tb-l">Más<span id="alCountMore"></span></span></button>
+  <button class="tab active" id="tabMatches" onclick="abNav('matches')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17M8 3v3M16 3v3M8 13.5h3M8 17h6"/></svg><span class="tb-l">Partidos</span></button>
+  <button class="tab" id="tabPicks" onclick="abNav('picks')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg><span class="tb-l">Sugerencias</span></button>
+  <button class="tab" id="tabLive" onclick="abNav('live')"><span class="tb-icw"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M9.2 9.2a4 4 0 0 0 0 5.6M14.8 9.2a4 4 0 0 1 0 5.6"/></svg><span class="live-dot"></span></span><span class="tb-l">En vivo<span id="liveCount"></span></span></button>
+  <button class="tab" id="tabBets" onclick="abNav('bets')"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5V9a2.5 2.5 0 0 0 0 5v3.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5V14a2.5 2.5 0 0 0 0-5z"/><path d="M14 5v14" stroke-dasharray="2 2"/></svg><span class="tb-l">Mis jugadas<span id="btCount"></span></span></button>
+  <button class="tab" id="tabMore" onclick="moreOpen()"><svg class="tb-ic" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18.5" cy="12" r="1.7"/></svg><span class="tb-l">Más<span id="alCountMore"></span></span></button>
   <button class="tab" id="tabValue" onclick="abNav('value')" hidden>Valor</button>
   <button class="tab" id="tabAlerts" onclick="abNav('alerts')" hidden>Alertas<span id="alCount"></span></button>
 </nav>
@@ -1964,7 +2020,8 @@ function renderPicks(){
     return;
   }
   if(!items.length){
-    list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha${activeLeague==='all'?'':' en esta liga'}. Prueba otro día o pulsa ⟳ para actualizar.</div>` + doneS;
+    const pool = LEAGUES.filter(lgIn).flatMap(L=>L.fixtures.filter(f=>L.teams[f[0]]&&L.teams[f[1]]).map(f=>isoDateOnlyEcuador(f[2], L.utcOffset)));
+    list.innerHTML = emptyDay({ic:'futbol', titleToday:activeLeague==='all'?'Hoy no hay partidos':'Hoy no hay partidos en esta liga', title:'No hay partidos ese día', next:edNext(pool), none:'Prueba con otra liga o pulsa Actualizar en Más.'}) + doneS;
     return;
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
@@ -1974,7 +2031,7 @@ function renderPicks(){
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
       const k = x.pk.picks[0], ri = pkReg('futbol', x.l.id, x.f[0], x.f[1], x.f[2], pkTs(x.f[2], x.l.utcOffset), null, k);
-      return `<div class="pick-row" onclick="openMatch('${x.l.id}', ${x.idx})">
+      return `<div class="pick-row" onclick="openMatch('${x.l.id}', ${x.idx})">${pkDuo(x.f[0], x.f[1], x.l.id)}
         <div class="pick-main"><b>${k.label}</b><small>${x.f[0]} vs ${x.f[1]} · ${fmtParts(x.f[2], x.l.utcOffset).time} · ${x.l.name}</small></div>
         <div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}
       </div>`;
@@ -2223,6 +2280,39 @@ function logoFor(name, lid){
   let hit = null;
   for(const key of Object.keys(m)){ if(key.length>=4 && k.length>=4 && (key.includes(k) || k.includes(key))){ hit = m[key]; break; } }
   return LOGO_MEMO[mk] = hit;
+}
+
+// v47 · escudos chicos para las filas de Sugerencias (dos escudos superpuestos)
+function crestMini(name, lid, label){
+  const ini = (label||initials(name||'?')).replace(/[<>&"']/g,''), bg = hashColor(name||'?'), u = logoFor(name, lid);
+  return u ? `<i class="cm"><img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="var p=this.parentNode;p.style.background='${bg}';p.textContent='${ini}'"></i>` : `<i class="cm" style="background:${bg}">${ini}</i>`;
+}
+function pkDuo(h, a, lid){ return `<span class="pk-duo" aria-hidden="true">${crestMini(h, lid)}${crestMini(a, lid)}</span>`; }
+// v47 · estados vacíos: próximo día con partidos
+function edNext(dates){
+  const from = activeDate==='all' ? ymd(todayDate) : activeDate, c = {};
+  dates.forEach(d=>{ if(d>from) c[d] = (c[d]||0)+1; });
+  const k = Object.keys(c).sort()[0]; return k ? {d:k, n:c[k]} : null;
+}
+function edDay(iso){
+  const t1 = new Date(todayDate); t1.setDate(t1.getDate()+1);
+  const w = new Date(iso+'T12:00:00').toLocaleDateString('es-EC', {weekday:'long', day:'numeric'});
+  return iso===ymd(t1) ? 'mañana '+w : 'el '+w;
+}
+const ED_IC = {
+  futbol:'<circle cx="12" cy="12" r="9"/><path d="M12 7.6l3.3 2.4-1.3 3.9H10l-1.3-3.9z"/><path d="M12 3v4.6M15.3 10l4.4-1.3M14 13.9l2.6 3.8M10 13.9l-2.6 3.8M8.7 10L4.3 8.7"/>',
+  bask:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.7 5.7c3.4 3.1 3.4 9.5 0 12.6M18.3 5.7c-3.4 3.1-3.4 9.5 0 12.6"/>',
+  mlb:'<circle cx="12" cy="12" r="9"/><path d="M7.4 4.4c2 2.1 3 4.6 3 7.6s-1 5.5-3 7.6M16.6 4.4c-2 2.1-3 4.6-3 7.6s1 5.5 3 7.6"/>',
+  nhl:'<path d="M9 3l4.6 12.4c.3.8 1 1.3 1.9 1.3H20"/><path d="M20 14.2v5"/><ellipse cx="6.5" cy="18.6" rx="3.3" ry="1.5"/>',
+  tenis:'<circle cx="12" cy="12" r="9"/><path d="M4.4 8.2c4.8.4 8.2 3.3 8.6 7.9M11 3.2c.4 4.6 3.8 7.5 8.6 7.9"/>'
+};
+function emptyDay(o){
+  const ic = ED_IC[o.ic] || ED_IC.futbol, today = activeDate==='all' || activeDate===ymd(todayDate);
+  const nx = o.next;
+  return `<div class="empty-day"><div class="ed-ic"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg>${today?'<span class="ed-moon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span>':''}</div>
+    <h3>${today ? (o.titleToday||o.title) : o.title}</h3>
+    <p>${nx ? `Los pronósticos vuelven <b>${edDay(nx.d)}</b> con ${nx.n} ${nx.n===1?'partido':'partidos'}.` : (o.none||'Prueba otro día.')}</p>
+    ${nx ? `<button type="button" class="btn primary" onclick="selectDate('${nx.d}')">Ver los partidos ${edDay(nx.d).replace(/^el /,'del ').replace(/^mañana /,'de mañana ')} ›</button>` : ''}${o.alt||''}</div>`;
 }
 function badgeHTML(name, big, label, lid){
   const cls = big ? 'badge-lg' : 'badge', ini = (label||initials(name)).replace(/[<>&"]/g,'');
@@ -3065,7 +3155,9 @@ function usEmpty(sp, what){
   if(D.t && !D.games.length) return `<div class="empty-state">${US[sp].name} no tiene partidos programados entre ayer y los próximos 7 días${sp==='mlb'?' (la temporada terminó o está en receso)':''}. Cuando haya partidos aparecerán aquí.</div>`;
   if(D.loading && D.retry) return `<div class="empty-state">Reconectando con ESPN…</div>`;
   if(D.err && !D.games.length) return `<div class="empty-state">No pude conectar con ESPN para ${US[sp].name} (${D.err}).<br><br><button class="btn primary" onclick="usLoad('${sp}',true)">Reintentar</button></div>`;
-  return `<div class="empty-state">No hay partidos de ${US[sp].name} ${what}. Prueba otro día.</div>`;
+  const ds = D.games.map(g=>isoDateOnlyEcuador(g.d,0)), nx = edNext(ds), nm = US[sp].name, td = ymd(todayDate);
+  const alt = ['nba','ncaa','eul'].includes(sp) ? ['nba','ncaa','eul'].filter(k=>k!==sp && usData[k] && usData[k].games.some(g=>isoDateOnlyEcuador(g.d,0)===(activeDate==='all'?td:activeDate))).map(k=>{ const n = usData[k].games.filter(g=>isoDateOnlyEcuador(g.d,0)===(activeDate==='all'?td:activeDate)).length; return `<button type="button" class="btn" onclick="setSport('${k}')">Ver ${US[k].name} (${n} ${n===1?'partido':'partidos'})</button>`; }).join('') : '';
+  return emptyDay({ic: sp==='mlb'?'mlb':sp==='nhl'?'nhl':'bask', titleToday:`Hoy no juega la ${nm}`, title:`No hay partidos de ${nm} ese día`, next:nx, alt});
 }
 function usRenderMatches(){
   const sp = sport, list = document.getElementById('matchList');
@@ -3114,7 +3206,7 @@ function usRenderPicks(){
   let html = '';
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
     const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
-    return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')"><div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}</div>`;
+    return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')">${pkDuo(x.g.h.name, x.g.a.name)}<div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}</div>`;
   }).join('') + `</div>`;
   P.top = html; html = '';
   html += items.map(x=>{
@@ -3879,6 +3971,16 @@ function btView(){
   document.getElementById('matchesLabel').textContent = 'Mis jugadas'; document.getElementById('matchCount').textContent = '';
   const S = LS.get('ab_slip',[]), B = LS.get('ab_bets',[]), st = btStats(), bank = LS.get('ab_bank',0);
   const stLbl = {p:'Pendiente', w:'Ganada', l:'Perdida', v:'Nula', m:'Marcar resultado'};
+  if(!B.length && !S.length){
+    let e = `<div class="empty-day" style="margin-bottom:10px"><div class="ed-ic" style="color:var(--accent)"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5V9a2.5 2.5 0 0 0 0 5v3.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5V14a2.5 2.5 0 0 0 0-5z"/><path d="M14 5v14" stroke-dasharray="2 2"/></svg><span class="ed-moon" style="background:var(--accent);color:var(--on-accent);border-color:var(--accent)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></div>
+      <h3>Aún no guardaste jugadas</h3><p>Guarda las que vas a apostar y aquí verás si ganaron y cómo va tu saldo.</p>
+      <div class="ed-steps"><div><i>1</i><span><b>Elige una sugerencia</b><small>En Sugerencias o dentro de cualquier partido.</small></span></div><div><i>2</i><span><b>Toca el botón ＋</b><small>Anota tu cuota y cuánto apostaste (opcional).</small></span></div><div><i>3</i><span><b>Mira el resultado</b><small>Se marca sola como ganada o perdida al terminar.</small></span></div></div>
+      <button type="button" class="btn primary" onclick="abNav('picks')">Ver sugerencias de hoy ›</button><div class="ed-note">Tus jugadas se guardan solo en este teléfono.</div></div>`;
+    e += `<div class="prob-card"><h3><span class="dot"></span>Acierto del modelo</h3>${btModelHTML()}</div>`;
+    e += `<details class="prob-card bt-bk" id="btBk"><summary><h3 style="margin:0"><span class="dot"></span>Respaldo de tus datos</h3></summary><div class="al-st" style="margin:0 0 6px">¿Tenías jugadas en otro teléfono? Pega aquí tu respaldo y pulsa Importar.</div>
+    <div class="row" style="gap:8px;"><button class="btn" style="flex:1" onclick="btExport()">Copiar respaldo</button><button class="btn" style="flex:1" onclick="btImport()">Importar</button></div><textarea id="btBox" class="bt-box" placeholder="Pega tu respaldo aquí y pulsa Importar"></textarea></details>`;
+    document.getElementById('matchList').innerHTML = e; return;
+  }
   let h = `<div class="prob-card"><h3><span class="dot"></span>Resumen</h3>
     <div class="mh-grid"><div><b>${st.n}</b><small>Resueltas</small></div><div><b>${st.hit==null?'-':st.hit.toFixed(0)+'%'}</b><small>Acierto</small></div><div><b style="color:${st.net>=0?'var(--over)':'#ff6b6b'}">${st.net>=0?'+':''}$${st.net.toFixed(2)}</b><small>Ganancia neta</small></div><div><b>${st.roi==null?'-':st.roi.toFixed(0)+'%'}</b><small>Retorno (ROI)</small></div></div>
     <div class="pk-form" style="margin-top:8px"><label>Tu banca inicial ($) · para sugerir montos</label><input id="btBank" inputmode="decimal" value="${bank||''}" placeholder="ej. 100" onchange="LS.set('ab_bank',parseFloat(this.value)||0);btView()"></div>
@@ -4352,11 +4454,13 @@ function renderMatches(){
 
   if(fixtures.length===0){
     if(all){
-      list.innerHTML = `<div class="empty-state">No hay partidos para esta fecha en ninguna liga. Prueba con "Todos" u otro día, o pulsa ⟳ para actualizar.</div>`;
+      const pool = LEAGUES.filter(lgIn).flatMap(L=>L.fixtures.filter(f=>L.teams[f[0]]&&L.teams[f[1]]).map(f=>isoDateOnlyEcuador(f[2], L.utcOffset)));
+      list.innerHTML = emptyDay({ic:'futbol', titleToday:'Hoy no hay partidos en estas ligas', title:'No hay partidos ese día', next:edNext(pool), none:'Prueba con otra liga o pulsa Actualizar en Más.'});
     } else if(league.fixtures.length===0){
       list.innerHTML = league.note && !league.live ? `<div class="empty-state">${league.note}</div>` : `<div class="empty-state">${league.live ? 'No hay partidos de '+league.name+' programados en los próximos días.' : (typeof cupMsg==='function' && cupMsg(league) ? league.name+': '+cupMsg(league) : 'Todavía no hay partidos cargados para '+league.name+'. Pulsa ⟳ arriba para descargarlos.')}</div>`;
     } else {
-      list.innerHTML = `<div class="empty-state">No hay partidos de ${league.name} programados para esta fecha. Prueba con "Todos" u otro día.</div>`;
+      const pool = league.fixtures.filter(f=>league.teams[f[0]]&&league.teams[f[1]]).map(f=>isoDateOnlyEcuador(f[2], league.utcOffset));
+      list.innerHTML = emptyDay({ic:'futbol', titleToday:`Hoy no juega ${league.name}`, title:`No hay partidos de ${league.name} ese día`, next:edNext(pool)});
     }
     return;
   }
@@ -5133,7 +5237,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v46 · ajuste automático, resultados, NBA cuartos y líneas';
+const APP_VERSION = 'v47 · nuevo diseño: nombres completos, escudos, fotos de tenis e íconos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
