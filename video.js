@@ -7,11 +7,11 @@ const ORT_BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
 const PHON_JS = 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/dist/piper-DeOu3H9E.js';
 const PHON_BASE = 'https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize';
 const HF = 'https://huggingface.co/diffusionstudio/piper-voices/resolve/main/';
+// solo voces masculinas (tono medido: ald ~155 Hz, davefx ~128 Hz, sharvard hombre ~122 Hz)
 export const VOCES = {
-  'es_MX-claude-high': {t: 'México · voz de hombre (alta calidad)', p: 'es/es_MX/claude/high/es_MX-claude-high.onnx'},
-  'es_MX-ald-medium': {t: 'México · otra voz de hombre', p: 'es/es_MX/ald/medium/es_MX-ald-medium.onnx'},
-  'es_ES-sharvard-medium': {t: 'España · voz de hombre', p: 'es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx'},
-  'es_ES-davefx-medium': {t: 'España · otra voz de hombre', p: 'es/es_ES/davefx/medium/es_ES-davefx-medium.onnx'},
+  'es_MX-ald-medium': {t: 'México · hombre', p: 'es/es_MX/ald/medium/es_MX-ald-medium.onnx'},
+  'es_ES-davefx-medium': {t: 'España · hombre (voz grave)', p: 'es/es_ES/davefx/medium/es_ES-davefx-medium.onnx'},
+  'es_ES-sharvard-medium': {t: 'España · hombre 2', p: 'es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx', sid: 0},
 };
 
 // ---------- descargas guardadas ----------
@@ -62,7 +62,7 @@ export class Voz {
       input_lengths: new ort.Tensor('int64', BigInt64Array.from([BigInt(ids.length)]), [1]),
       scales: new ort.Tensor('float32', Float32Array.from([I.noise_scale, I.length_scale / vel, I.noise_w]), [3]),
     };
-    if (Object.keys(this.cfg.speaker_id_map || {}).length) feeds.sid = new ort.Tensor('int64', BigInt64Array.from([0n]), [1]);
+    if (Object.keys(this.cfg.speaker_id_map || {}).length) feeds.sid = new ort.Tensor('int64', BigInt64Array.from([BigInt(VOCES[this.id] && VOCES[this.id].sid || 0)]), [1]);
     const out = await this.ses.run(feeds), pcm = Float32Array.from(out.output.data);
     // volumen parejo (pico a 0.9)
     let mx = 0; for (const s of pcm) mx = Math.max(mx, Math.abs(s)); if (mx > 0) { const k = 0.9 / mx; for (let i = 0; i < pcm.length; i++) pcm[i] *= k; }
@@ -315,8 +315,8 @@ export async function crearVideo(sel, ctx) {
   scenes.push({k: 'cierre', st: ctx.stats, voz: vozCierre(ctx.stats)});
   for (const [i, s] of scenes.entries()) {
     msg(`Generando la voz ${i + 1} de ${scenes.length}…`);
-    s.au = await voz.decir(s.voz, ctx.vel || 1);
-    s.dur = Math.max(s.k === 'pick' ? 5.8 : s.k === 'intro' ? 3.6 : 4.5, s.au.pcm.length / s.au.sr + (s.k === 'cierre' ? 1.2 : 0.7));
+    s.au = await voz.decir(s.voz, (ctx.vel || 1) / (ctx.tono || 1));
+    s.dur = Math.max(s.k === 'pick' ? 5.8 : s.k === 'intro' ? 3.6 : 4.5, s.au.pcm.length / s.au.sr / (ctx.tono || 1) + (s.k === 'cierre' ? 1.2 : 0.7));
   }
   let t0 = 0; scenes.forEach(s => { s.t0 = t0; t0 += s.dur; }); const total = t0;
 
@@ -341,7 +341,7 @@ export async function crearVideo(sel, ctx) {
   draw(0);
   rec.start(1000);
   const start = ac.currentTime + .25;
-  scenes.forEach(s => { const b = ac.createBuffer(1, s.au.pcm.length, s.au.sr); b.copyToChannel(s.au.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.connect(dest); src.start(start + s.t0 + .35); });
+  scenes.forEach(s => { const b = ac.createBuffer(1, s.au.pcm.length, s.au.sr); b.copyToChannel(s.au.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = ctx.tono || 1; src.connect(dest); src.start(start + s.t0 + .35); });
   msg('Grabando el video… (deja esta pantalla abierta)');
   await new Promise(res => {
     const tick = () => { const tt = ac.currentTime - start; draw(Math.max(0, tt)); if (tt >= total + .2) return res(); (ctx.raf || requestAnimationFrame)(tick); };

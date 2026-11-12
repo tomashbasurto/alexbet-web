@@ -278,8 +278,9 @@ function pintar(){
     <button class="btn" id="gen" ${nSel?'':'disabled style="opacity:.5"'}>Crear ${MODE==='res'?'imagen de resultados':'imágenes'}</button>
     ${MODE!=='res' ? `<div class="vbox">
       <div class="ch-h"><b>🎬 Video con voz (vertical, para Reels y TikTok)</b></div>
-      <div class="note" style="margin:0 0 8px">Usa ${nSel>4?'las <b>4 primeras</b> elegidas':'las elegidas (hasta 4)'}: dice el pronóstico y las estadísticas de cada una. La primera vez baja la voz (unos 60 MB) y queda guardada.</div>
+      <div class="note" style="margin:0 0 8px">Usa ${nSel>4?'las <b>4 primeras</b> elegidas':'las elegidas (hasta 4)'}: dice el pronóstico y las estadísticas de cada una. La primera vez baja la voz (60 a 75 MB) y queda guardada.</div>
       <div class="flt"><label><span>Voz</span><select id="vVoz">${Object.entries(VOCES).map(([k,v]) => `<option value="${k}" ${VZ.id===k?'selected':''}>${esc(v.t)}</option>`).join('')}</select></label>
+        <label><span>Tono</span><select id="vTono">${[[1,'Normal'],[0.92,'Grave'],[0.86,'Muy grave']].map(([v,t]) => `<option value="${v}" ${VZ.tono==v?'selected':''}>${t}</option>`).join('')}</select></label>
         <label><span>Velocidad</span><select id="vVel">${[[0.95,'Calmada'],[1,'Normal'],[1.1,'Un poco más rápida'],[1.2,'Rápida']].map(([v,t]) => `<option value="${v}" ${VZ.vel==v?'selected':''}>${t}</option>`).join('')}</select></label></div>
       <div class="btns"><button class="btn ghost" id="vTry">▶ Probar voz</button><button class="btn" id="vGen" ${nSel?'':'disabled style="opacity:.5"'}>Crear video</button></div>
       <div class="msg" id="vMsg"></div><div id="vOut"></div></div>` : ''}
@@ -302,6 +303,7 @@ function pintar(){
   if($('vGen')){
     $('vVoz').onchange = e => { VZ.id = e.target.value; VZ.voz = null; };
     $('vVel').onchange = e => { VZ.vel = +e.target.value; };
+    $('vTono').onchange = e => { VZ.tono = +e.target.value; };
     $('vTry').onclick = () => probarVoz();
     $('vGen').onclick = () => hacerVideo(chosen.slice(0, 4));
     pintarVideo();
@@ -507,7 +509,7 @@ async function generar(sel, todos, G){
 }
 
 // ---------- video con voz ----------
-const VZ = {id: 'es_MX-claude-high', vel: 1.1, voz: null, busy: false, out: null, cv: null};
+const VZ = {id: 'es_MX-ald-medium', tono: 0.92, vel: 1.1, voz: null, busy: false, out: null, cv: null};
 const vmsg = (t, pct) => { const m = $('vMsg'); if(m) m.innerHTML = esc(t) + (pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''); };
 async function vozLista(){
   if(VZ.voz && VZ.voz.id === VZ.id) return VZ.voz;
@@ -521,8 +523,8 @@ async function probarVoz(){
   if(VZ.busy) return; VZ.busy = true;
   try{
     const v = await vozLista(); vmsg('Generando…');
-    const a = await v.decir(hablar('Hola. Esta es la voz de AlexBet. Oportunidad uno: más de 1.5 goles. Nuestro modelo le da 77%.'.replace('AlexBet', 'álex bet')), VZ.vel);
-    const ac = new AudioContext(), b = ac.createBuffer(1, a.pcm.length, a.sr); b.copyToChannel(a.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.connect(ac.destination); src.start(); src.onended = () => ac.close();
+    const a = await v.decir(hablar('Hola. Esta es la voz de AlexBet. Oportunidad uno: más de 1.5 goles. Nuestro modelo le da 77%.'.replace('AlexBet', 'álex bet')), VZ.vel / VZ.tono);
+    const ac = new AudioContext(), b = ac.createBuffer(1, a.pcm.length, a.sr); b.copyToChannel(a.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = VZ.tono; src.connect(ac.destination); src.start(); src.onended = () => ac.close();
     vmsg('Escuchando la voz…');
   }catch(e){ vmsg('No se pudo cargar la voz: ' + e.message); }
   VZ.busy = false;
@@ -544,7 +546,7 @@ async function hacerVideo(L){
   const box = $('vOut'); box.innerHTML = ''; const cv = document.createElement('canvas'); box.appendChild(cv);
   try{
     const voz = await vozLista(), logo = await loadImg('icon-512.png');
-    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, canvas: cv, onMsg: t => vmsg(t)});
+    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, onMsg: t => vmsg(t)});
     VZ.out = Object.assign(r, {txt: textoVideo(L), name: `alexbet-video-${DAY}.${r.ext}`});
     vmsg(`Listo · ${Math.round(r.dur)} segundos · ${(r.blob.size/1e6).toFixed(1)} MB · ${r.ext.toUpperCase()}`);
   }catch(e){ console.error(e); vmsg('No se pudo crear el video: ' + e.message); }
