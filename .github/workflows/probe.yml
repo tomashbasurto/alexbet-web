@@ -20,10 +20,10 @@ jobs:
           print('NEXT', e2['name'], eid)
           base=f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events/{eid}/competitions/{eid}/odds'
           o=g(base); print('ODDS', json.dumps(o)[:300])
-          for it in (o.get('items') or [])[:3]:
-              pid=(it.get('provider') or {}).get('id'); print('PROVIDER', pid, (it.get('provider') or {}).get('name'))
-              pb=g(f'{base}/{pid}/propBets?limit=1000'); print('PROPS', pid, pb.get('count'), json.dumps(pb)[:900])
-              if pb.get('items'):
-                  x=pb['items'][0]; print('ITEM', json.dumps(x)[:900])
-                  break
+          pb=g(f'{base}/100/propBets?limit=1000'); import collections
+          its=pb.get('items',[]); print('TYPES', collections.Counter((x.get('type') or {}).get('name') for x in its).most_common(60))
+          aid=lambda x:(x.get('athlete') or {}).get('$ref','').split('/athletes/')[-1].split('?')[0]
+          a0=aid(its[0]); print('ATH', a0)
+          for x in its:
+              if aid(x)==a0: print('  ', (x.get('type') or {}).get('name'), json.dumps(x.get('odds'))[:200], x.get('current'))
           PY
