@@ -579,14 +579,14 @@ async function semana(){
   OUT.push(Object.assign(r, {txt, name: `alexbet-semana-${fin}.png`})); pintarOut();
   return {ok, n, pct};
 }
-// v49 · Facebook automático: lo que se publicó, lo que viene, pausa y "publicar ya" (documento config/facebook en Firestore)
+// v49 · Facebook automático: lo que se publicó, lo que viene, pausa y "publicar ya" (campo fb de la cuenta del administrador en Firestore)
 const FBS = {st: null, err: '', busy: false, open: false};
 const FB_PROG = [['08:00', 'resdep', 'Resultados de ayer (una imagen por deporte)'], ['10:00', 'pro:8', 'Pronósticos (2 imágenes)'], ['10:30', 'reel', 'Reel con voz'], ['16:00', 'reel:nba', 'Reel de NBA'], ['18:00', 'sem', 'Resumen de la semana (solo domingos)']];
 const FB_N = {resdep: 'Resultados de ayer', res: 'Resultados de ayer', 'pro:8': 'Pronósticos', pro: 'Pronósticos', reel: 'Reel con voz', 'reel:nba': 'Reel de NBA', sem: 'Resumen semanal'};
 let FSM = null;
 async function fbFS(){ if(FSM) return FSM; const M = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'); FSM = {M, db: M.getFirestore(app)}; return FSM; }
-async function fbLoad(){ if(new URLSearchParams(location.search).has('bot')) return; try{ const {M, db} = await fbFS(); const d = await M.getDoc(M.doc(db, 'config', 'facebook')); FBS.st = d.exists() ? d.data() : {}; FBS.err = ''; }catch(e){ FBS.err = 'No pude leer el estado (' + (e.code || e.message) + ').'; } fbBox(); }
-async function fbSet(o){ FBS.busy = true; fbBox(); try{ const {M, db} = await fbFS(); await M.setDoc(M.doc(db, 'config', 'facebook'), o, {merge: true}); Object.assign(FBS.st = FBS.st || {}, o); FBS.err = ''; }catch(e){ FBS.err = 'No se pudo guardar (' + (e.code || e.message) + ').'; } FBS.busy = false; fbBox(); }
+async function fbLoad(){ if(new URLSearchParams(location.search).has('bot')) return; try{ const {M, db} = await fbFS(); const d = await M.getDoc(M.doc(db, 'users', auth.currentUser.uid)); FBS.st = (d.exists() && d.data().fb) || {}; FBS.err = ''; }catch(e){ FBS.err = 'No pude leer el estado (' + (e.code || e.message) + ').'; } fbBox(); }
+async function fbSet(o){ FBS.busy = true; fbBox(); try{ const {M, db} = await fbFS(); await M.updateDoc(M.doc(db, 'users', auth.currentUser.uid), Object.fromEntries(Object.entries(o).map(([k, v]) => ['fb.' + k, v]))); Object.assign(FBS.st = FBS.st || {}, o); FBS.err = ''; }catch(e){ FBS.err = 'No se pudo guardar (' + (e.code || e.message) + ').'; } FBS.busy = false; fbBox(); }
 function fbBox(){
   const el = $('fbBox'); if(!el) return;
   if(FBS.st === null && !FBS.err){ el.innerHTML = '<div class="ch-h"><b>📣 Facebook automático</b></div><div class="note" style="margin:0">Cargando…</div>'; if(!FBS.ld){ FBS.ld = 1; fbLoad(); } return; }

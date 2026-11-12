@@ -26,21 +26,28 @@ async function pagina() {
 }
 
 // ---------- estado en Firestore (config/facebook): pausa, "publicar ya" y registro de lo publicado; lo ve el panel ----------
-const FS_DOC = 'https://firestore.googleapis.com/v1/projects/alexbet-e14aa/databases/(default)/documents/config/facebook';
-let FSH = null;
+// se guarda en la cuenta del administrador (users/<su id>, campo fb): las reglas ya le dejan leer y escribir ahí
+const FS_BASE = 'https://firestore.googleapis.com/v1/projects/alexbet-e14aa/databases/(default)/documents', OWNER = 'tomashbasurto@gmail.com';
+let FSH = null, FS_DOC = null;
 async function fsInit() {
   if (FSH !== null) return FSH; FSH = false;
-  try { const sa = JSON.parse((process.env.FIREBASE_SERVICE_ACCOUNT || '').trim()); FSH = {authorization: 'Bearer ' + await require('./push-send.js').accessToken(sa), 'content-type': 'application/json'}; }
-  catch (e) { console.log('estado: sin acceso a Firestore (' + e.message + ')'); }
+  try {
+    const sa = JSON.parse((process.env.FIREBASE_SERVICE_ACCOUNT || '').trim());
+    const H = {authorization: 'Bearer ' + await require('./push-send.js').accessToken(sa), 'content-type': 'application/json'};
+    const r = await fetch(FS_BASE + ':runQuery', {method: 'POST', headers: H, body: JSON.stringify({structuredQuery: {from: [{collectionId: 'users'}], where: {fieldFilter: {field: {fieldPath: 'email'}, op: 'EQUAL', value: {stringValue: OWNER}}}, limit: 1}})});
+    const j = await r.json(), d = (Array.isArray(j) ? j : []).find(x => x.document);
+    if (!d) throw new Error('no encontré la cuenta del administrador (HTTP ' + r.status + ')');
+    FS_DOC = 'https://firestore.googleapis.com/v1/' + d.document.name; FSH = H;
+  } catch (e) { console.log('estado: sin acceso a Firestore (' + e.message + ')'); }
   return FSH;
 }
 const fsVal = v => !v ? null : v.stringValue ?? (v.integerValue != null ? +v.integerValue : null) ?? v.doubleValue ?? v.booleanValue ??
   (v.arrayValue ? (v.arrayValue.values || []).map(fsVal) : v.mapValue ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, fsVal(x)])) : null);
 const fsEnc = v => v == null ? {nullValue: null} : typeof v === 'boolean' ? {booleanValue: v} : typeof v === 'number' ? (Number.isInteger(v) ? {integerValue: String(v)} : {doubleValue: v})
   : Array.isArray(v) ? {arrayValue: {values: v.map(fsEnc)}} : typeof v === 'object' ? {mapValue: {fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fsEnc(x)]))}} : {stringValue: String(v)};
-async function estado() { const H = await fsInit(); if (!H) return null; const r = await fetch(FS_DOC, {headers: H}); if (r.status === 404) return {}; if (!r.ok) { console.log('estado: HTTP ' + r.status); return null; } return fsVal({mapValue: {fields: (await r.json()).fields || {}}}); }
-async function estadoSet(obj) { const H = await fsInit(); if (!H) return; const q = Object.keys(obj).map(k => 'updateMask.fieldPaths=' + k).join('&');
-  const r = await fetch(FS_DOC + '?' + q, {method: 'PATCH', headers: H, body: JSON.stringify({fields: Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fsEnc(v)]))})}); if (!r.ok) console.log('estado: no se pudo guardar (HTTP ' + r.status + ')'); }
+async function estado() { const H = await fsInit(); if (!H) return null; const r = await fetch(FS_DOC + '?mask.fieldPaths=fb', {headers: H}); if (!r.ok) { console.log('estado: HTTP ' + r.status); return null; } const f = ((await r.json()).fields || {}).fb; return f ? fsVal(f) || {} : {}; }
+async function estadoSet(obj) { const H = await fsInit(); if (!H) return; const q = Object.keys(obj).map(k => 'updateMask.fieldPaths=fb.' + k).join('&');
+  const r = await fetch(FS_DOC + '?' + q, {method: 'PATCH', headers: H, body: JSON.stringify({fields: {fb: fsEnc(obj)}})}); if (!r.ok) console.log('estado: no se pudo guardar (HTTP ' + r.status + ')'); }
 async function anotar(e) { try { const st = await estado(); if (!st) return; const log = [Object.assign({t: Date.now(), modo: MODE}, e)].concat(st.log || []).slice(0, 40); await estadoSet({log}); } catch (x) {} }
 
 // ---------- armar imágenes / video con el panel ----------
