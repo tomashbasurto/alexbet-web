@@ -311,6 +311,7 @@ function escenaCierre(c, S, t, D) {
 // ---------- armado y grabación ----------
 // sel: sugerencias (máx. 4) · ctx: {day, fecha, logo, img(p) -> {escH, escA, foto, escTeam}, lugar(p), hora(p), stats, voz, vel, onMsg, canvas}
 export async function crearVideo(sel, ctx) {
+  let cvx = null; const cv0 = () => cvx = cvx || ctx.canvas || document.createElement('canvas');
   const msg = ctx.onMsg || (() => {});
   const L = sel.slice(0, 4), voz = ctx.voz;
   await Promise.all([document.fonts.load('900 64px Orbitron'), document.fonts.load('900 64px Inter'), document.fonts.load('800 40px Inter'), document.fonts.load('600 30px Inter')]).catch(() => {});
@@ -340,10 +341,15 @@ export async function crearVideo(sel, ctx) {
   let t0 = 0; scenes.forEach(s => { s.t0 = t0; t0 += s.dur; }); const total = t0;
 
   // audio
-  const ac = new (window.AudioContext || window.webkitAudioContext)();
-  if (ac.state === 'suspended') await ac.resume().catch(() => {});
+  // en iPhone el audio solo arranca dentro de un toque: el panel crea el AudioContext al tocar "Crear video" (ctx.ac);
+  // si aun así sigue en pausa, se pide un toque más
+  const ac = ctx.ac || new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state !== 'running') { await Promise.race([ac.resume().catch(() => {}), new Promise(r => setTimeout(r, 1500))]); }
+  if (ac.state !== 'running' && ctx.pedirToque) await ctx.pedirToque(ac);
+  if (ac.state !== 'running') throw new Error('el navegador no dejó iniciar el audio. Toca "Crear video" otra vez');
+  if (!window.MediaRecorder || !cv0().captureStream) throw new Error('este navegador no puede grabar video. Usa Chrome o Safari actualizado');
   const dest = ac.createMediaStreamDestination();
-  const cv = ctx.canvas || document.createElement('canvas'); cv.width = VW; cv.height = VH; const c = cv.getContext('2d');
+  const cv = cv0(); cv.width = VW; cv.height = VH; const c = cv.getContext('2d');
   const stream = cv.captureStream(30); stream.addTrack(dest.stream.getAudioTracks()[0]);
   const tipos = ['video/mp4;codecs=avc1.42E028,mp4a.40.2', 'video/mp4;codecs=avc1.4D0028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   const mime = tipos.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
@@ -362,11 +368,14 @@ export async function crearVideo(sel, ctx) {
   const start = ac.currentTime + .25;
   scenes.forEach(s => { const b = ac.createBuffer(1, s.au.pcm.length, s.au.sr); b.copyToChannel(s.au.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = ctx.tono || 1; src.connect(dest); src.start(start + s.t0 + .35); });
   msg('Grabando el video… (deja esta pantalla abierta)');
-  await new Promise(res => {
-    const tick = () => { const tt = ac.currentTime - start; draw(Math.max(0, tt)); if (tt >= total + .2) return res(); (ctx.raf || requestAnimationFrame)(tick); };
+  await new Promise((res, rej) => {
+    let last = -1, quieto = 0;
+    const tick = () => { const tt = ac.currentTime - start; draw(Math.max(0, tt)); if (tt >= total + .2) return res();
+      if (ac.currentTime === last) { if (++quieto > 240) return rej(new Error('el audio se detuvo (¿se apagó la pantalla o cambiaste de app?)')); } else { quieto = 0; last = ac.currentTime; }
+      (ctx.raf || requestAnimationFrame)(tick); };
     tick();
-  });
-  rec.stop(); await done; ac.close().catch(() => {});
+  }).catch(e => { try { rec.stop(); } catch (x) {} throw e; });
+  rec.stop(); await done; if (!ctx.ac) ac.close().catch(() => {});
   const type = (mime || 'video/webm').split(';')[0], blob = new Blob(chunks, {type});
   return {blob, url: URL.createObjectURL(blob), ext: type === 'video/mp4' ? 'mp4' : 'webm', dur: total, guion: scenes.map(s => s.voz)};
 }

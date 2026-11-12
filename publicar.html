@@ -75,7 +75,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, guardadoErr } from './video.js?v=2';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, guardadoErr } from './video.js?v=3';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -525,12 +525,24 @@ async function vozLista(){
   await v.init((got, tot) => { if(!guard) vmsg(`Bajando la voz… ${Math.round(got/1e6)} de ${Math.round((tot||63e6)/1e6)} MB`, tot ? Math.round(got/tot*100) : null); });
   return VZ.voz = v;
 }
+// audio desbloqueado en el mismo toque (iPhone no deja iniciarlo después)
+function audioToque(){
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  try{ const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); }catch(e){}
+  ac.resume().catch(() => {}); return ac;
+}
+function pedirToque(ac){
+  return new Promise(res => { const box = $('vMsg'); if(!box) return res();
+    box.innerHTML = '<button class="btn" id="vTap">▶ Toca aquí para empezar a grabar</button>';
+    $('vTap').onclick = () => { ac.resume().finally(() => { box.textContent = 'Grabando el video… (deja esta pantalla abierta)'; res(); }); }; });
+}
 async function probarVoz(){
-  if(VZ.busy) return; VZ.busy = true;
+  if(VZ.busy) return; VZ.busy = true; const ac = audioToque();
   try{
     const v = await vozLista(); vmsg('Generando…');
     const a = await v.decir(hablar('Hola. Esta es la voz de AlexBet. Oportunidad uno: más de 1.5 goles. Nuestro modelo le da 77%.'.replace('AlexBet', 'álex bet')), VZ.vel / VZ.tono);
-    const ac = new AudioContext(), b = ac.createBuffer(1, a.pcm.length, a.sr); b.copyToChannel(a.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = VZ.tono; src.connect(ac.destination); src.start(); src.onended = () => ac.close();
+    if(ac.state !== 'running') await ac.resume().catch(() => {});
+    const b = ac.createBuffer(1, a.pcm.length, a.sr); b.copyToChannel(a.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = VZ.tono; src.connect(ac.destination); src.start(); src.onended = () => ac.close();
     vmsg('Escuchando la voz…');
   }catch(e){ vmsg('No se pudo cargar la voz: ' + e.message); }
   VZ.busy = false;
@@ -546,17 +558,17 @@ function textoVideo(L){
     `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#apuestas #pronosticos #NBA #futbol`;
 }
 async function hacerVideo(L){
-  if(VZ.busy || !L.length) return; VZ.busy = true;
+  if(VZ.busy || !L.length) return; VZ.busy = true; const ac = audioToque();
   const b = $('vGen'); b.disabled = true; b.textContent = 'Creando…';
   if(VZ.out){ URL.revokeObjectURL(VZ.out.url); VZ.out = null; }
   const box = $('vOut'); box.innerHTML = ''; const cv = document.createElement('canvas'); box.appendChild(cv);
   try{
     const voz = await vozLista(), logo = await loadImg('icon-512.png');
-    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, onMsg: (t, pc) => vmsg(t, pc)});
+    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, ac, pedirToque, onMsg: (t, pc) => vmsg(t, pc)});
     VZ.out = Object.assign(r, {txt: textoVideo(L), name: `alexbet-video-${DAY}.${r.ext}`});
     vmsg(`Listo · ${Math.round(r.dur)} segundos · ${(r.blob.size/1e6).toFixed(1)} MB · ${r.ext.toUpperCase()}${guardadoErr ? ' · ' + guardadoErr : ''}`);
   }catch(e){ console.error(e); vmsg('No se pudo crear el video: ' + e.message); }
-  VZ.busy = false; b.disabled = false; b.textContent = 'Crear video'; pintarVideo();
+  ac.close().catch(() => {}); VZ.busy = false; b.disabled = false; b.textContent = 'Crear video'; pintarVideo();
 }
 function pintarVideo(){
   const box = $('vOut'); if(!box || !VZ.out || VZ.busy) return; const o = VZ.out;
