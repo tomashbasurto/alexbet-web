@@ -10,7 +10,7 @@ async function ofLoad(force) {
   if (viewMode === 'picks') renderMatches();
   if (document.getElementById('ofSheet') && document.getElementById('ofSheet').innerHTML) ofOpen(OF.sp);
 }
-const OF_SP = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
+const OF_SP = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL', mix: 'Mixtas'};
 const OF_TIER = {seg: 'Combinadas opción 1 (riesgo bajo)', med: 'Combinadas opción 2 (riesgo medio)', alt: 'Combinadas opción 3 (riesgo alto)'};
 // v36.2: solo el deporte que está abierto en la app
 function ofSets(sp) {

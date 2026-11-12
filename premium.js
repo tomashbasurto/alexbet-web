@@ -338,9 +338,9 @@ setInterval(() => { if (AB.user) aplicar(AB.user); }, 3600e3);
 // ---------- Notificaciones en el celular (Premium) ----------
 // Clave pública de "Certificados push web" (Firebase > Configuración > Cloud Messaging).
 const VAPID = 'BAeyOSXYr-WN5v31XJ51upmEE-f2PyknbnDGOG6dsJNi3fdmeXbwu9SxAjOPxTrrxli9vYXYlI5KCa6m4Cthvr8';
-const PUSH_TIPOS = [['movido', 'Partido movido (goles, córners, tarjetas, puntos)'], ['alineacion', 'Alineación confirmada'], ['fav', 'Mis equipos favoritos: empieza, gol, roja, final'], ['combinadas', 'Combinadas del día publicadas']];
+const PUSH_TIPOS = [['movido', 'Partido movido (goles, córners, tarjetas, puntos)'], ['alineacion', 'Alineación confirmada'], ['fav', 'Mis equipos favoritos: empieza, gol, roja, final'], ['combinadas', 'Combinadas del día publicadas'], ['sugerencias', 'Sugerencias del día y cómo nos fue ayer (a la hora que elijas)']];
 window.abPushInfo = () => ({ok: !!VAPID && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window, perm: ('Notification' in window) ? Notification.permission : 'no', tipos: PUSH_TIPOS, on: !!(AB.user && AB.user.push && AB.user.push.token), sel: (AB.user && AB.user.push && AB.user.push.tipos) || PUSH_TIPOS.map(t => t[0]), ios: /iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone});
-window.abPushEnable = async tipos => {
+window.abPushEnable = async (tipos, hora) => {
   if (!fb || !AB.uid) throw new Error('Inicia sesión primero');
   if (!VAPID) throw new Error('Las notificaciones todavía no están configuradas');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Este navegador no permite notificaciones. En iPhone, primero agrega AlexBet a la pantalla de inicio y ábrela desde ahí');
@@ -355,7 +355,7 @@ window.abPushEnable = async tipos => {
   const token = await M.getToken(messaging, {vapidKey: VAPID, serviceWorkerRegistration: reg});
   if (!token) throw new Error('No se pudo registrar este celular');
   let ep = ''; try { const sub = await reg.pushManager.getSubscription(); ep = sub ? new URL(sub.endpoint).host : 'sin suscripción'; } catch (e) { ep = 'error'; }
-  const push = {token, ep, tipos: tipos || PUSH_TIPOS.map(t => t[0]), favs: typeof window.favList === 'function' ? window.favList().slice(0, 50) : [], t: Date.now(), ua: navigator.userAgent.slice(0, 80)};
+  const push = {token, ep, tipos: tipos || PUSH_TIPOS.map(t => t[0]), hora: hora || (AB.user && AB.user.push && AB.user.push.hora) || 9, favs: typeof window.favList === 'function' ? window.favList().slice(0, 50) : [], t: Date.now(), ua: navigator.userAgent.slice(0, 80)};
   await fb.F.updateDoc(fb.F.doc(fb.db, 'users', AB.uid), {push});
   if (AB.user) AB.user.push = push;
   return push;

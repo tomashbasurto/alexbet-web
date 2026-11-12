@@ -804,6 +804,7 @@ details.bt-bk > summary{ list-style:none; cursor:pointer; } details.bt-bk > summ
     <h2>Más</h2>
     <button type="button" class="more-it" onclick="moreClose();abNav('value')"><b>Valor</b><small>Modelo contra las cuotas de las casas</small></button>
     <button type="button" class="more-it" onclick="moreClose();abNav('alerts')"><b>Alertas<span id="alCountM"></span></b><small>Partidos movidos, valor y cuotas</small></button>
+    <button type="button" class="more-it" onclick="moreClose();location.href='resultados.html'"><b>Resultados reales</b><small>Aciertos de todas las sugerencias, día por día · para compartir</small></button>
     <button type="button" class="more-it" onclick="moreClose();openSettings()"><b>Ajustes</b><small>Cuenta, plan y apariencia</small></button>
         <button type="button" class="more-it more-ref" id="btnRefresh" onclick="moreClose();updateAll()" aria-label="Actualizar datos" title="Actualizar datos">
       <svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -1677,6 +1678,21 @@ function oddBoxInit(sp,lid,h,a,mf){
   draw(jobs.length>0);
   if(jobs.length) Promise.all(jobs).then(()=>draw(false)).catch(()=>draw(false));
 }
+// v46: ajuste automático con los resultados reales de las sugerencias publicadas (calibracion.json, lo arma el servidor cada 2 horas).
+// Si un mercado promete más de lo que acierta (ej. tenis "gana al menos un set": 64% vs 59%), se baja; si acierta más, se sube un poco.
+let CAL_LIVE = null;
+async function calLiveLoad(){ try{ const j = await mirrorGet('calibracion.json'); if(j && j.k) CAL_LIVE = j.k; }catch(e){} return CAL_LIVE; }
+function calLiveApply(list, sp, catOf){
+  if(!CAL_LIVE) return list;
+  list.forEach(x=>{
+    const cat = catOf ? catOf(x) : x.cat, base = CAL_LIVE[sp+'|'+cat]; if(!base) return;
+    const band = CAL_LIVE[sp+'|'+cat+'|'+(x.prob>=75?'hi':'lo')], o = band ? band.off : base.off;
+    if(!o) return; x.p0 = x.prob; x.prob = Math.max(1, Math.min(85, Math.round(x.prob + o)));
+    if(x.why!=null) x.why += ` · ajustado ${o>0?'+':''}${o} por resultados reales`;
+  });
+  return list;
+}
+calLiveLoad();
 function calAll(c, sp, h, a, est){
   const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
   c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x), sp); const mp = mkProb(row,x.label,h,a);
@@ -1758,6 +1774,7 @@ function matchPicks(league, f){
   const cc = calAll(c, 'futbol', hn, an, x=>x.est);
   // v34: corrección por mercado medida con 2.047 partidos de esta temporada (lo que el mercado prometía de más o de menos)
   cc.forEach(x=>{ const k = FT_OFF_KEY(x.label, hn, an), o = FT_OFF[k]; if(!o) return; x.prob = Math.max(1, Math.min(85, Math.round(x.prob + (x.mk!=null ? .4 : 1)*o))); });
+  calLiveApply(cc, 'futbol');
   const best = {};
   cc.forEach(x=>{ x.score = pkScore(x, x.est); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
   const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:65)).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
@@ -1952,7 +1969,7 @@ function renderPicks(){
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol')):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:(OP_LIST.length=0, opxHTML('futbol', opHTML(items)))};
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol') + cbMixHTML()):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:(OP_LIST.length=0, opxHTML('futbol', opHTML(items)))};
   let html = '';
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
@@ -2464,7 +2481,7 @@ function usPicks(g, m){
     const favRL = fav==='h' ? m.homeM15 : m.awayM15;
     add('line', `${dogN} +1.5`, 1-favRL, C.kind==='goals' ? 'Hándicap de goles (+1.5)' : 'Línea de carreras (+1.5)');
   }
-  const cc = calAll(early ? c.filter(x=>x.cat!=='line') : c, g.sp, hn, an, ()=>!!m.est).filter(x=>x.prob>=62);
+  const cc = calLiveApply(calAll(early ? c.filter(x=>x.cat!=='line') : c, g.sp, hn, an, ()=>!!m.est), g.sp).filter(x=>x.prob>=62);
   const best = {}; cc.forEach(x=>{ x.score = pkScore(x, m.est); if(!best[x.cat]||x.score>best[x.cat].score) best[x.cat]=x; });
   return Object.values(best).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({...x, conf:m.est?'est':(x.prob>=75?'alta':(x.prob>=65?'media':'baja'))}));
 }
@@ -3093,7 +3110,7 @@ function usRenderPicks(){
   }
   if(!items.length){ list.innerHTML = usStatusLine(sp) + ((activeDate==='all'||activeDate===ymd(todayDate)) ? (cbPrime(), ofCardHTML(sp) + cbHTML(sp)) : '') + usEmpty(sp,'por jugar en esta fecha') + doneS; return; }
   const top = items.filter(x=>x.picks.length).slice(0,5);
-  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML(sp):'', cb:isT?(cbPrime(), cbHTML(sp)):'', day:pkDayHTML(p=>p.sp===sp), top:'', items:'', done:doneS, op:(OP_LIST.length=0, opxHTML(sp, ''))};
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML(sp):'', cb:isT?(cbPrime(), cbHTML(sp) + cbMixHTML()):'', day:pkDayHTML(p=>p.sp===sp), top:'', items:'', done:doneS, op:(OP_LIST.length=0, opxHTML(sp, ''))};
   let html = '';
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
     const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
@@ -3489,7 +3506,9 @@ function alView(){
 function pushBox(msg){
   const el = document.getElementById('pushBox'); if(!el || typeof window.abPushInfo!=='function') return;
   const I = window.abPushInfo();
-  const chk = I.tipos.map(([k,t])=>`<label class="push-ck"><input type="checkbox" value="${k}" ${I.sel.includes(k)?'checked':''}> ${t}</label>`).join('');
+  const hr = (window.AB && AB.user && AB.user.push && AB.user.push.hora) || 9;
+  const chk = I.tipos.map(([k,t])=>`<label class="push-ck"><input type="checkbox" value="${k}" ${I.sel.includes(k)?'checked':''}> ${t}</label>`).join('') +
+    `<label class="push-ck" style="justify-content:space-between">Hora del aviso de sugerencias <select id="pushHora" style="min-height:34px;border-radius:10px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);padding:0 8px">${[7,9,11,13,15,17,19].map(h=>`<option value="${h}" ${h===hr?'selected':''}>${h<12?h+':00 a. m.':h===12?'12:00 m.':(h-12)+':00 p. m.'}</option>`).join('')}</select></label>`;
   el.innerHTML = `<h3><span class="dot"></span>Notificaciones en este celular</h3>` +
     (!I.ok ? `<div class="pl-none">${I.ios ? 'En iPhone: toca Compartir → "Agregar a inicio", abre AlexBet desde ese ícono y vuelve aquí para activar las notificaciones.' : 'Las notificaciones estarán disponibles muy pronto.'}</div>` :
     `<div class="pl-none" style="padding:2px 0 6px">${I.on ? '✅ Activadas: te llegan aunque la app esté cerrada.' : 'Recibe las alertas aunque la app esté cerrada.'}</div>${chk}
@@ -3500,7 +3519,8 @@ async function pushSave(){
   if(!PREM()){ abPay(); return; }
   const tipos = [...document.querySelectorAll('#pushBox .push-ck input:checked')].map(x=>x.value);
   pushBox('Activando…');
-  try{ await window.abPushEnable(tipos); pushBox('Listo. Te llegará una notificación cuando haya una alerta.'); }
+  const hEl = document.getElementById('pushHora'), hora = hEl ? +hEl.value : 9;
+  try{ await window.abPushEnable(tipos, hora); pushBox('Listo. Te llegará una notificación cuando haya una alerta.'); }
   catch(e){ pushBox(escA(e.message||String(e))); }
 }
 async function pushOff(){ try{ await window.abPushDisable(); pushBox('Notificaciones desactivadas en este celular.'); }catch(e){ pushBox(escA(e.message||String(e))); } }
@@ -3824,6 +3844,22 @@ function btStats(){
   let n=0,w=0,stake=0,net=0,pend=0; LS.get('ab_bets',[]).forEach(b=>{ if(b.status==='p'||b.status==='m'){ pend++; return; } if(b.status==='v') return; n++; stake += b.stake||0; if(b.status==='w'){ w++; net += (b.stake||0)*(b.odds-1); } else net -= (b.stake||0); });
   return {n,w,stake,net,pend, roi: stake ? net/stake*100 : null, hit: n ? w/n*100 : null};
 }
+// v46: balance de dinero por semana y por deporte (jugadas con monto y cuota)
+function btMoneyHTML(){
+  const B = LS.get('ab_bets',[]).filter(b=>(b.status==='w'||b.status==='l') && b.stake>0);
+  if(!B.length) return '';
+  const net = b => b.status==='w' ? b.stake*(b.odds-1) : -b.stake;
+  const SPN = {futbol:'⚽ Fútbol', nba:'🏀 NBA', ncaa:'🏀 NCAA', eul:'🏀 Euroliga', nhl:'🏒 NHL', mlb:'⚾ MLB', tenis:'🎾 Tenis'};
+  const grp = f => { const m = {}; B.forEach(b=>{ const k = f(b); const g = m[k] = m[k] || {n:0, w:0, st:0, net:0}; g.n++; g.w += b.status==='w'?1:0; g.st += b.stake; g.net += net(b); }); return m; };
+  const wk = b => { const d = new Date((b.t||b.id) - 5*3600e3), dow = (d.getUTCDay()+6)%7; return new Date(d.getTime() - dow*864e5).toISOString().slice(0,10); };
+  const MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], wTxt = k => { const d = new Date(k+'T12:00:00Z'); return `Semana del ${d.getUTCDate()} ${MS[d.getUTCMonth()]}`; };
+  const row = (t, g) => `<div class="lv-stats"><span>${t}<small style="display:block;color:var(--ink-dim)">${g.w} de ${g.n} ganadas · apostado $${g.st.toFixed(2)}</small></span><span><b style="color:${g.net>=0?'var(--over)':'#ff6b6b'}">${g.net>=0?'+':''}$${g.net.toFixed(2)}</b><small style="display:block;color:var(--ink-dim);text-align:right">${g.st?(g.net/g.st*100>=0?'+':'')+(g.net/g.st*100).toFixed(0)+'%':''}</small></span></div>`;
+  const W = grp(wk), S = grp(b=>b.sp||'futbol');
+  return `<div class="prob-card"><h3><span class="dot"></span>Tu dinero por semana y por deporte</h3>
+    <div class="lv-h">Por semana</div>${Object.keys(W).sort().reverse().slice(0,8).map(k=>row(wTxt(k), W[k])).join('')}
+    <div class="lv-h">Por deporte</div>${Object.entries(S).sort((a,b)=>b[1].n-a[1].n).map(([k,g])=>row(SPN[k]||k, g)).join('')}
+    <div class="al-st">Solo cuentan las jugadas ganadas o perdidas en las que pusiste monto. El % es la ganancia sobre lo apostado.</div></div>`;
+}
 function btModelHTML(){
   const P = Object.values(LS.get('ab_preds',{})), R = P.filter(p=>p.res===0||p.res===1), tot = P.length;
   if(!R.length) return `<div class="pl-none">Todavía no hay sugerencias resueltas. La app guarda sola las sugerencias de los próximos días y, cuando terminan los partidos, las compara con el resultado real. Registrados hasta ahora: ${tot}.</div>`;
@@ -3847,7 +3883,7 @@ function btView(){
     <div class="mh-grid"><div><b>${st.n}</b><small>Resueltas</small></div><div><b>${st.hit==null?'-':st.hit.toFixed(0)+'%'}</b><small>Acierto</small></div><div><b style="color:${st.net>=0?'var(--over)':'#ff6b6b'}">${st.net>=0?'+':''}$${st.net.toFixed(2)}</b><small>Ganancia neta</small></div><div><b>${st.roi==null?'-':st.roi.toFixed(0)+'%'}</b><small>Retorno (ROI)</small></div></div>
     <div class="pk-form" style="margin-top:8px"><label>Tu banca inicial ($) · para sugerir montos</label><input id="btBank" inputmode="decimal" value="${bank||''}" placeholder="ej. 100" onchange="LS.set('ab_bank',parseFloat(this.value)||0);btView()"></div>
     ${bank?`<div class="lv-stats"><span>Banca actual: <b>$${(bank+st.net).toFixed(2)}</b></span><span>Pendientes: <b>${st.pend}</b></span></div>`:`<div class="lv-stats"><span>Pendientes: <b>${st.pend}</b></span></div>`}
-    <div class="row" style="gap:8px;"><button class="btn" style="flex:1;margin:6px 0" onclick="pkSweep()">${PK.busy?'Buscando…':'Actualizar resultados'}</button></div><div class="al-st">${PK.msg||''}</div></div>`;
+    <div class="row" style="gap:8px;"><button class="btn" style="flex:1;margin:6px 0" onclick="pkSweep()">${PK.busy?'Buscando…':'Actualizar resultados'}</button></div><div class="al-st">${PK.msg||''}</div></div>` + btMoneyHTML();
   if(S.length){
     h += `<div class="prob-card"><h3><span class="dot"></span>Combinada en armado</h3>` + S.map((l,i)=>`<div class="pick-row" style="cursor:default"><div class="pick-main"><b>${escA(l.label)}</b><small>${escA(l.h)} vs ${escA(l.a)} · modelo ${l.prob}%</small></div><input class="pk-mini" inputmode="text" placeholder="cuota" value="${l.odds||''}" onchange="btSlipOdds(${i},this.value)" oninput="btSlipOdds(${i},this.value)"><button class="pk-add" onclick="btSlipDel(${i})">✕</button></div>`).join('') +
       `<div class="pk-form" style="margin-top:6px"><label>Cuota total (si no pusiste la de cada una)</label><input id="btSlipO" inputmode="text" placeholder="ej. 3.40" oninput="btSlipCalc()"><label>Monto ($)</label><input id="btSlipS" inputmode="decimal" oninput="btSlipCalc()"></div><div id="btSlipRes"></div>
@@ -4427,8 +4463,41 @@ function pbSd(a){ if(a.length<3) return null; const m = pbAvg(a); return Math.sq
 // v39.2: los nombres salen desde el equipo elegido ("me"): debajo de la fecha va el rival, y cambia al elegir el otro equipo
 function pbH2xItem(g, v, lid, me, both){ const meN = me===PB.aid ? PB.a : PB.h, opN = me===PB.aid ? PB.h : PB.a, hn = g.home ? meN : opN, an = g.home ? opN : meN;
   return {id:g.id, ts:g.ts, v, opp:both ? hn : opN, oppId:'', h2:true, old:true, ctx:{sp:'futbol', lid, slug:(SRC[lid]||{}).espn, fid:'e'+g.id, date:new Date(g.ts).toISOString().slice(0,10), h:hn, a:an, score:`${g.gh}-${g.ga}`, lname:''}}; }
+// v46 · NBA y NCAA: mercados de equipo y por cuarto/mitad con los últimos 20 partidos de cada equipo (recientes-us.json del servidor)
+const USM = [
+  {k:'Puntos'},
+  {k:'Puntos 1er cuarto', f:(q,s)=>q[0]},
+  {k:'Puntos 1ª mitad', f:(q,s)=>q.length>=2 ? q[0]+q[1] : null},
+  {k:'Puntos 2ª mitad', f:(q,s)=>q.length>=4 ? q[2]+q[3] : null},
+  {k:'Puntos 4to cuarto', f:(q,s)=>q[3]},
+  {k:'Rebotes', f:(q,s)=>s[0]},
+  {k:'Asistencias', f:(q,s)=>s[1]},
+  {k:'Triples', f:(q,s)=>s[2]},
+];
+const RUS = {t:0, d:null, loading:false};
+function rusGet(){ if(!RUS.loading && Date.now()-RUS.t > 15*60e3){ RUS.loading = true; mirrorGet('recientes-us.json').then(j=>{ RUS.d = j; }).catch(()=>{}).finally(()=>{ RUS.t = Date.now(); RUS.loading = false; pbRender(); }); } return RUS.d; }
+const usmOK = () => PB.kind==='us' && (PB.sp==='nba' || PB.sp==='ncaa');
+function pbSrcUSM(){
+  const sp = PB.sp, M = USM[PB.m], D = rusGet(), ti = PB.t, both = ti===2;
+  if(!D) return {wait:'Cargando partidos…'};
+  const R = D[sp] || {}, nrm = x => String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  const of = n => R[n] || R[Object.keys(R).find(k=>nrm(k)===nrm(n))] || [];
+  const mine = r => M.f(r[3]||[], r[5]||[]), theirs = r => M.f(r[4]||[], r[6]||[]);
+  const mk = (r, name, v) => ({id:r[9]||String(r[0]), ts:r[0], v, them:theirs(r), opp:r[7], oppId:'', h2:r[7]===(name===PB.h?PB.a:PB.h),
+    ctx:{sp, id:r[9], date:new Date(r[0]).toISOString(), h:r[8]?name:r[7], a:r[8]?r[7]:name, score:r[8]?`${r[1]}-${r[2]}`:`${r[2]}-${r[1]}`, lname:US[sp].name, from:{kind:'us', sp, id:PB.gid}}});
+  const L = (name, tot) => of(name).filter(r=>mine(r)!=null && theirs(r)!=null).map(r=>mk(r, name, tot ? mine(r)+theirs(r) : mine(r)));
+  let G, lam;
+  if(both){ const A = L(PB.h, 1), B = L(PB.a, 1), seen = new Set(); G = A.concat(B).filter(x=>!seen.has(x.id) && seen.add(x.id)).sort((x,y)=>y.ts-x.ts);
+    lam = ((A.length?pbAvg(A.slice(0,10).map(x=>x.v)):0) + (B.length?pbAvg(B.slice(0,10).map(x=>x.v)):0)) / ((A.length?1:0)+(B.length?1:0) || 1); }
+  else { const me = ti===1?PB.a:PB.h, op = ti===1?PB.h:PB.a; G = L(me, 0); const O = L(op, 0);
+    lam = (pbAvg(G.slice(0,10).map(x=>x.v)) + (O.length>=3 ? pbAvg(O.slice(0,10).map(x=>x.them)) : pbAvg(G.slice(0,10).map(x=>x.v))))/2; }
+  if(!G.length) return {wait:`Todavía no hay ${M.k.toLowerCase()} guardados de estos equipos. El servidor los completa cada día.`};
+  const big = lam>=8, sd = big ? Math.max(pbSd(G.slice(0,20).map(x=>x.v))||0, Math.sqrt(lam)) : 0;
+  return {G, lam, label:M.k.toLowerCase(), markets:null, prob: ln => big ? 1-pbNorm((ln-lam)/sd) : pbPois(lam, ln)};
+}
 function pbSrc(){
   const ti = PB.t, both = ti===2, me = ti===1?PB.aid:PB.hid, op = ti===1?PB.hid:PB.aid;
+  if(usmOK() && PB.m>0 && USM[PB.m]) return pbSrcUSM();
   if(PB.kind==='us'){
     const sp = PB.sp, unit = US[sp].unit, C = id => RC.sched[sp+'|'+id];
     if(!C(PB.hid) || !C(PB.aid)) return {wait:'Cargando partidos…'};
@@ -4528,6 +4597,7 @@ function pbRender0(){
   const R = pbSrc(), nm = [PB.h, PB.a, 'Ambos'][PB.t], name = PB.t===2 ? 'el partido (ambos)' : escA(nm), oname = escA(PB.t===1?PB.h:PB.a);
   const lidF = PB.kind==='f' ? (H2F.lid || (curFixture && curFixture.lid)) : null;
   if(PB.kind==='f') b = `<div class="pb-head"><h3><span class="dot"></span>Estadísticas por partido</h3>${pbSel(PB_M.map(x=>x.k), PB.m, "pbPick.bind(null,'m')")}</div>`;
+  else if(usmOK()) b = `<div class="pb-head"><h3><span class="dot"></span>Estadísticas por partido</h3>${pbSel(USM.map(x=>x.k), PB.m, "pbPick.bind(null,'m')", USM.map((x,i)=>i===0||/^Puntos/.test(x.k)?'Puntos':'Equipo'))}</div>`;
   b += pbSeg([PB.h, PB.a, 'Ambos'], PB.t, "pbPick.bind(null,'t')", lidF);
   if(R.wait){ el.innerHTML = b + `<div class="pl-none">${R.wait}</div>`; return; }
   const G = R.G, lam = R.lam;
@@ -4646,6 +4716,12 @@ function pjPick(kind, v){
   pjRender();
 }
 function pjRender(){ try{ pbKeep('pjBox', pjRender0); }catch(e){ const el = document.getElementById('pjBox'); if(el) el.innerHTML = `<h3><span class="dot"></span>Estadísticas por jugador</h3><div class="pl-none">No pude mostrar las estadísticas de jugadores (${escA(e.message||String(e))}).</div>`; } }
+// v46: líneas reales de jugadores NBA (DraftKings vía ESPN) copiadas por el servidor cada 30 min
+const PROPS = {t:0, ev:null, loading:false};
+function propsGet(gid, aid, mk){
+  if(!PROPS.loading && Date.now()-PROPS.t > 10*60e3){ PROPS.loading = true; mirrorGet('espn-props-nba.json').then(j=>{ PROPS.ev = (j && j.ev) || {}; }).catch(()=>{}).finally(()=>{ PROPS.t = Date.now(); PROPS.loading = false; if(document.getElementById('pjBox')) pjRender0(); }); }
+  const e = PROPS.ev && PROPS.ev[gid], a = e && e[aid]; return a ? a[mk] || null : null;
+}
 function pjRender0(){
   const el = document.getElementById('pjBox'); if(!el) return;
   if(PJ.key!==pjCtxKey()) PJ = {key:pjCtxKey(), t:0, pid:null, m:0, per:'L10', ln:null, loadKey:'', prog:'', fail:0};
@@ -4688,6 +4764,8 @@ function pjRender0(){
   const binP = () => { const a = S.slice(0,20), w = a.map((x,i)=>i<10?2:1), k = a.reduce((t,x,i)=>t+x.v*w[i],0), n = w.reduce((t,x)=>t+x,0); return (k+1)/(n+2); };
   const prob = ln => bin ? binP() : big ? 1-pbNorm((ln-lam)/sd) : pbPois(lam, ln);
   if(bin) PJ.ln = 0.5;
+  const HP = (PB.kind==='us' && PB.sp==='nba' && PB.gid) ? propsGet(String(PB.gid), String(cur.key).split('|')[0], mName) : null;
+  if(PJ.ln==null && HP && HP[0]!=null) PJ.ln = HP[0]; // empieza en la línea de la casa
   if(PJ.ln==null) PJ.ln = Math.max(0.5, Math.floor(lam)-0.5);
   const ln = PJ.ln, over = x => x>ln, pr = Math.round((0.5 + (Math.min(0.99, Math.max(0.01, prob(ln)))-0.5)*0.9)*100);
   const sets = {L5:S.slice(0,5), L10:S.slice(0,10), L20:S.slice(0,20), H2H:S.filter(g=>g.h2), Todos:S};
@@ -4702,6 +4780,17 @@ function pjRender0(){
   } else {
     b += pbLineRow(avaJ, mName.toLowerCase(), 'de '+escA(plShort(cur.name)), ln, 'pjPick');
     b += pbTiles(pr, lam.toFixed(1), 'Promedio L10', curSetJ.length ? curSetJ.filter(g=>over(g.v)).length+'/'+curSetJ.length : '-');
+  }
+  if(HP){ // línea de la casa contra el modelo
+    const mp = q => Math.round((0.5 + (Math.min(0.99, Math.max(0.01, q))-0.5)*0.9)*100);
+    let line = '', diff = null, side = '', odd = null, me = null;
+    if(HP[0]==null){ const hp = Math.round(100/HP[1]*0.94); me = pr; diff = me - hp; side = 'Sí'; odd = HP[1];
+      line = `DraftKings paga <b>${HP[1].toFixed(2)}</b> a que lo haga (casa ≈ ${hp}%) · modelo <b>${me}%</b>`; }
+    else { const po = 1/HP[1], pu = HP[2] ? 1/HP[2] : null, hp = Math.round(100*(pu ? po/(po+pu) : po*0.95)); me = mp(prob(HP[0]));
+      diff = me - hp; side = diff >= 0 ? 'Más' : 'Menos'; odd = diff >= 0 ? HP[1] : HP[2];
+      line = `Línea DraftKings <b>${HP[0]}</b> · Más ${HP[1].toFixed(2)}${HP[2]?' · Menos '+HP[2].toFixed(2):''} · casa ${hp}% a Más · modelo <b>${me}%</b>`; }
+    const big2 = diff!=null && Math.abs(diff) >= 10, pSide = side==='Menos' ? 100-me : me, ev = odd ? pSide/100*odd - 1 : null;
+    b += `<div class="lv-stats" style="display:block;margin-top:8px">${line}${big2 ? `<br><b style="color:var(--accent)">Línea desregulada a favor de ${side}${HP[0]!=null?' '+HP[0]:''}</b>${ev!=null?` · valor esperado ${ev>=0?'+':''}${Math.round(ev*100)}%`:''}` : ''}</div>`;
   }
   if(!shown.length) b += `<div class="pl-none">No se enfrentó a este rival en los partidos cargados.</div>`;
   else b += `<div class="pb-bars">${shown.map(g=>`<div class="pb-b${over(g.v)?' ok':''}" onclick="mhOpen(${mhReg(g.ctx)})"><span>${bin?(g.v?'Sí':'No'):g.v}</span><i style="height:${hgt(g.v)}px;background:${over(g.v)?'var(--over)':'var(--miss)'}"></i></div>`).join('')}<div class="pb-ln" style="bottom:${hgt(ln)}px"><em>${ln.toFixed(1)}</em></div></div>` + pbLabs(shown);
@@ -5044,7 +5133,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v45 · más mercados NBA';
+const APP_VERSION = 'v46 · ajuste automático, resultados, NBA cuartos y líneas';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

@@ -17,6 +17,7 @@
       "push-prueba.js",
       "equipos.js",
       "escudos.js",
+      "calibracion.js",
       "node_modules/**"
     ],
     "headers": [

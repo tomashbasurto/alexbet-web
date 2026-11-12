@@ -306,7 +306,8 @@ function tnCands(m, M) {
     else add(`${B} gana al menos un set`, M.oneB - 0.07, `partido parejo: ${A} favorito con ${tnPc(fav)}%`);
   }
   M.lines.forEach(L => { add(`Más de ${L} juegos`, M.over(L), `esperados ${M.exp.toFixed(1)}`); add(`Menos de ${L} juegos`, 1 - M.over(L), `esperados ${M.exp.toFixed(1)}`); });
-  return c.sort((x, y) => y.prob - x.prob);
+  if (typeof calLiveApply === 'function') calLiveApply(c, 'tenis', x => /^Gana /.test(x.label) ? 'ml' : / set$/.test(x.label) ? 'line' : 'tot');
+  return c.filter(x => x.prob >= 60).sort((x, y) => y.prob - x.prob);
 }
 function tnRenderPicks() {
   const list = document.getElementById('matchList');
@@ -319,7 +320,7 @@ function tnRenderPicks() {
   ms.forEach(m => { const M = tnModel(m); if (M.est) return; tnCands(m, M).slice(0, 1).forEach(k => rows.push({m, M, k})); });
   rows.sort((x, y) => y.k.prob - x.k.prob);
   document.getElementById('matchCount').textContent = ms.length + (ms.length === 1 ? ' partido' : ' partidos');
-  const cbx = day === ymd(todayDate) && typeof cbHTML === 'function' ? (cbPrime(), (typeof ofCardHTML === 'function' ? ofCardHTML('tenis') : '') + cbHTML('tenis')) : '';
+  const cbx = day === ymd(todayDate) && typeof cbHTML === 'function' ? (cbPrime(), (typeof ofCardHTML === 'function' ? ofCardHTML('tenis') : '') + cbHTML('tenis') + (typeof cbMixHTML === 'function' ? cbMixHTML() : '')) : '';
   if (!ms.length) { list.innerHTML = tnHeader() + cbx + tnEmpty('por jugar en esta fecha'); return; }
   const top = rows.slice(0, 10);
   list.innerHTML = tnHeader() + cbx + `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones de tenis</h3>` + (top.length ? top.map(x => {

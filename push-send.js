@@ -34,7 +34,7 @@ async function init() {
       const p = f.push; if (!p || !p.token) return;
       const creado = f.creado ? Date.parse(f.creado) : 0, hasta = f.premiumHasta ? Date.parse(f.premiumHasta) : 0, now = Date.now();
       const prem = now < creado + PRUEBA_DIAS * 864e5 || now < hasta || f.email === OWNER;
-      if (prem) users.push({path: d.name, email: f.email, ep: p.ep || '', token: p.token, tipos: p.tipos || ['movido', 'alineacion', 'fav', 'combinadas'], favs: p.favs || []});
+      if (prem) users.push({path: d.name, email: f.email, ep: p.ep || '', token: p.token, tipos: p.tipos || ['movido', 'alineacion', 'fav', 'combinadas'], favs: p.favs || [], hora: +p.hora || 9});
     });
     if (!j.nextPageToken) break; page = j.nextPageToken;
   }
@@ -65,6 +65,7 @@ async function init() {
       for (const u of users) {
         if (u.dead || !u.tipos.includes(tipo)) continue;
         if (tipo === 'fav' && !favOf(u, opt.teams)) continue;
+        if (opt.hora != null && u.hora !== opt.hora) continue; // aviso diario a la hora que eligió cada usuario
         await send(u, title, body, opt.tag);
       }
     },

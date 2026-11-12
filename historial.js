@@ -44,7 +44,7 @@ const KEEP_DAYS = 120;
       const one = (sp, lid, h, a, when, ts, gid, k, where) => {
         if (!k || ts < now + 5 * 60e3) return;
         const mkt = sp === 'tenis' ? {t: 'tn'} : pkMkt(k.label, h, a); if (!mkt) return;
-        picks.push({id: [sp, lid, h, a, when, k.label].join('|'), sp, lid, h, a, when, ts, gid: gid || null, where, label: k.label, cat: k.cat || null, prob: k.prob, odd: k.odd || null, mkt, pub: now, res: null});
+        picks.push({id: [sp, lid, h, a, when, k.label].join('|'), sp, lid, h, a, when, ts, gid: gid || null, where, label: k.label, cat: k.cat || null, prob: k.prob, p0: k.p0 != null ? k.p0 : null, odd: k.odd || null, mkt, pub: now, res: null});
       };
       if (sp === 'futbol') LEAGUES.forEach(l => (l.fixtures || []).forEach(f => {
         if (!l.teams[f[0]] || !l.teams[f[1]] || isoDateOnlyEcuador(f[2], l.utcOffset) !== day) return;
@@ -64,6 +64,7 @@ const KEEP_DAYS = 120;
     };
   });
   await page.evaluate(async () => {
+    await calLiveLoad();
     await Promise.allSettled([usLoad('nba', true), usLoad('eul', true), usLoad('mlb', true), usLoad('ncaa', true), usLoad('nhl', true), tnLoad(true), plLoad2('nba')]);
     try { const j = await mirrorGet('elo-tenis.json'); TN.elo = {lt: Date.now(), r: j.r || {}, h2h: j.h2h || {}}; TN.cache = {}; } catch (e) {}
   });
@@ -80,6 +81,9 @@ const KEEP_DAYS = 120;
     console.log(sp, '· cuotas ESPN:', part.cuotas, '· sugerencias hoy:', part.picks.length, '· con cuota real:', part.picks.filter(p => p.odd).length);
     fresh.picks.push(...part.picks); fresh.combos[sp] = part.combos; fresh.day = part.day || fresh.day; fresh.now = part.now;
   }
+  // v46: combinadas mixtas (varios deportes juntos)
+  fresh.combos.mix = await page.evaluate(() => { try { return cbBuild('mix'); } catch (e) { return []; } }).catch(() => []);
+  console.log('combinadas mixtas:', fresh.combos.mix.length);
   console.log('con cuota real:', fresh.picks.filter(p => p.odd).length, 'de', fresh.picks.length);
 
   const have = new Set(H.picks.map(p => p.id)), newCombos = [];
@@ -130,11 +134,33 @@ const KEEP_DAYS = 120;
   if (newCombos.length) {
     try {
       const P = await require('./push-send').init();
-      if (P) { const N = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
+      if (P) { const N = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL', mix: 'Mixtas'};
         await P.notify('combinadas', 'Combinadas AlexBet de hoy', newCombos.map(x => `${N[x.sp]}: ${[x.seg && x.seg + ' de opción 1', x.med && x.med + ' de opción 2', x.alt && x.alt + ' de opción 3'].filter(Boolean).join(', ')}`).join(' · ') + '. Ábrelas en Sugerencias.', {tag: 'cb|' + fresh.day});
         console.log('push combinadas:', JSON.stringify(P.stats())); }
     } catch (e) { console.log('push:', e.message); }
   }
+
+  // v46: aviso diario "sugerencias de hoy + cómo nos fue ayer", a la hora que eligió cada usuario (horas impares de Ecuador)
+  try {
+    const ecH = new Date(Date.now() - 5 * 3600e3).getUTCHours(), day = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
+    const ayer = new Date(Date.now() - 29 * 3600e3).toISOString().slice(0, 10), dOf = ts => new Date(ts - 5 * 3600e3).toISOString().slice(0, 10);
+    H.sent = H.sent || {}; const key = day + '|' + ecH;
+    if (ecH >= 7 && ecH <= 19 && !H.sent[key]) {
+      const Y = H.picks.filter(p => dOf(p.ts) === ayer && (p.res === 0 || p.res === 1)), ok = Y.filter(p => p.res === 1).length;
+      const T = H.picks.filter(p => dOf(p.ts) === day && p.ts > Date.now() + 20 * 60e3).sort((a, b) => b.prob - a.prob);
+      if (T.length || Y.length) {
+        const P = await require('./push-send').init();
+        if (P) {
+          const body = (Y.length ? `Ayer: ${ok} de ${Y.length} acertadas (${Math.round(ok / Y.length * 100)}%).\n` : '') +
+            (T.length ? `Hoy hay ${T.length} sugerencias. Las más fuertes:\n` + T.slice(0, 3).map(p => `• ${p.label} · ${p.h} vs ${p.a} (${p.prob}%)`).join('\n') : 'Hoy ya no quedan sugerencias por jugar.');
+          await P.notify('sugerencias', 'Tus sugerencias AlexBet de hoy', body, {hora: ecH, tag: 'sug-' + day});
+          console.log('push sugerencias', ecH + 'h:', JSON.stringify(P.stats()));
+        }
+      }
+      H.sent[key] = Date.now();
+      Object.keys(H.sent).forEach(k => { if (k.slice(0, 10) < ayer) delete H.sent[k]; });
+    }
+  } catch (e) { console.log('push sugerencias:', e.message); }
 
   // ---------- 3) limpiar y guardar ----------
   const lim = Date.now() - KEEP_DAYS * 864e5;

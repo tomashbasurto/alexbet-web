@@ -95,6 +95,37 @@ async function cuotasFutbol(t) {
   if (ev.length) guardar(F, {t, ev});
 }
 
+// v46: líneas de jugadores de la NBA (DraftKings vía ESPN, gratis): puntos, rebotes, asistencias, triples, combinados y doble-doble.
+// Cada mercado viene en pares con la misma línea: el primero es "Más de" y el segundo "Menos de".
+const PROP_T = {'Total Points': 'Puntos', 'Total Rebounds': 'Rebotes', 'Total Assists': 'Asistencias', 'Total 3-Point Field Goals': 'Triples',
+  'Total Points and Assists': 'Pts+Ast', 'Total Points and Rebounds': 'Pts+Reb', 'Total Assists and Rebounds': 'Reb+Ast', 'Total Points, Rebounds, and Assists': 'Pts+Reb+Ast',
+  'Total Steals': 'Robos', 'Total Blocks': 'Tapones', 'Total Turnovers': 'Pérdidas', 'Total Steals and Blocks': 'Robos+Tapones',
+  'To Record a Double Double': 'Doble-doble', 'To Record a Triple Double': 'Triple-doble'};
+async function propsNBA(t) {
+  const F = 'espn-props-nba.json';
+  try { const old = JSON.parse(fs.readFileSync(F, 'utf8')); if (t - old.t < 25 * 60e3 && !process.env.FORZAR) return; } catch (e) {}
+  let B = null; try { B = JSON.parse(fs.readFileSync('espn-nba.json', 'utf8')); } catch (e) { return; }
+  const ids = new Set();
+  (B.boards || []).forEach(b => (b.events || []).forEach(e => { const c = (e.competitions || [])[0] || {}, st = c.status && c.status.type && c.status.type.state, x = Date.parse(e.date);
+    if (st === 'pre' && x > t - 3600e3 && x < t + 40 * 3600e3) ids.add(e.id); }));
+  const ev = {};
+  for (const id of ids) {
+    const j = await get(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events/${id}/competitions/${id}/odds/100/propBets?limit=1000`);
+    const M = {};
+    ((j && j.items) || []).forEach(x => {
+      const k = PROP_T[(x.type || {}).name]; if (!k) return;
+      const aid = (((x.athlete || {}).$ref || '').match(/athletes\/(\d+)/) || [])[1]; if (!aid) return;
+      const d = parseFloat(((x.odds || {}).decimal || {}).value); if (!(d > 1)) return;
+      const L = x.current && x.current.target ? x.current.target.value : null, A = M[aid] = M[aid] || {};
+      if (L == null) { A[k] = [null, d]; return; }               // sí/no (doble-doble)
+      const cur = A[k]; if (!cur || cur[0] !== L) A[k] = [L, d, null]; else if (cur[2] == null) cur[2] = d; // [línea, más, menos]
+    });
+    if (Object.keys(M).length) ev[id] = M;
+  }
+  console.log('props NBA: partidos', ids.size, '· con líneas', Object.keys(ev).length);
+  if (Object.keys(ev).length) guardar(F, {t, ev});
+}
+
 // v44: lanzadores abridores probables con sus números de la temporada, desde la API oficial de MLB (gratis)
 async function abridoresMLB(t) {
   const d0 = new Date(t - 5 * 3600e3 - 864e5).toISOString().slice(0, 10), d1 = new Date(t + 7 * 864e5).toISOString().slice(0, 10);
@@ -140,4 +171,5 @@ async function abridoresMLB(t) {
   if (tenis.atp.length || tenis.wta.length) guardar('espn-tenis.json', tenis);
   await cuotasFutbol(t);
   await abridoresMLB(t);
+  await propsNBA(t);
 })();

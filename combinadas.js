@@ -18,7 +18,17 @@ const cbDay = () => ymd(todayDate);
 // Sin cuota real, la cuota que se muestra es la estimada de la casa: cuota justa x 0.93.
 const CB_MARGIN = 0.93, CB_CV = 5;
 const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
-const CB_SP = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL'};
+const CB_SP = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL', mix: 'Mixtas'};
+// combinadas mixtas de hoy: las publica el servidor (historial.json), iguales para todos
+function cbMixHTML() {
+  if (!PREM() || typeof OF === 'undefined') return '';
+  if (!OF.H) { ofLoad(); return ''; }
+  const C = (OF.H.combos || []).filter(c => c.sp === 'mix' && c.day === cbDay());
+  if (!C.length) return '';
+  return `<details class="prob-card cb-box"><summary><h3 style="display:inline"><span class="dot"></span>Combinadas mixtas · varios deportes</h3></summary>` +
+    CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k); return G.length ? `<div class="cb-t">${T.name} <span class="cb-rk ${T.k}">Riesgo ${T.risk}</span></div>` + G.map((c, i) => cbCard(c, `${T.name} · #${i + 1}`)).join('') : ''; }).join('') +
+    `<div class="al-st">Las mejores selecciones del día de todos los deportes, una por partido. Las publica el servidor antes de que empiecen y se resuelven solas.</div></details>`;
+}
 // historial: {día: {deporte: {t, combos, lock}}}
 function cbAll() {
   let all = LS.get('ab_cb2', null);
@@ -107,7 +117,9 @@ function cbBuildTier(T, all, usedGlobal, sp) {
   }));
 }
 // fútbol tiene muchos partidos: no repite partido entre niveles. NBA/MLB tienen pocos: sí puede repetir entre niveles.
-function cbBuild(sp) { const all = cbLegs(sp), used = new Set(); return CB_TIERS.flatMap(T => cbBuildTier(T, all, sp === 'futbol' ? used : Object.assign(used, {share: true}), sp)); }
+// v46: "mixtas" = las mejores selecciones de todos los deportes juntos (un partido distinto por selección)
+const CB_ALLSP = ['futbol', 'nba', 'eul', 'ncaa', 'mlb', 'nhl', 'tenis'];
+function cbBuild(sp) { const all = sp === 'mix' ? CB_ALLSP.flatMap(s => cbLegs(s)).sort((x, y) => y.prob - x.prob) : cbLegs(sp), used = new Set(); return CB_TIERS.flatMap(T => cbBuildTier(T, all, sp === 'futbol' ? used : Object.assign(used, {share: true}), sp)); }
 const cbCount = (C, k) => C.filter(c => c.tier === k).length;
 const cbFull = C => CB_TIERS.every(T => cbCount(C, T.k) >= T.want);
 
