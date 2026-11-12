@@ -76,6 +76,32 @@ const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
     if (Date.now() - T0 > 22 * 60e3) { console.log('Tiempo agotado: faltan', todo.length - i, 'para la próxima vuelta'); break; }
     await Promise.all(todo.slice(i, i + 8).map(one));
   }
+  // 2c) v48.1 · selecciones: estadísticas de sus partidos (de datos.json), todas con liga 'sel' y nombres en español
+  {
+    let NAT_ES = {}; try { NAT_ES = JSON.parse(fs.readFileSync('nat-es.json', 'utf8')); } catch (e) {}
+    const NATC = {selamist: 'fifa.friendly', wcqsa: 'fifa.worldq.conmebol', copaam: 'conmebol.america', mundial: 'fifa.world', unl: 'uefa.nations', wcqeu: 'fifa.worldq.uefa', euro: 'uefa.euro', euroq: 'uefa.euroq',
+      cnl: 'concacaf.nations.league', wcqcc: 'fifa.worldq.concacaf', gold: 'concacaf.gold', afcon: 'caf.nations', afconq: 'caf.nations_qual', wcqcaf: 'fifa.worldq.caf', asian: 'afc.asian.cup', wcqafc: 'fifa.worldq.afc'};
+    let D = {}; try { D = JSON.parse(fs.readFileSync('datos.json', 'utf8')); } catch (e) {}
+    const nt = [];
+    Object.entries(NATC).forEach(([lg, code]) => (((D.fx || {})[lg] || {}).fx || []).forEach(f => {
+      if (f.s !== 'FT' || !/^e\d+$/.test(f.i || '')) return; const id = f.i.slice(1), t = Date.parse(f.d + ':00Z'); if (t < lim) return;
+      if (S.ev[id] && (S.ev[id][6] || []).length >= KEYS.length) return; nt.push([code, id, t]); }));
+    nt.sort((x, y) => y[2] - x[2]);
+    let nok = 0;
+    for (let i = 0; i < nt.length; i += 8) {
+      if (Date.now() - T0 > 21 * 60e3) { console.log('Selecciones: faltan', nt.length - i, 'para la próxima vuelta'); break; }
+      await Promise.all(nt.slice(i, i + 8).map(async ([code, id, t]) => {
+        const j = await get(`${API}${code}/summary?event=${id}`); if (!j) return;
+        const C = (((j.header || {}).competitions || [])[0] || {}).competitors || [], H = C.find(x => x.homeAway === 'home'), A = C.find(x => x.homeAway === 'away'); if (!H || !A || !H.team || !A.team) return;
+        const bt = (j.boxscore && j.boxscore.teams) || [];
+        const row = cmp => { const tt = bt.find(x => x.team && String(x.team.id) === String(cmp.team.id)), st = (tt && tt.statistics) || [];
+          return KEYS.map((k, i) => { if (!i) return sc(cmp); const s0 = st.find(x => k.includes(x.name)); if (!s0) return null; const v = parseFloat(s0.displayValue ?? s0.value); return isNaN(v) ? null : v; }); };
+        const nm = x => { const n = x.team.displayName || x.team.name; return NAT_ES[n] || n; };
+        S.ev[id] = [t, 'sel', H.team.id, A.team.id, nm(H), nm(A), row(H), row(A)]; nok++;
+      }));
+    }
+    console.log('Selecciones: partidos por pedir', nt.length, '· con estadísticas nuevas', nok);
+  }
   // 2b) últimos 5 enfrentamientos de cada pareja de la liga (6 temporadas). Archivo pequeño por liga: h2h-<liga>.json
   //     fila (v38.9): [fecha, idLocal, idVisita, filaLocal, filaVisita] con las 8 estadísticas de cada equipo (mismo orden que KEYS)
   const h2todo = [];
