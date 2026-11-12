@@ -20,12 +20,14 @@ const CB_MARGIN = 0.93, CB_CV = 5;
 const cbEst = fair => Math.max(1.03, fair * CB_MARGIN);
 const CB_SP = {futbol: 'Fútbol', nba: 'NBA', eul: 'Euroliga', mlb: 'MLB', tenis: 'Tenis', ncaa: 'NCAA', nhl: 'NHL', mix: 'Mixtas'};
 // combinadas mixtas de hoy: las publica el servidor (historial.json), iguales para todos
+// v47.1 · recuerda si la combinada mixta está abierta: la pantalla se vuelve a dibujar cuando llegan datos y la cerraba
+let CB_MIX_OPEN = false;
 function cbMixHTML() {
   if (!PREM() || typeof OF === 'undefined') return '';
   if (!OF.H) { ofLoad(); return ''; }
   const C = (OF.H.combos || []).filter(c => c.sp === 'mix' && c.day === cbDay());
   if (!C.length) return '';
-  return `<details class="prob-card cb-box"><summary><h3 style="display:inline"><span class="dot"></span>Combinadas mixtas · varios deportes</h3></summary>` +
+  return `<details class="prob-card cb-box" id="cbMix"${CB_MIX_OPEN ? ' open' : ''} ontoggle="CB_MIX_OPEN=this.open"><summary><h3 style="display:inline"><span class="dot"></span>Combinadas mixtas · varios deportes</h3></summary>` +
     CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k); return G.length ? `<div class="cb-t">${T.name} <span class="cb-rk ${T.k}">Riesgo ${T.risk}</span></div>` + G.map((c, i) => cbCard(c, `${T.name} · #${i + 1}`)).join('') : ''; }).join('') +
     `<div class="al-st">Las mejores selecciones del día de todos los deportes, una por partido. Las publica el servidor antes de que empiecen y se resuelven solas.</div></details>`;
 }
