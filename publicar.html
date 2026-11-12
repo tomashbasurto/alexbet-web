@@ -148,7 +148,7 @@ async function cargar(){
     OPS = (o.items || []).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
       const label = `${who ? who + ' · ' : ''}Más de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
-      return {id:'op'+i, sp:x.sp, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
+      return {id:'op'+i, sp:x.sp, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, role:x.role, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
     });
     // las sugerencias de la app que coinciden con una racha muestran también sus barras
     PICKS.forEach(p => { const m = p.mkt || {}; if(m.t!=='tot' || m.o!==1) return; const mk = {g:'goles', c:'córners', k:'tarjetas'}[m.k] || (p.sp!=='futbol' && m.k==='p' ? 'puntos' : null); if(!mk) return;
@@ -586,6 +586,44 @@ function pintarVideo(){
   $('vDl').onclick = dl;
   $('vSh').onclick = async () => { const f = new File([o.blob], o.name, {type: o.blob.type}); try{ if(navigator.canShare && navigator.canShare({files:[f]})) await navigator.share({files:[f], text:o.txt}); else dl(); }catch(e){} };
   $('vCp').onclick = async () => { try{ await navigator.clipboard.writeText(o.txt); $('vCp').textContent = 'Texto copiado ✓'; }catch(e){} };
+}
+
+// ---------- modo automático (facebook.js lo abre sin pantalla con ?bot=1) ----------
+if(new URLSearchParams(location.search).has('bot')){
+  let SELB = [], TODOS = [], MB = 'pro';
+  // variedad: un partido una sola vez y como mucho maxSp sugerencias por deporte
+  const variado = (L, n, maxSp) => { const out = [], cnt = {}, seen = new Set();
+    for(const p of L){ const k = p.h + '|' + p.a; if(seen.has(k) || (cnt[p.sp]||0) >= maxSp) continue; out.push(p); seen.add(k); cnt[p.sp] = (cnt[p.sp]||0) + 1; if(out.length >= n) break; } return out; };
+  window.__bot = {
+    ok: () => PICKS.length > 0 || !!document.querySelector('.msg.err'),
+    elegir(m){
+      MB = m; DAY = m === 'res' ? sumDay(hoy(), -1) : hoy(); const now = Date.now();
+      if(m === 'res'){
+        TODOS = PICKS.filter(p => dayOf(p.ts) === DAY && (p.res === 0 || p.res === 1));
+        const okL = TODOS.filter(p => p.res === 1).sort((a,b) => b.prob - a.prob), badL = TODOS.filter(p => p.res === 0).sort((a,b) => b.prob - a.prob);
+        const nOk = Math.min(okL.length, Math.round(5 * okL.length / Math.max(1, TODOS.length))); // misma proporción que el balance real
+        SELB = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b) => a.ts - b.ts);
+      } else {
+        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
+        if(m === 'pro') SELB = variado(pool.filter(p => p.kind === 'team'), 4, 2).sort((a,b) => b.prob - a.prob);
+        else {
+          SELB = variado(pool.filter(p => p.kind === 'team' && p.vals), 2, 1).concat(variado(pool.filter(p => p.kind === 'player' && p.vals && p.role !== 'alt'), 2, 2));
+          if(SELB.length < 4) SELB = SELB.concat(variado(pool.filter(p => !SELB.includes(p) && p.vals), 4 - SELB.length, 4));
+        }
+        TODOS = SELB;
+      }
+      return SELB.map(p => `${p.label} · ${p.h} vs ${p.a} · ${p.prob}%${p.res != null ? (p.res ? ' ✔' : ' ✖') : ''}`);
+    },
+    async imagenes(){ MODE = MB; await generar(SELB, TODOS, GL().find(g => g.k === 'top')); return OUT.length; },
+    bajar(i){ const a = document.createElement('a'); a.href = OUT[i].url; a.download = OUT[i].name; document.body.appendChild(a); a.click(); },
+    texto(i){ return i == null ? textoVideo(SELB) : OUT[i].txt; },
+    async video(){
+      VZ.id = 'es_MX-ald-medium'; VZ.tono = 0.92; VZ.vel = 1.1;
+      const voz = await vozLista(), logo = await loadImg('icon-512.png');
+      const r = await crearVideo(SELB, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
+      const a = document.createElement('a'); a.href = r.url; a.download = `alexbet-reel-${DAY}.${r.ext}`; document.body.appendChild(a); a.click();
+    }
+  };
 }
 
 // ---------- acceso ----------
