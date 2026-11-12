@@ -86,6 +86,7 @@ async function reel(p, file, txt) {
     if (MODE.startsWith('reel')) {
       const info = await page.evaluate(o => window.__bot.elegir('reel', o), MODE.split(':')[1] || null);
       console.log('Reel con:', info.join(' | '));
+      if (info.length < 2) return []; // sin partidos suficientes ese día: no se publica
       const f = await bajar(page, () => window.__bot.video());
       return [{file: f, txt: await page.evaluate(() => window.__bot.texto())}];
     }

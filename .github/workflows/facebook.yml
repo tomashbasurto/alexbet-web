@@ -1,9 +1,15 @@
 name: Publicar en Facebook
+# Horario (Ecuador = UTC-5): 8:00 resultados de ayer · 10:00 pronósticos (2 imágenes) · 10:30 Reel general · 16:00 Reel de NBA
 on:
+  schedule:
+    - cron: '3 13 * * *'
+    - cron: '3 15 * * *'
+    - cron: '33 15 * * *'
+    - cron: '3 21 * * *'
   workflow_dispatch:
     inputs:
       modo:
-        description: 'check, pro, res o reel'
+        description: 'check, pro:8, resdep, reel o reel:nba'
         default: 'check'
       prueba:
         description: 'si: arma todo pero no publica'
@@ -18,27 +24,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Qué toca publicar
+        id: m
+        run: |
+          case "${{ github.event.schedule }}" in
+            '3 13 * * *')  echo "modo=resdep"  >> $GITHUB_OUTPUT ;;
+            '3 15 * * *')  echo "modo=pro:8"   >> $GITHUB_OUTPUT ;;
+            '33 15 * * *') echo "modo=reel"    >> $GITHUB_OUTPUT ;;
+            '3 21 * * *')  echo "modo=reel:nba" >> $GITHUB_OUTPUT ;;
+            *) echo "modo=${{ inputs.modo }}" >> $GITHUB_OUTPUT ;;
+          esac
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.prueba }}" = "si" ]; then echo "prueba=--prueba" >> $GITHUB_OUTPUT; else echo "prueba=" >> $GITHUB_OUTPUT; fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Instalar navegador sin pantalla
-        if: inputs.modo != 'check'
+        if: steps.m.outputs.modo != 'check'
         run: |
           npm i --no-save --no-package-lock playwright@1.47.2
           npx playwright install --with-deps chromium
       - name: Programa de video
-        if: startsWith(inputs.modo, 'reel')
+        if: startsWith(steps.m.outputs.modo, 'reel')
         run: which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Publicar
-        run: node facebook.js "${{ inputs.modo }}" ${{ inputs.prueba == 'si' && '--prueba' || '' }}
+        run: node facebook.js "${{ steps.m.outputs.modo }}" ${{ steps.m.outputs.prueba }}
         env:
           FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
       - name: Guardar lo armado (para revisarlo)
-        if: always() && inputs.modo != 'check'
+        if: always() && steps.m.outputs.modo != 'check'
         uses: actions/upload-artifact@v4
         with:
           name: publicacion
           path: fb-out/
           if-no-files-found: ignore
+          retention-days: 7
