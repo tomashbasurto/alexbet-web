@@ -6,4 +6,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - run: curl -sS -I -H "Origin: https://alexbetpro.web.app" https://a.espncdn.com/i/teamlogos/soccer/500/368.png | grep -i -E "^HTTP|access-control|content-type"; curl -sS -I -H "Origin: https://alexbetpro.web.app" "https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/368.png&w=80&h=80" | grep -i -E "^HTTP|access-control"
+      - run: |
+          python3 - <<'PY'
+          import urllib.request, json
+          def g(u):
+              try: return json.load(urllib.request.urlopen(urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0'}),timeout=25))
+              except Exception as e: return {'ERR':str(e)}
+          sb=g('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261111')
+          evs=sb.get('events',[]); print('EVENTS',len(evs))
+          e=evs[0]; c=e['competitions'][0]
+          for k in c['competitors']: print('STATS', k['team']['displayName'], [ (s.get('name'),s.get('displayValue')) for s in k.get('statistics',[])], 'LINES', [l.get('value') for l in k.get('linescores',[])])
+          sb2=g('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261112'); e2=sb2['events'][0]; eid=e2['id']
+          print('NEXT', e2['name'], eid)
+          base=f'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events/{eid}/competitions/{eid}/odds'
+          o=g(base); print('ODDS', json.dumps(o)[:300])
+          for it in (o.get('items') or [])[:3]:
+              pid=(it.get('provider') or {}).get('id'); print('PROVIDER', pid, (it.get('provider') or {}).get('name'))
+              pb=g(f'{base}/{pid}/propBets?limit=1000'); print('PROPS', pid, pb.get('count'), json.dumps(pb)[:900])
+              if pb.get('items'):
+                  x=pb['items'][0]; print('ITEM', json.dumps(x)[:900])
+                  break
+          PY
