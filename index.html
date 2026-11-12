@@ -1950,7 +1950,12 @@ function opxHTML(sp, localTeams){
     <div class="op-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Modelo entre 58% y 78% y se cumplió al menos 6 de 10</div>`;
   if(OPK==='player'){
     if(!pls.length) return bar + `<div class="empty-state" style="padding:18px">${L ? 'Hoy no hay jugadores donde el modelo y lo que pasó coincidan.' : 'Las oportunidades de jugadores se calculan en el servidor cada 3 horas. Vuelve en un rato.'}</div>`;
-    return bar + pls.sort((a,b)=>b.p-a.p || b.hit-a.hit).slice(0,30).map(o=>opCard(o)).join('') + opFoot(true);
+    const srt = a => a.sort((a,b)=>b.p-a.p || b.hit-a.hit), top = pls.filter(o=>o.role==='top'), alt = pls.filter(o=>o.role==='alt'), oth = pls.filter(o=>!o.role);
+    if(!top.length && !alt.length) return bar + srt(oth).slice(0,30).map(o=>opCard(o)).join('') + opFoot(true);
+    // v47.2 · básquet: primero los jugadores principales (puntos, rebotes, asistencias, triples) y luego las alternativas (suplentes y mercados chicos)
+    return bar + (top.length ? `<div class="lv-h">Jugadores principales · puntos, rebotes, asistencias y triples</div>` + srt(top).slice(0,30).map(o=>opCard(o)).join('') : '')
+      + (alt.length ? `<div class="lv-h">Alternativas · suplentes y otros mercados</div>` + srt(alt).slice(0,30).map(o=>opCard(o)).join('') : '')
+      + (oth.length ? `<div class="lv-h">Otros jugadores</div>` + srt(oth).slice(0,30).map(o=>opCard(o)).join('') : '') + opFoot(true);
   }
   if(teams.length) return bar + teams.sort((a,b)=>b.p-a.p || b.hit-a.hit).slice(0,20).map(o=>opCard(o)).join('') + opFoot(false);
   return bar + (localTeams || `<div class="empty-state" style="padding:18px">Hoy no hay oportunidades de equipos donde el modelo y lo que pasó coincidan.</div>`);
@@ -5237,7 +5242,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v47.1 · nuevo diseño: nombres completos, escudos, fotos de tenis e íconos';
+const APP_VERSION = 'v47.2 · nuevo diseño: nombres completos, escudos, fotos de tenis e íconos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

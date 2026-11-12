@@ -60,26 +60,30 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
       const M = {};
       G.forEach((g, gi) => { const E = PJC[g.id]; if (!E) return; (E[g.side] || []).forEach(p => {
         const k = p.id + '|' + p.k, x = M[k] || (M[k] = {key: k, name: p.name, pos: p.pos, kind: p.k, rows: []}); x.rows[gi] = p.S; }); });
-      const res = [];
-      // básquet: solo los mercados principales (puntos, rebotes, asistencias, triples y sus combinados)
-      // y solo los jugadores importantes de cada equipo (los que más anotan), no faltas o robos de suplentes
-      // con línea mínima para que sea una línea real de las casas (nada de "más de 0.5 asistencias" o "más de 1.5 rebotes")
+      // básquet: dos listas por equipo
+      //  · "top": los que más anotan, solo en puntos, rebotes, asistencias, triples y sus combinados, con líneas reales de las casas
+      //  · "alt": cualquier jugador (también suplentes) en cualquier mercado, la probabilidad más alta (como antes de v47.2)
       const MAIN = {bask: {'Puntos': 9.5, 'Rebotes': 4.5, 'Asistencias': 3.5, 'Triples': 1.5, 'Pts+Reb+Ast': 17.5, 'Pts+Reb': 14.5, 'Pts+Ast': 14.5, 'Reb+Ast': 6.5}};
       const ptsAvg = P => { const v = P.rows.filter(Boolean).map(S => pjVal(S, ['PTS'])).filter(x => x != null); return v.length ? avg(v) : 0; };
-      let pool = Object.values(M).filter(P => P.rows.filter(Boolean).length >= 7);
-      if (pool.some(P => P.kind === 'bask')) pool = pool.sort((a, b) => ptsAvg(b) - ptsAvg(a)).slice(0, 5);
-      pool.forEach(P => {
+      const bestOf = (P, lim) => {
         let best = null;
-        (PJ_M[P.kind] || []).filter(([mk]) => !MAIN[P.kind] || mk in MAIN[P.kind]).forEach(([mk, comps]) => {
+        (PJ_M[P.kind] || []).filter(([mk]) => !lim || mk in lim).forEach(([mk, comps]) => {
           const vals = P.rows.filter(Boolean).map(S => pjVal(S, comps)).filter(v => v != null); if (vals.length < 7) return;
           const lam = avg(vals.slice(0, 10)), big = lam >= 8, r = find(vals, lam, big ? Math.max(sdOf(vals.slice(0, 20)), Math.sqrt(lam)) : 0);
-          if (r && MAIN[P.kind] && r.ln < MAIN[P.kind][mk]) return;
+          if (r && lim && r.ln < lim[mk]) return;
           if (r && (!best || r.p > best.p || (r.p === best.p && r.hit > best.hit))) best = Object.assign(r, {mk, vals: vals.slice(0, 10).reverse()});
         });
-        if (best) res.push(Object.assign(best, {pid: P.key, pname: P.name, pos: P.pos || '', imp: P.kind === 'bask' ? +ptsAvg(P).toFixed(1) : 0}));
-      });
-      // básquet: primero los que más anotan; otros deportes: la probabilidad más alta
-      return res.sort((a, b) => (b.imp - a.imp) || b.p - a.p || b.hit - a.hit).slice(0, 3);
+        return best ? Object.assign(best, {pid: P.key, pname: P.name, pos: P.pos || ''}) : null;
+      };
+      const pool = Object.values(M).filter(P => P.rows.filter(Boolean).length >= 7);
+      const byP = (a, b) => b.p - a.p || b.hit - a.hit;
+      if (!pool.some(P => P.kind === 'bask')) return pool.map(P => bestOf(P)).filter(Boolean).sort(byP).slice(0, 3);
+      const stars = pool.slice().sort((a, b) => ptsAvg(b) - ptsAvg(a)).slice(0, 5);
+      const top = stars.map(P => { const r = bestOf(P, MAIN.bask); return r && Object.assign(r, {role: 'top', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean)
+        .sort((a, b) => b.imp - a.imp || byP(a, b)).slice(0, 3);
+      const used = new Set(top.map(x => x.pid));
+      const alt = pool.filter(P => !used.has(P.key)).map(P => { const r = bestOf(P); return r && Object.assign(r, {role: 'alt', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean).sort(byP).slice(0, 3);
+      return top.concat(alt);
     }
 
     // ---------- fútbol ----------
