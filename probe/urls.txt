@@ -1,1 +1,8 @@
-https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_MX/ald/medium/es_MX-ald-medium.onnx
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_MX/ald/medium/es_MX-ald-medium.onnx.json
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx.json
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx
+https://huggingface.co/diffusionstudio/piper-voices/resolve/main/es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx.json
