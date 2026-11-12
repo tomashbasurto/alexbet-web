@@ -59,10 +59,10 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
     function players(sp, G) {
       const M = {};
       G.forEach((g, gi) => { const E = PJC[g.id]; if (!E) return; (E[g.side] || []).forEach(p => {
-        const k = p.id + '|' + p.k, x = M[k] || (M[k] = {key: k, name: p.name, pos: p.pos, kind: p.k, rows: []}); x.rows[gi] = p.S; }); });
+        const k = p.id + '|' + p.k, x = M[k] || (M[k] = {key: k, name: p.name, pos: p.pos, kind: p.k, rows: [], st: 0}); x.rows[gi] = p.S; if (p.st) x.st++; }); });
       // básquet: dos listas por equipo
-      //  · "top": los que más anotan, solo en puntos, rebotes, asistencias, triples y sus combinados, con líneas reales de las casas
-      //  · "alt": cualquier jugador (también suplentes) en cualquier mercado, la probabilidad más alta (como antes de v47.2)
+      //  · "top" (titulares): los que más anotan entre los que suelen empezar, solo en puntos, rebotes, asistencias, triples y sus combinados, con líneas reales de las casas
+      //  · "alt" (suplentes): los que suelen salir del banco, en cualquier mercado, la probabilidad más alta
       const MAIN = {bask: {'Puntos': 9.5, 'Rebotes': 4.5, 'Asistencias': 3.5, 'Triples': 1.5, 'Pts+Reb+Ast': 17.5, 'Pts+Reb': 14.5, 'Pts+Ast': 14.5, 'Reb+Ast': 6.5}};
       const ptsAvg = P => { const v = P.rows.filter(Boolean).map(S => pjVal(S, ['PTS'])).filter(x => x != null); return v.length ? avg(v) : 0; };
       const bestOf = (P, lim) => {
@@ -78,11 +78,13 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
       const pool = Object.values(M).filter(P => P.rows.filter(Boolean).length >= 7);
       const byP = (a, b) => b.p - a.p || b.hit - a.hit;
       if (!pool.some(P => P.kind === 'bask')) return pool.map(P => bestOf(P)).filter(Boolean).sort(byP).slice(0, 3);
-      const stars = pool.slice().sort((a, b) => ptsAvg(b) - ptsAvg(a)).slice(0, 5);
-      const top = stars.map(P => { const r = bestOf(P, MAIN.bask); return r && Object.assign(r, {role: 'top', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean)
+      // titular = empezó la mayoría de los partidos que jugó (últimos 10); suplente = el resto
+      // si ESPN no marca titulares en ese torneo, se toman como titulares los 5 que más anotan
+      const top5 = new Set(pool.slice().sort((a, b) => ptsAvg(b) - ptsAvg(a)).slice(0, 5).map(P => P.key));
+      const isSt = pool.some(P => P.st > 0) ? (P => P.st * 2 >= P.rows.filter(Boolean).length) : (P => top5.has(P.key));
+      const top = pool.filter(isSt).map(P => { const r = bestOf(P, MAIN.bask); return r && Object.assign(r, {role: 'top', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean)
         .sort((a, b) => b.imp - a.imp || byP(a, b)).slice(0, 3);
-      const used = new Set(top.map(x => x.pid));
-      const alt = pool.filter(P => !used.has(P.key)).map(P => { const r = bestOf(P); return r && Object.assign(r, {role: 'alt', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean).sort(byP).slice(0, 3);
+      const alt = pool.filter(P => !isSt(P)).map(P => { const r = bestOf(P); return r && Object.assign(r, {role: 'alt', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean).sort(byP).slice(0, 3);
       return top.concat(alt);
     }
 

@@ -1952,6 +1952,11 @@ function opxHTML(sp, localTeams){
     if(!pls.length) return bar + `<div class="empty-state" style="padding:18px">${L ? 'Hoy no hay jugadores donde el modelo y lo que pasó coincidan.' : 'Las oportunidades de jugadores se calculan en el servidor cada 3 horas. Vuelve en un rato.'}</div>`;
     const srt = a => a.sort((a,b)=>b.p-a.p || b.hit-a.hit), top = pls.filter(o=>o.role==='top'), alt = pls.filter(o=>o.role==='alt'), oth = pls.filter(o=>!o.role);
     if(!top.length && !alt.length) return bar + srt(oth).slice(0,30).map(o=>opCard(o)).join('') + opFoot(true);
+    // v47.3 · básquet: Titulares (puntos, rebotes, asistencias, triples) y Suplentes (cualquier mercado) en pestañas
+    const sub = OPR==='alt' && alt.length ? 'alt' : (top.length ? 'top' : 'alt'), cur = sub==='top' ? top : alt;
+    const seg = `<div class="tn-chips" style="margin:2px 0 8px">${[['top','Titulares',top.length],['alt','Suplentes',alt.length]].map(([k,t,n])=>`<button type="button" class="tn-chip ${sub===k?'on':''}" onclick="OPR='${k}';renderMatches()">${t} · ${n}</button>`).join('')}</div>`;
+    const note = `<div class="al-st" style="margin:0 2px 8px">${sub==='top' ? 'Los que suelen ser titulares y más anotan: puntos, rebotes, asistencias, triples y combinados.' : 'Los que suelen salir del banco: cualquier mercado donde el modelo y lo que pasó coinciden.'}</div>`;
+    return bar + seg + note + srt(cur).slice(0,30).map(o=>opCard(o)).join('') + (oth.length ? `<div class="lv-h">Otros jugadores</div>` + srt(oth).slice(0,30).map(o=>opCard(o)).join('') : '') + opFoot(true);
     // v47.2 · básquet: primero los jugadores principales (puntos, rebotes, asistencias, triples) y luego las alternativas (suplentes y mercados chicos)
     return bar + (top.length ? `<div class="lv-h">Jugadores principales · puntos, rebotes, asistencias y triples</div>` + srt(top).slice(0,30).map(o=>opCard(o)).join('') : '')
       + (alt.length ? `<div class="lv-h">Alternativas · suplentes y otros mercados</div>` + srt(alt).slice(0,30).map(o=>opCard(o)).join('') : '')
@@ -1960,6 +1965,7 @@ function opxHTML(sp, localTeams){
   if(teams.length) return bar + teams.sort((a,b)=>b.p-a.p || b.hit-a.hit).slice(0,20).map(o=>opCard(o)).join('') + opFoot(false);
   return bar + (localTeams || `<div class="empty-state" style="padding:18px">Hoy no hay oportunidades de equipos donde el modelo y lo que pasó coincidan.</div>`);
 }
+let OPR = 'top';
 function opFoot(pl){ return `<div class="foot-note">Datos reales de ESPN${pl?' · promedio del jugador en sus últimos 10':' · lo que hace cada equipo y lo que concede el rival (últimos 10)'}. No garantiza el resultado.</div>`; }
 function opCard(o){
   const i = OP_LIST.push(o)-1, off = o.sp==='futbol' ? (LEAGUES.find(l=>l.id===o.lid)||{utcOffset:0}).utcOffset : 0, f = fmtParts(o.when, off), vals = (o.vals||[]).slice(0,10), mx = Math.max(o.ln+1, ...vals);
@@ -4775,7 +4781,7 @@ function pjParse(sp, j){
   ['h','a'].forEach(s=>(o.lineup[s]||[]).forEach(p=>{
     if(!p.id) return;
     if(sp==='futbol' ? !(p.starter || p.subIn) : (p.dnp || pjNum(p.S.MIN)===0)) return;
-    out[s].push({id:p.id, name:p.name, pos:p.pos, k:pjKind(sp, p), S:p.S});
+    out[s].push({id:p.id, name:p.name, pos:p.pos, k:pjKind(sp, p), S:p.S, st:!!p.starter});
   }));
   return out;
 }
@@ -5242,7 +5248,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v47.2 · nuevo diseño: nombres completos, escudos, fotos de tenis e íconos';
+const APP_VERSION = 'v47.3 · nuevo diseño: nombres completos, escudos, fotos de tenis e íconos';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
