@@ -31,6 +31,7 @@
   .ch i{ font-style:normal; color:var(--dim); padding:0 4px; }
   .flt{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px; }
   .flt label span{ display:block; font-size:12px; font-weight:700; color:var(--dim); margin-bottom:5px; }
+  .flt.one{ grid-template-columns:1fr; }
   .flt select{ width:100%; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13.5px Inter; padding:0 10px; color-scheme:dark; }
   label.h{ display:block; font-size:13px; font-weight:700; margin:14px 0 8px; }
   .groups{ display:flex; gap:6px; flex-wrap:wrap; }
@@ -268,8 +269,13 @@ function pintar(){
       <label><span>Deporte</span><select id="fSp"><option value="all">Todos (${all0.length})</option>${sps.map(k => `<option value="${k}" ${SPF===k?'selected':''}>${esc(SPN[k]||k)} (${all0.filter(p=>p.sp===k).length})</option>`).join('')}</select></label>
       <label><span>Liga</span><select id="fLg"><option value="all">Todas (${all1.length})</option>${lgs.map(k => `<option value="${esc(k)}" ${LGF===k?'selected':''}>${esc(k)} (${all1.filter(p=>lugar(p)===k).length})</option>`).join('')}</select></label>
     </div>
+    ${MODE!=='res' && TYPE==='player' ? (() => {
+      // jugadores: muchos mercados → lista desplegable, agrupada por deporte (solo los que hay con los filtros puestos)
+      const bySp = {}; gs.filter(g => g.k !== 'top').forEach(g => base.filter(g.f).forEach(p => { (bySp[p.sp] = bySp[p.sp] || new Map()).set(g.k, g); }));
+      const cnt = (g, sp) => base.filter(p => p.sp === sp && g.f(p)).length;
+      return `<div class="flt one"><label><span>Mercado</span><select id="fMk"><option value="top" ${GRP==='top'?'selected':''}>⭐ Top del día (${base.length})</option>${Object.keys(bySp).sort((a,b)=>(SPN[a]||a).localeCompare(SPN[b]||b,'es')).map(sp => `<optgroup label="${esc(SPN[sp]||sp)}">${[...bySp[sp].values()].map(g => `<option value="${g.k}" ${GRP===g.k?'selected':''}>${esc(g.t)} (${Object.keys(bySp).length>1 ? cnt(g, sp) : g.n})</option>`).join('')}</optgroup>`).join('')}</select></label></div>`; })() : `
     <label class="h">Mercado</label>
-    <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>
+    <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>`}
     <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige las que quieras (4 por imagen)'} · puedes mezclar deportes y ligas</label>
     <div class="list">${list.length ? list.map(p => `
       <div class="row" data-id="${esc(p.id)}">
@@ -301,6 +307,7 @@ function pintar(){
   $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; OUT=[]; pintar(); };
   $('fLg').onchange = e => { LGF = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
+  if($('fMk')) $('fMk').onchange = e => { GRP = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('.row').forEach(r => r.onclick = () => { const id = r.dataset.id; if(S[id]) delete S[id]; else { if(MODE==='res' && nSel>=maxN) return; S[id] = 1; } pintar(); });
   document.querySelectorAll('[data-x]').forEach(r => r.onclick = () => { delete S[r.dataset.x]; pintar(); });
   if($('clr')) $('clr').onclick = () => { Object.keys(S).forEach(k => delete S[k]); pintar(); };
