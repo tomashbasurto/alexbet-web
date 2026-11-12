@@ -12,6 +12,7 @@ on:
       - 'publicar.html'
       - 'video.js'
       - 'resultados.html'
+      - 'privacidad.html'
       - 'sw.js'
       - 'manifest.webmanifest'
       - '*.png'
