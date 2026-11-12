@@ -32,6 +32,9 @@
   .flt{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px; }
   .flt label span{ display:block; font-size:12px; font-weight:700; color:var(--dim); margin-bottom:5px; }
   .flt.one{ grid-template-columns:1fr; }
+  .fb-r{ display:flex; gap:10px; align-items:baseline; padding:6px 0; border-top:1px solid var(--line); font-size:13px; } .fb-r span{ color:var(--dim); white-space:nowrap; font-variant-numeric:tabular-nums; } .fb-r em{ flex:1; font-style:normal; min-width:0; } .fb-r em small{ display:block; color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .fb-r i{ font-style:normal; } .fb-r a{ color:#4f8dff; }
+  .srch{ width:100%; box-sizing:border-box; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:500 14px Inter; padding:0 12px; margin:0 0 8px; color-scheme:dark; }
+  .more{ width:100%; min-height:44px; border:0; border-top:1px solid var(--line); background:transparent; color:var(--accent); font:700 13.5px Inter; cursor:pointer; }
   .flt select{ width:100%; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13.5px Inter; padding:0 10px; color-scheme:dark; }
   label.h{ display:block; font-size:13px; font-weight:700; margin:14px 0 8px; }
   .groups{ display:flex; gap:6px; flex-wrap:wrap; }
@@ -79,7 +82,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, guardadoErr } from './video.js?v=3';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, guardadoErr } from './video.js?v=4';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -132,6 +135,7 @@ const RGROUPS = [
   {k:'rmlb', t:'MLB',                ic:'⚾', f:p => p.sp==='mlb'},
 ];
 let SPF = 'all', LGF = 'all';
+let QB = '', QBT = 0, LIM = 40;
 let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
 
 // primero GitHub Pages; si el archivo aún no llegó ahí (las publicaciones de Pages a veces se atrasan), directo del repositorio
@@ -149,7 +153,7 @@ async function cargar(){
     OPS = (o.items || []).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
       const label = `${who ? who + ' · ' : ''}Más de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
-      return {id:'op'+i, sp:x.sp, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, role:x.role, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
+      return {id:'op'+i, sp:x.sp, lid:x.lid, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, role:x.role, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
     });
     // las sugerencias de la app que coinciden con una racha muestran también sus barras
     PICKS.forEach(p => { const m = p.mkt || {}; if(m.t!=='tot' || m.o!==1) return; const mk = {g:'goles', c:'córners', k:'tarjetas'}[m.k] || (p.sp!=='futbol' && m.k==='p' ? 'puntos' : null); if(!mk) return;
@@ -237,7 +241,7 @@ function pintar(){
   const gs = GL().map(g => ({...g, n: base.filter(g.f).length})).filter(g => g.n || g.k === 'top');
   if(!gs.find(g => g.k === GRP)) GRP = 'top';
   const G = GL().find(g => g.k === GRP);
-  const list = base.filter(G.f).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob));
+  const qn = nrm(QB || ''), list = base.filter(G.f).filter(p => !qn || nrm(`${p.label} ${p.h} ${p.a} ${lugar(p)}`).includes(qn)).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob));
   // lo elegido se guarda por pestaña y día: se puede cambiar de deporte, liga o mercado y seguir sumando
   const key = MODE + DAY;
   if(!SEL[key]){ SEL[key] = {};
@@ -255,6 +259,7 @@ function pintar(){
   $('app').innerHTML = `
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
+    <div class="vbox" id="fbBox" style="margin:0 0 12px"></div>
     <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
     <div class="days">
       <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
@@ -277,18 +282,20 @@ function pintar(){
     <label class="h">Mercado</label>
     <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>`}
     <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige las que quieras (4 por imagen)'} · puedes mezclar deportes y ligas</label>
-    <div class="list">${list.length ? list.map(p => `
+    <input class="srch" id="qB" type="search" placeholder="🔍 Buscar equipo, jugador, liga o mercado" value="${esc(QB)}">
+    <div class="list">${list.length ? list.slice(0, LIM).map(p => `
       <div class="row" data-id="${esc(p.id)}">
         <input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1">
         <div class="tx"><b>${esc(p.label)}</b><small>${esc(p.h)} vs ${esc(p.a)} · ${esc(lugar(p))} · ${hora(p.ts)}</small></div>
         ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}<span class="p">${p.prob}%</span>
-      </div>`).join('') : `<div class="empty">${MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
+      </div>`).join('') + (list.length > LIM ? `<button class="more" id="mas">Mostrar más (${list.length - LIM} más)</button>` : '') : `<div class="empty">${QB ? 'Nada coincide con la búsqueda.' : MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
     </div>
     ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Están todas: las sugerencias de la app y las rachas de Oportunidades (equipos y jugadores que superaron la línea en sus últimos partidos). Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
     <div class="chosen"><div class="ch-h"><b>Elegidas: ${nSel}</b>${nSel ? '<button id="clr">Quitar todas</button>' : ''}</div>
       ${nSel ? chosen.map(p => `<div class="ch" data-x="${esc(p.id)}"><span>${ico(p.sp)}</span><em>${esc(p.label)} <small>· ${esc(p.h)} vs ${esc(p.a)}</small></em><i>✕</i></div>`).join('') : '<div class="note" style="margin:4px 0 0">Marca sugerencias de cualquier deporte; se juntan aquí.</div>'}
     </div>
     <button class="btn" id="gen" ${nSel?'':'disabled style="opacity:.5"'}>Crear ${MODE==='res'?'imagen de resultados':'imágenes'}</button>
+    ${MODE==='res' ? '<button class="btn ghost" id="sem">📅 Resumen de la semana (7 días hasta ayer)</button>' : ''}
     ${MODE!=='res' ? `<div class="vbox">
       <div class="ch-h"><b>🎬 Video con voz (vertical, para Reels y TikTok)</b></div>
       <div class="note" style="margin:0 0 8px">Usa ${nSel>4?'las <b>4 primeras</b> elegidas':'las elegidas (hasta 4)'}: dice el pronóstico y las estadísticas de cada una. La primera vez baja la voz (60 a 75 MB) y queda guardada.</div>
@@ -299,6 +306,9 @@ function pintar(){
       <div class="msg" id="vMsg"></div><div id="vOut"></div></div>` : ''}
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
+  fbBox();
+  if($('mas')) $('mas').onclick = () => { LIM += 40; pintar(); };
+  $('qB').oninput = e => { QB = e.target.value; LIM = 40; clearTimeout(QBT); QBT = setTimeout(() => { const pos = e.target.selectionStart; pintar(); const q = $('qB'); q.focus(); try{ q.setSelectionRange(pos, pos); }catch(x){} }, 250); };
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
   document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { DAY = b.dataset.d; OUT=[]; pintar(); });
   $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
@@ -314,6 +324,7 @@ function pintar(){
   // balance de resultados: todas las del día en los deportes elegidos
   const sps2 = [...new Set(chosen.map(p => p.sp))];
   $('gen').onclick = () => generar(chosen, pool.filter(p => sps2.includes(p.sp)), G);
+  if($('sem')) $('sem').onclick = async () => { const b = $('sem'); b.disabled = true; b.textContent = 'Creando…'; await semana(); b.disabled = false; b.textContent = '📅 Resumen de la semana (7 días hasta ayer)'; };
   $('out').onclick = () => signOut(auth);
   $('rlCp').onclick = async () => { const u = 'https://alexbetpro.web.app/resultados.html', b = $('rlCp');
     try{ if(navigator.share && /iPhone|Android/i.test(navigator.userAgent)) await navigator.share({url: u, text: 'Resultados reales de AlexBet: aciertos y fallos de todas las sugerencias 👇'}); else { await navigator.clipboard.writeText(u); b.textContent = 'Copiado ✓'; } }catch(e){} };
@@ -526,6 +537,76 @@ async function generar(sel, todos, G){
   pintarOut(); const pv = $('prev'); if(pv && pv.firstChild) pv.firstChild.scrollIntoView({behavior:'smooth'});
 }
 
+// v49 · cómo nos fue el día anterior (para el gancho del video)
+function ayerRes(day, sp){ const d = sumDay(day, -1), R = PICKS.filter(p => dayOf(p.ts) === d && (p.res === 0 || p.res === 1) && (!sp || p.sp === sp)); return {ok: R.filter(p => p.res === 1).length, n: R.length}; }
+// v49 · Resumen semanal: los 7 días hasta ayer, por deporte y por día (se publica solo los domingos)
+async function semana(){
+  OUT.forEach(o => URL.revokeObjectURL(o.url)); OUT = [];
+  const fin = sumDay(hoy(), -1), ini = sumDay(fin, -6), dias = [...Array(7)].map((_, i) => sumDay(ini, i));
+  const R = PICKS.filter(p => (p.res === 0 || p.res === 1) && dias.includes(dayOf(p.ts))), ok = R.filter(p => p.res === 1).length, n = R.length, pct = n ? Math.round(ok/n*100) : 0;
+  const GS = [['Fútbol', p => p.sp==='futbol'], ['Básquet', p => ['nba','ncaa','eul'].includes(p.sp)], ['NHL', p => p.sp==='nhl'], ['Tenis', p => p.sp==='tenis'], ['MLB', p => p.sp==='mlb']]
+    .map(([t, f]) => { const L = R.filter(f); return {t, ok: L.filter(p => p.res === 1).length, n: L.length}; }).filter(g => g.n >= 3);
+  const D = dias.map(d => { const L = R.filter(p => dayOf(p.ts) === d); return {d, ok: L.filter(p => p.res === 1).length, n: L.length}; });
+  const dm = d => { const [, m, dd] = d.split('-'); return `${+dd}/${+m}`; }, DIA = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+  const day0 = DAY; DAY = fin;
+  const r = await lienzo(async c => {
+    await cabecera(c, 'RESUMEN', 'DE LA SEMANA', `${dm(ini)} al ${dm(fin)}`);
+    rr(c, 60, 340, W-120, 170, 26); c.fillStyle = 'rgba(198,255,0,.08)'; c.fill(); c.strokeStyle = 'rgba(198,255,0,.35)'; c.lineWidth = 2; c.stroke();
+    c.font = '900 96px Orbitron'; c.fillStyle = A; c.fillText(pct + '%', 96, 462); const w1 = c.measureText(pct + '%').width;
+    c.font = '800 32px Inter'; c.fillStyle = INK; c.fillText('DE ACIERTOS', 96 + w1 + 30, 420);
+    c.font = '500 24px Inter'; c.fillStyle = DIM; c.fillText(`${ok} de ${n} sugerencias · sin esconder nada`, 96 + w1 + 30, 460);
+    // por deporte
+    let y = 560; c.font = '800 26px Inter'; c.fillStyle = DIM; c.fillText('POR DEPORTE', 60, y); y += 22;
+    for(const g of GS){ const q = g.ok / g.n; rr(c, 60, y, W-120, 62, 16); c.fillStyle = 'rgba(17,30,27,.94)'; c.fill();
+      c.font = '700 26px Inter'; c.fillStyle = INK; c.fillText(g.t, 86, y + 41);
+      const bx = 270, bw = W - 60 - 270 - bx; rr(c, bx, y + 24, bw, 14, 7); c.fillStyle = '#26332f'; c.fill(); rr(c, bx, y + 24, Math.max(14, bw * q), 14, 7); c.fillStyle = q >= .6 ? A : BAD; c.fill();
+      c.textAlign = 'right'; c.font = '900 28px Orbitron'; c.fillStyle = INK; c.fillText(Math.round(q*100) + '%', W - 196, y + 43); c.font = '500 20px Inter'; c.fillStyle = DIM; c.fillText(`${g.ok}/${g.n}`, W - 86, y + 41); c.textAlign = 'left';
+      y += 74; }
+    // por día
+    y += 20; c.font = '800 26px Inter'; c.fillStyle = DIM; c.fillText('DÍA POR DÍA', 60, y); y += 20;
+    const cw = (W - 120 - 6*14) / 7, bh = H - 190 - y - 90;
+    D.forEach((x, i) => { const bx = 60 + i*(cw + 14), q = x.n ? x.ok/x.n : 0, hh = Math.max(8, bh * q);
+      rr(c, bx, y + 40, cw, bh, 14); c.fillStyle = 'rgba(17,30,27,.94)'; c.fill();
+      if(x.n){ rr(c, bx, y + 40 + bh - hh, cw, hh, 14); c.fillStyle = q >= .6 ? 'rgba(198,255,0,.85)' : 'rgba(255,93,108,.8)'; c.fill(); }
+      c.textAlign = 'center'; c.font = '800 26px Orbitron'; c.fillStyle = INK; c.fillText(x.n ? Math.round(q*100) + '%' : '-', bx + cw/2, y + 28);
+      const dt = new Date(x.d + 'T12:00:00Z'); c.font = '700 20px Inter'; c.fillStyle = INK; c.fillText(DIA[dt.getUTCDay()], bx + cw/2, y + 40 + bh + 32);
+      c.font = '500 17px Inter'; c.fillStyle = DIM; c.fillText(x.n ? `${x.ok}/${x.n}` : '', bx + cw/2, y + 40 + bh + 58); c.textAlign = 'left'; });
+    pie(c);
+  });
+  DAY = day0;
+  const txt = `📅 RESUMEN DE LA SEMANA · del ${dm(ini)} al ${dm(fin)}\n\n${ok} de ${n} sugerencias acertadas (${pct}%)\n\n` + GS.map(g => `${g.t}: ${g.ok} de ${g.n} (${Math.round(g.ok/g.n*100)}%)`).join('\n') +
+    `\n\nTodas, día por día, aciertos y fallos 👉 alexbetpro.web.app/resultados.html\nLas de hoy ya están listas 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #futbol #NBA`;
+  OUT.push(Object.assign(r, {txt, name: `alexbet-semana-${fin}.png`})); pintarOut();
+  return {ok, n, pct};
+}
+// v49 · Facebook automático: lo que se publicó, lo que viene, pausa y "publicar ya" (documento config/facebook en Firestore)
+const FBS = {st: null, err: '', busy: false, open: false};
+const FB_PROG = [['08:00', 'resdep', 'Resultados de ayer (una imagen por deporte)'], ['10:00', 'pro:8', 'Pronósticos (2 imágenes)'], ['10:30', 'reel', 'Reel con voz'], ['16:00', 'reel:nba', 'Reel de NBA'], ['18:00', 'sem', 'Resumen de la semana (solo domingos)']];
+const FB_N = {resdep: 'Resultados de ayer', res: 'Resultados de ayer', 'pro:8': 'Pronósticos', pro: 'Pronósticos', reel: 'Reel con voz', 'reel:nba': 'Reel de NBA', sem: 'Resumen semanal'};
+let FSM = null;
+async function fbFS(){ if(FSM) return FSM; const M = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'); FSM = {M, db: M.getFirestore(app)}; return FSM; }
+async function fbLoad(){ if(new URLSearchParams(location.search).has('bot')) return; try{ const {M, db} = await fbFS(); const d = await M.getDoc(M.doc(db, 'config', 'facebook')); FBS.st = d.exists() ? d.data() : {}; FBS.err = ''; }catch(e){ FBS.err = 'No pude leer el estado (' + (e.code || e.message) + ').'; } fbBox(); }
+async function fbSet(o){ FBS.busy = true; fbBox(); try{ const {M, db} = await fbFS(); await M.setDoc(M.doc(db, 'config', 'facebook'), o, {merge: true}); Object.assign(FBS.st = FBS.st || {}, o); FBS.err = ''; }catch(e){ FBS.err = 'No se pudo guardar (' + (e.code || e.message) + ').'; } FBS.busy = false; fbBox(); }
+function fbBox(){
+  const el = $('fbBox'); if(!el) return;
+  if(FBS.st === null && !FBS.err){ el.innerHTML = '<div class="ch-h"><b>📣 Facebook automático</b></div><div class="note" style="margin:0">Cargando…</div>'; if(!FBS.ld){ FBS.ld = 1; fbLoad(); } return; }
+  const st = FBS.st || {}, log = (st.log || []).slice(0, 8), now = Date.now(), dom = new Date(now + ECU).getUTCDay() === 0, hh = new Date(now + ECU).toISOString().slice(11, 16);
+  const hoyLog = (st.log || []).filter(x => dayOf(x.t) === hoy());
+  const prox = FB_PROG.filter(([h, m]) => (m !== 'sem' || dom)).map(([h, m, t]) => { const x = hoyLog.find(l => l.modo === m); return `<div class="fb-r"><span>${h}</span><em>${esc(t)}</em><i>${x ? (x.ok ? '✅' : x.txt === 'En pausa' ? '⏸' : '⚠️') : (h > hh ? (st.pausa ? '⏸' : '🕒') : '·')}</i></div>`; }).join('');
+  const hist = log.map(x => { const t = new Date(x.t + ECU).toISOString(), lk = x.id ? `<a href="https://www.facebook.com/${esc(String(x.id))}" target="_blank" rel="noopener">ver</a>` : '';
+    return `<div class="fb-r"><span>${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</span><em>${x.ok ? '✅' : x.txt === 'En pausa' ? '⏸' : '⚠️'} ${esc(FB_N[x.modo] || x.modo)}<small>${esc(x.txt || '')}</small></em><i>${lk}</i></div>`; }).join('');
+  const pend = st.ya ? `<div class="note" style="margin:6px 0 0">⏳ Pedido: <b>${esc(FB_N[st.ya] || st.ya)}</b>. Sale en los próximos 15 minutos.</div>` : '';
+  el.innerHTML = `<div class="ch-h" style="cursor:pointer" id="fbT"><b>📣 Facebook automático · ${st.pausa ? '<span style="color:#ffb547">en pausa</span>' : '<span style="color:var(--accent)">activo</span>'}</b><span>${FBS.open ? '▲' : '▼'}</span></div>
+    ${FBS.open ? `<div class="note" style="margin:0 0 6px">Hoy${dom ? ' (domingo)' : ''}:</div>${prox}
+    <div class="btns" style="margin-top:8px;grid-template-columns:1fr;display:grid"><button class="btn ghost" id="fbP" ${FBS.busy ? 'disabled' : ''}>${st.pausa ? '▶ Reanudar' : '⏸ Pausar lo programado'}</button></div>
+    <div class="flt" style="margin-top:8px"><label><span>Publicar ya</span><select id="fbM">${Object.entries({'pro:8':'Pronósticos (2 imágenes)', resdep:'Resultados de ayer', reel:'Reel con voz', 'reel:nba':'Reel de NBA', sem:'Resumen de la semana'}).map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
+      <label><span>&nbsp;</span><button class="btn" id="fbY" style="margin:0;min-height:42px" ${FBS.busy || st.ya ? 'disabled' : ''}>Publicar ya</button></label></div>${pend}
+    ${hist ? `<div class="note" style="margin:10px 0 4px">Últimas publicaciones:</div>${hist}` : '<div class="note" style="margin:10px 0 0">Todavía no hay registro (empieza con la próxima publicación).</div>'}` : ''}
+    ${FBS.err ? `<div class="msg err" style="margin-top:6px">${esc(FBS.err)}</div>` : ''}`;
+  $('fbT').onclick = () => { FBS.open = !FBS.open; fbBox(); };
+  if($('fbP')) $('fbP').onclick = () => fbSet({pausa: !st.pausa});
+  if($('fbY')) $('fbY').onclick = () => { const m = $('fbM').value; if(confirm(`¿Publicar "${FB_N[m]}" en la página de Facebook ahora? Sale en unos 15 minutos.`)) fbSet({ya: m, yaT: Date.now()}); };
+}
 // ---------- video con voz ----------
 const VZ = {id: 'es_ES-sharvard-medium', tono: 1, vel: 1, voz: null, busy: false, out: null, cv: null};
 const vmsg = (t, pct) => { const m = $('vMsg'); if(m) m.innerHTML = esc(t) + (pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''); };
@@ -581,7 +662,7 @@ async function hacerVideo(L){
   const box = $('vOut'); box.innerHTML = ''; const cv = document.createElement('canvas'); box.appendChild(cv);
   try{
     const voz = await vozLista(), logo = await loadImg('icon-512.png');
-    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, ac, pedirToque, onMsg: (t, pc) => vmsg(t, pc)});
+    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), ayer: ayerRes(DAY), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, ac, pedirToque, onMsg: (t, pc) => vmsg(t, pc)});
     VZ.out = Object.assign(r, {txt: textoVideo(L), name: `alexbet-video-${DAY}.${r.ext}`});
     vmsg(`Listo · ${Math.round(r.dur)} segundos · ${(r.blob.size/1e6).toFixed(1)} MB · ${r.ext.toUpperCase()}${guardadoErr ? ' · ' + guardadoErr : ''}`);
   }catch(e){ console.error(e); vmsg('No se pudo crear el video: ' + e.message); }
@@ -618,8 +699,14 @@ if(new URLSearchParams(location.search).has('bot')){
         SELB = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b) => a.ts - b.ts);
       } else {
         // primero lo que más mira el público de Ecuador: la Selección y el fútbol ecuatoriano
-        const ecu = p => /Ecuador/i.test(p.h + ' ' + p.a + ' ' + (p.where || '')) || /LigaPro|Copa Ecuador/i.test(p.where || '') ? 1 : 0;
-        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => ecu(b) - ecu(a) || (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
+        // v49 · orden de prioridad para el público de Ecuador: 3 = Ecuador (Selección, LigaPro, Copa Ecuador) · 2 = Libertadores, Sudamericana,
+        // selecciones (partidos oficiales), las 5 grandes ligas, Champions, ligas de la región y NBA · 0 = NCAA, segundas divisiones y copas locales de otros países · 1 = el resto
+        const TOP = ['lib','sud','recopa','wcqsa','copaam','mundial','wcqeu','euro','euroq','unl','cnl','wcqcc','gold','epl','laliga','seriea','bundes','ligue1','ucl','uel','arg','col','mex','bra','mls'];
+        const LOW = ['champ','bundes2','laliga2','serieb','ligue2','league1','league2','natleague','scotchamp','bra2','facup','eflcup','efltrophy','cdr','coppait','pokal','cdf','scocup','scolc','scochal','knvb','taca','cdb','paulista','carioca','mineiro','gaucho','copaarg','copacol','usopen'];
+        const prio = p => { const t = /Ecuador/i.test(p.h + ' ' + p.a) || ['ecuador','copaecu','supecu'].includes(p.lid) || /LigaPro|Copa Ecuador/i.test(p.where || '') ? 3
+            : (p.sp === 'futbol' && TOP.includes(p.lid)) || p.sp === 'nba' ? 2 : p.sp === 'ncaa' || LOW.includes(p.lid) ? 0 : 1;
+          return t > 1 && p.prob < 65 ? 1 : t; }; // con menos de 65% no sube de prioridad
+        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => prio(b) - prio(a) || (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
         if(m === 'pro'){ const n = +opt || 4; SELB = variado(pool.filter(p => p.kind === 'team'), n, Math.max(2, Math.ceil(n / 3))).sort((a,b) => b.prob - a.prob); }
         else if(opt === 'nba'){ // Reel solo de NBA: 2 partidos y 2 jugadores titulares
           const nb = pool.filter(p => p.sp === 'nba'), t = variado(nb.filter(p => p.kind === 'team'), 2, 2), j = variado(nb.filter(p => p.kind === 'player' && p.role === 'top').sort((a,b) => b.prob - a.prob), 4 - t.length, 4);
@@ -635,6 +722,7 @@ if(new URLSearchParams(location.search).has('bot')){
       }
       return SELB.map(p => `${p.label} · ${p.h} vs ${p.a} · ${p.prob}%${p.res != null ? (p.res ? ' ✔' : ' ✖') : ''}`);
     },
+    async semana(){ const r = await semana(); return r.n >= 10 ? [`${r.ok} de ${r.n} (${r.pct}%)`] : []; },
     async imagenes(){ MODE = MB; await generar(SELB, TODOS, GL().find(g => g.k === 'top')); return OUT.length; },
     bajar(i){ const a = document.createElement('a'); a.href = OUT[i].url; a.download = OUT[i].name; document.body.appendChild(a); a.click(); },
     texto(i){ if(i != null) return OUT[i].txt; let t = textoVideo(SELB);
@@ -652,7 +740,7 @@ if(new URLSearchParams(location.search).has('bot')){
     async video(){
       VZ.id = 'es_ES-sharvard-medium'; VZ.tono = 1; VZ.vel = 1; // voz elegida por Alexander: España · hombre 2, tono y velocidad normales
       const voz = await vozLista(), logo = await loadImg('icon-512.png');
-      const r = await crearVideo(SELB, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, liga: LIGA, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
+      const r = await crearVideo(SELB, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), ayer: ayerRes(DAY, LIGA === 'NBA' ? 'nba' : null), voz, vel: VZ.vel, tono: VZ.tono, liga: LIGA, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
       const a = document.createElement('a'); a.href = r.url; a.download = `alexbet-reel-${DAY}.${r.ext}`; document.body.appendChild(a); a.click();
     }
   };

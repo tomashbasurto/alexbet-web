@@ -306,8 +306,10 @@ function tnRenderMatches() {
     </div>`;
   }).join('') + `<div class="foot-note">Tenis: probabilidades según el rating Elo de cada jugador (resultados de los últimos 150 días, ESPN); si no tiene Elo, según el ranking ATP/WTA. No considera superficie, lesiones ni cuotas. "(est.)" = jugador sin ranking conocido. No garantizan el resultado.</div>`;
 }
+const TN_MIN = 65;
 function tnCands(m, M) {
-  const c = [], add = (label, p, why) => { const q = tnPc(p); if (q >= 60 && q <= 97) c.push({label, prob: q, why}); };
+  // v49: con 285 sugerencias de tenis ya resueltas, las de 60-64% acertaron 58% y "Más de X juegos" 52%: ahora se pide 65% o más y no se sugiere "Más de"
+  const c = [], add = (label, p, why) => { const q = tnPc(p); if (q >= TN_MIN && q <= 97) c.push({label, prob: q, why}); };
   const A = m.p[0].name, B = m.p[1].name, need = M.need;
   add(`Gana ${A}`, M.pA, 'ganador del partido'); add(`Gana ${B}`, M.pB, 'ganador del partido');
   // v36.4: "el que no es favorito gana al menos un set" (prueba con 3.965 partidos con Elo):
@@ -318,9 +320,9 @@ function tnCands(m, M) {
     if (M.pA < 0.5) add(`${A} gana al menos un set`, M.oneA - 0.07, `partido parejo: ${B} favorito con ${tnPc(fav)}%`);
     else add(`${B} gana al menos un set`, M.oneB - 0.07, `partido parejo: ${A} favorito con ${tnPc(fav)}%`);
   }
-  M.lines.forEach(L => { add(`Más de ${L} juegos`, M.over(L), `esperados ${M.exp.toFixed(1)}`); add(`Menos de ${L} juegos`, 1 - M.over(L), `esperados ${M.exp.toFixed(1)}`); });
+  M.lines.forEach(L => { add(`Menos de ${L} juegos`, 1 - M.over(L), `esperados ${M.exp.toFixed(1)}`); });
   if (typeof calLiveApply === 'function') calLiveApply(c, 'tenis', x => /^Gana /.test(x.label) ? 'ml' : / set$/.test(x.label) ? 'line' : 'tot');
-  return c.filter(x => x.prob >= 60).sort((x, y) => y.prob - x.prob);
+  return c.filter(x => x.prob >= TN_MIN).sort((x, y) => y.prob - x.prob);
 }
 function tnRenderPicks() {
   const list = document.getElementById('matchList');

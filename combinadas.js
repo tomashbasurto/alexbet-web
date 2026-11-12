@@ -189,14 +189,20 @@ function cbHTML(sp) {
   h += CB_TIERS.map(T => { const G = C.filter(c => (c.tier || 'seg') === T.k);
     return `<div class="cb-t">${T.name} <span class="cb-rk ${T.k}">Riesgo ${T.risk}</span> · cuota ${T.k === 'alt' ? 'mayor a 5' : T.min.toFixed(2) + ' a ' + T.max.toFixed(2)}</div>` + (G.length ? G.map((c, i) => cbCard(c, `${T.name} · #${i + 1}`)).join('') : `<div class="pl-none" style="padding:6px 0">Hoy no hay selecciones suficientes para este nivel.</div>`); }).join('');
   const est = C.some(c => c.legs.some(l => !l.real));
-  h += `<div class="al-st">${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} En fútbol una combinada puede llevar las 2 selecciones más probables de un mismo partido (de mercados distintos); revisa que tu casa lo permita. ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las de la opción 3 se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></div>`;
+  h += `<details class="al-st cb-how"><summary>¿Cómo se arman? ›</summary>${D.lock ? 'Combinadas fijas de hoy.' : 'Se completan cuando carguen más partidos.'} En fútbol una combinada puede llevar las 2 selecciones más probables de un mismo partido (de mercados distintos); revisa que tu casa lo permita. ${est ? '≈ cuota aproximada de la casa (la cuota justa del modelo menos el margen que se queda la casa, ~7% por selección). Tu casa puede pagar un poco distinto. ' : ''}A más cuota, más riesgo: las de la opción 3 se pierden la mayoría de las veces. Ninguna probabilidad garantiza el resultado.</div></details>`;
   return h;
 }
+// v49 · cada combinada es una tarjeta: cuota grande, probabilidad y deportes a la vista; las selecciones se ven al tocarla
+const CB_OPEN = new Set();
+const cbIco = sp => sp === 'futbol' ? '⚽' : sp === 'tenis' ? '🎾' : sp === 'nhl' ? '🏒' : sp === 'mlb' ? '⚾' : '🏀';
 function cbCard(c, title) {
-  return `<div class="cb-c"><div class="cb-hd"><b>${title}</b><span>${cbMark(c.status)} ${c.legs.length} selecciones</span></div>` +
-    c.legs.map(l => { const f = l.sp === 'tenis' && TN.m[l.gid] && !TN.m[l.gid].tv ? {time: 'hora por conf.'} : fmtParts(l.when, l.sp === 'futbol' ? (LEAGUES.find(x => x.id === l.lid) || {}).utcOffset || 0 : 0);
-      return `<div class="cb-l"><div><b>${escA(l.label)}${l.res === 1 ? ' ✔' : l.res === 0 ? ' ✖' : ''}</b><small>${escA(cbSpName(l))} · ${escA(l.h)} vs ${escA(l.a)} · ${f.time}</small></div><span>${l.prob}%<small>${l.real ? '' : '≈'}${l.odds.toFixed(2)}</small></span></div>`; }).join('') +
-    `<div class="cb-ft"><span>Prob. de acertar <b>${c.prob}%</b></span><span>Cuota ${c.legs.every(l => l.real) ? '' : 'aprox. '}<b>${c.odds.toFixed(2)}</b></span></div></div>`;
+  const key = title + '|' + c.legs.map(l => l.h + l.label).join('|'), k = escA(key), real = c.legs.every(l => l.real);
+  const legs = c.legs.map(l => { const f = l.sp === 'tenis' && TN.m[l.gid] && !TN.m[l.gid].tv ? {time: 'hora por conf.'} : fmtParts(l.when, l.sp === 'futbol' ? (LEAGUES.find(x => x.id === l.lid) || {}).utcOffset || 0 : 0);
+    return `<div class="cb-l"><div><b>${cbIco(l.sp)} ${escA(l.label)}${l.res === 1 ? ' ✔' : l.res === 0 ? ' ✖' : ''}</b><small>${escA(l.h)} vs ${escA(l.a)} · ${f.time} · ${escA(cbSpName(l))}</small></div><span>${l.prob}%<small>${l.real ? '' : '≈'}${l.odds.toFixed(2)}</small></span></div>`; }).join('');
+  return `<details class="cb-c"${CB_OPEN.has(key) ? ' open' : ''} data-k="${k}" ontoggle="CB_OPEN[this.open ? 'add' : 'delete'](this.dataset.k)"><summary>
+      <div class="cb-hd"><b>${title}</b><span>${cbMark(c.status)} ${c.legs.length} selecciones · ${[...new Set(c.legs.map(l => cbIco(l.sp)))].join('')}</span></div>
+      <div class="cb-big"><div><small>Cuota${real ? '' : ' aprox.'}</small><b>${c.odds.toFixed(2)}</b></div><div><small>Prob. de acertar</small><b>${c.prob}%</b></div><i class="cb-more">Ver selecciones ›</i></div>
+    </summary>${legs}</details>`;
 }
 function cbResHTML(sp) {
   const all = cbAll(), days = Object.keys(all).sort().reverse();

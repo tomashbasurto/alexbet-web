@@ -32,6 +32,11 @@ service cloud.firestore {
       allow delete: if esAdmin();
     }
 
+    // Panel de publicaciones: pausa, "publicar ya" y registro de Facebook (solo tú; el servidor entra con su cuenta de servicio).
+    match /config/{id} {
+      allow read, write: if esAdmin();
+    }
+
     // Todo lo demás, cerrado.
     match /{document=**} {
       allow read, write: if false;

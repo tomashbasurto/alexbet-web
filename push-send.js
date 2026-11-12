@@ -72,4 +72,4 @@ async function init() {
     stats: () => ({sent, dead})
   };
 }
-module.exports = {init};
+module.exports = {init, accessToken};

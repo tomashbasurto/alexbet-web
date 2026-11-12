@@ -1,5 +1,5 @@
 // AlexBet · publicaciones automáticas en la página de Facebook (GitHub Actions)
-// Modos: check (solo comprueba la llave), pro (imagen de pronósticos de hoy), res (imagen de resultados de ayer), reel (video con voz)
+// Modos: check (solo comprueba la llave), pro (imagen de pronósticos de hoy), res (imagen de resultados de ayer), reel (video con voz), sem (resumen semanal)
 // La llave (FB_USER_TOKEN, secreto de GitHub) es de larga duración; con ella se pide la llave de la página en cada corrida.
 // Las imágenes y el video se arman con el mismo panel de publicaciones (publicar.html) abierto sin pantalla.
 'use strict';
@@ -24,6 +24,24 @@ async function pagina() {
   console.log(`Llave de ${dbg.name} · páginas: ${L.map(x => x.name).join(', ')} · uso: ${p.name} (${p.id}) · permisos de página: ${(p.tasks || []).join(', ')}`);
   return p;
 }
+
+// ---------- estado en Firestore (config/facebook): pausa, "publicar ya" y registro de lo publicado; lo ve el panel ----------
+const FS_DOC = 'https://firestore.googleapis.com/v1/projects/alexbet-e14aa/databases/(default)/documents/config/facebook';
+let FSH = null;
+async function fsInit() {
+  if (FSH !== null) return FSH; FSH = false;
+  try { const sa = JSON.parse((process.env.FIREBASE_SERVICE_ACCOUNT || '').trim()); FSH = {authorization: 'Bearer ' + await require('./push-send.js').accessToken(sa), 'content-type': 'application/json'}; }
+  catch (e) { console.log('estado: sin acceso a Firestore (' + e.message + ')'); }
+  return FSH;
+}
+const fsVal = v => !v ? null : v.stringValue ?? (v.integerValue != null ? +v.integerValue : null) ?? v.doubleValue ?? v.booleanValue ??
+  (v.arrayValue ? (v.arrayValue.values || []).map(fsVal) : v.mapValue ? Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, fsVal(x)])) : null);
+const fsEnc = v => v == null ? {nullValue: null} : typeof v === 'boolean' ? {booleanValue: v} : typeof v === 'number' ? (Number.isInteger(v) ? {integerValue: String(v)} : {doubleValue: v})
+  : Array.isArray(v) ? {arrayValue: {values: v.map(fsEnc)}} : typeof v === 'object' ? {mapValue: {fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fsEnc(x)]))}} : {stringValue: String(v)};
+async function estado() { const H = await fsInit(); if (!H) return null; const r = await fetch(FS_DOC, {headers: H}); if (r.status === 404) return {}; if (!r.ok) { console.log('estado: HTTP ' + r.status); return null; } return fsVal({mapValue: {fields: (await r.json()).fields || {}}}); }
+async function estadoSet(obj) { const H = await fsInit(); if (!H) return; const q = Object.keys(obj).map(k => 'updateMask.fieldPaths=' + k).join('&');
+  const r = await fetch(FS_DOC + '?' + q, {method: 'PATCH', headers: H, body: JSON.stringify({fields: Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fsEnc(v)]))})}); if (!r.ok) console.log('estado: no se pudo guardar (HTTP ' + r.status + ')'); }
+async function anotar(e) { try { const st = await estado(); if (!st) return; const log = [Object.assign({t: Date.now(), modo: MODE}, e)].concat(st.log || []).slice(0, 40); await estadoSet({log}); } catch (x) {} }
 
 // ---------- armar imágenes / video con el panel ----------
 async function panel(fn) {
@@ -77,13 +95,26 @@ async function reel(p, file, txt) {
   const buf = fs.readFileSync(file);
   const up = await fetch(st.upload_url || `https://rupload.facebook.com/video-upload/v21.0/${st.video_id}`, {method: 'POST', headers: {Authorization: 'OAuth ' + p.access_token, offset: '0', file_size: String(buf.length)}, body: buf});
   if (!up.ok) throw new Error('subida del video: ' + up.status + ' ' + (await up.text()).slice(0, 200));
-  return api(`${G}/${p.id}/video_reels`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({upload_phase: 'finish', video_id: st.video_id, video_state: 'PUBLISHED', description: txt, access_token: p.access_token})});
+  return Object.assign({video_id: st.video_id}, await api(`${G}/${p.id}/video_reels`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({upload_phase: 'finish', video_id: st.video_id, video_state: 'PUBLISHED', description: txt, access_token: p.access_token})}));
 }
 
 (async () => {
+  // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
+  if (MODE === 'poll') {
+    const st = await estado() || {}; let m = 'none';
+    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'modo=' + m + '\n'); else console.log('modo=' + m);
+    return;
+  }
+  if (MODE !== 'check' && process.env.FB_PROGRAMADO === '1' && !DRY) { const st = await estado(); if (st && st.pausa) { console.log('En pausa desde el panel: no se publica.'); await anotar({ok: false, txt: 'En pausa'}); return; } }
   const p = process.argv.includes('--sin-fb') ? null : await pagina();
   if (MODE === 'check') return;
   const out = await panel(async page => {
+    if (MODE === 'sem') { // resumen de los 7 días hasta ayer (domingos)
+      const info = await page.evaluate(() => window.__bot.semana()); console.log('Semana:', info.join(' | ') || 'pocas resueltas');
+      if (!info.length) return [];
+      return [{file: await bajar(page, k => window.__bot.bajar(k), 0), txt: await page.evaluate(() => window.__bot.texto(0))}];
+    }
     if (MODE.startsWith('reel')) {
       const info = await page.evaluate(o => window.__bot.elegir('reel', o), MODE.split(':')[1] || null);
       console.log('Reel con:', info.join(' | '));
@@ -105,16 +136,17 @@ async function reel(p, file, txt) {
     if (res.length > 1) res.album = await page.evaluate(m => m === 'pro' ? window.__bot.textoPro() : window.__bot.textoRes(), m);
     return res;
   });
-  if (!out.length) { console.log('Nada para publicar hoy.'); return; }
+  if (!out.length) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Nada para publicar'}); return; }
   if (out.album) {
     if (DRY) { console.log(`[prueba] no se publica: álbum de ${out.length} imágenes\n${out.album}`); return; }
-    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); return;
+    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); return;
   }
   for (const o of out) {
     const kb = Math.round(fs.statSync(o.file).size / 1024);
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
-    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); }
+    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); }
     else { let f = o.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
-      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); }
+      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); }
   }
-})().catch(e => { console.error('No se pudo:', e.message); process.exit(1); });
+})().catch(async e => { console.error('No se pudo:', e.message); if (!DRY && MODE !== 'poll') await anotar({ok: false, txt: 'Error: ' + String(e.message).slice(0, 140)}); process.exit(1); });
+function st0(r) { return (r && (r.post_id || r.video_id || r.id)) || ''; }

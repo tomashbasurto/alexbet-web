@@ -146,7 +146,9 @@ export function guion(p, i) {
   }
   return {voz: hablar(`${cab} ${qui}. ${mk}. ${est} ${p.prob}%.`)};
 }
-export const vozIntro = (day, n, liga) => hablar(`${n === 1 ? 'Una oportunidad' : n2w(n) + ' oportunidades'}${liga ? ' de la ' + liga : ''} para hoy, ${fechaVoz(day)}. ¡Vamos!`).replace(/^./, c => c.toUpperCase());
+// v49 · gancho al inicio: "Ayer acertamos X de Y" (solo si fue un buen día: 60% o más con al menos 5 resueltas)
+export const ayerBueno = a => a && a.n >= 5 && a.ok / a.n >= 0.6;
+export const vozIntro = (day, n, liga, ayer) => hablar(`${ayerBueno(ayer) ? `Ayer acertamos ${ayer.ok} de ${ayer.n}. Ahora, ` : ''}${n === 1 ? (ayerBueno(ayer) ? 'una' : 'Una') + ' oportunidad' : n2w(n) + ' oportunidades'}${liga ? ' de la ' + liga : ''} para hoy, ${fechaVoz(day)}. ¡Vamos!`).replace(/^./, c => c.toUpperCase());
 export const vozCierre = st => hablar((st && st.n >= 100 ? `${st.pct}% de aciertos en ${st.n} pronósticos reales. ` : '') + 'Más en álex bet pro, punto web, punto app. Juega con responsabilidad.');
 
 // ---------- dibujo ----------
@@ -196,6 +198,9 @@ function chip(c, txt, x, y, col) {
 function escenaIntro(c, S, t, D) {
   const a = seg(t, 0, .6), b = seg(t, .4, .7), d = seg(t, .9, .7);
   c.globalAlpha = a; marca(c, D.logo, 90, 150 - (1 - a) * 40, 120); c.globalAlpha = 1;
+  if (S.ayer) { const txt = `AYER ACERTAMOS ${S.ayer.ok} DE ${S.ayer.n}`; c.globalAlpha = a; c.font = '800 40px Inter'; const tw = c.measureText(txt).width;
+    rr(c, 90, 318, tw + 110, 76, 38); c.fillStyle = 'rgba(198,255,0,.14)'; c.fill(); c.strokeStyle = A; c.lineWidth = 3; c.stroke();
+    c.fillStyle = A; c.fillText('✓', 122, 370); c.fillText(txt, 172, 370); c.globalAlpha = 1; }
   c.font = '900 120px Orbitron'; c.fillStyle = INK; c.globalAlpha = b; c.fillText(String(S.n), 90, 520 + (1 - b) * 40);
   fitFont(c, 'OPORTUNIDADES', VW - 180, 92, 900, 'Orbitron', 60); c.fillText('OPORTUNIDADES', 90, 640 + (1 - b) * 40); c.fillStyle = A; c.fillText('DE HOY', 90, 750 + (1 - b) * 40); c.globalAlpha = 1;
   c.globalAlpha = d; c.font = '700 40px Orbitron'; c.fillStyle = A; c.fillText(S.fecha, 90, 850); c.globalAlpha = 1;
@@ -319,7 +324,7 @@ export async function crearVideo(sel, ctx) {
   const deps = [...new Set(L.map(p => ({futbol: 'fútbol', nba: 'la NBA', ncaa: 'la NCAA', eul: 'la Euroliga', nhl: 'la NHL', mlb: 'MLB', tenis: 'tenis'})[p.sp] || p.sp))];
   const depsTxt = deps.length > 1 ? deps.slice(0, -1).join(', ') + ' y ' + deps[deps.length - 1] : deps[0];
   const scenes = [];
-  scenes.push({k: 'intro', n: L.length, fecha: (ctx.liga ? ctx.liga + ' · ' : '') + ctx.fecha, items: L, voz: vozIntro(ctx.day, L.length, ctx.liga),
+  scenes.push({k: 'intro', n: L.length, fecha: (ctx.liga ? ctx.liga + ' · ' : '') + ctx.fecha, items: L, ayer: ayerBueno(ctx.ayer) ? ctx.ayer : null, voz: vozIntro(ctx.day, L.length, ctx.liga, ctx.ayer),
     tit: L.map(p => p.kind === 'player' ? `${p.pname} · más de ${p.ln} ${String(p.mk).toLowerCase()}` : p.label),
     sub: L.map(p => `${ctx.lugar(p)} · ${ctx.hora(p)}${p.kind === 'player' ? '' : ' · ' + p.h + ' vs ' + p.a}`)});
   for (const [i, p] of L.entries()) {
