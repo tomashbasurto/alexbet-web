@@ -38,6 +38,7 @@ async function panel(fn) {
     const u = r.request().url();
     if (/gstatic\.com\/firebasejs\/.*firebase-app\.js/.test(u)) return r.fulfill({contentType: 'text/javascript', body: STUB_APP});
     if (/gstatic\.com\/firebasejs\/.*firebase-auth\.js/.test(u)) return r.fulfill({contentType: 'text/javascript', body: STUB_AUTH});
+    if (process.env.FONTS_LOCAL && /fonts\.(googleapis|local)/.test(u)) { if (u.includes('googleapis')) return r.fulfill({contentType: 'text/css', body: [['Orbitron','orbitron',[700,900]],['Inter','inter',[400,500,600,700,800,900]]].flatMap(([f,d,ws]) => ws.map(w => `@font-face{font-family:${f};font-weight:${w};src:url(https://fonts.local/${d}/files/${d}-latin-${w}-normal.woff2)}`)).join('')}); return r.fulfill({path: process.env.FONTS_LOCAL + u.split('fonts.local/')[1]}); }
     for (const pre of ['https://alexbetpro.web.app/', 'tomashbasurto.github.io/alexbet-web/', 'raw.githubusercontent.com/tomashbasurto/alexbet-web/main/']) {
       if (u.includes(pre)) {
         const f = path.join(ROOT, decodeURIComponent(u.split(pre)[1].split('?')[0] || 'index.html'));
@@ -69,7 +70,7 @@ async function reel(p, file, txt) {
 }
 
 (async () => {
-  const p = await pagina();
+  const p = process.argv.includes('--sin-fb') ? null : await pagina();
   if (MODE === 'check') return;
   const out = await panel(async page => {
     if (MODE === 'reel') {
