@@ -43,6 +43,23 @@ const LEAGUES = [
   {id:'scotchamp', name:'Championship (Escocia)', espn:'sco.2', csv:'SC1', primary:'espn'},
   {id:'belgium', name:'Pro League (Bélgica)', espn:'bel.1', csv:'B1', primary:'espn'},
   {id:'greece', name:'Super League (Grecia)', espn:'gre.1', csv:'G1', primary:'espn'},
+  // v48 · selecciones: 18 meses de partidos para medir la forma de cada selección
+  {id:'selamist', name:'Amistosos internacionales', espn:'fifa.friendly', primary:'espn', cup:1, nat:1},
+  {id:'wcqsa', name:'Eliminatorias Sudamérica', espn:'fifa.worldq.conmebol', primary:'espn', cup:1, nat:1},
+  {id:'copaam', name:'Copa América', espn:'conmebol.america', primary:'espn', cup:1, nat:1},
+  {id:'mundial', name:'Mundial', espn:'fifa.world', primary:'espn', cup:1, nat:1},
+  {id:'unl', name:'Liga de Naciones UEFA', espn:'uefa.nations', primary:'espn', cup:1, nat:1},
+  {id:'wcqeu', name:'Eliminatorias Europa', espn:'fifa.worldq.uefa', primary:'espn', cup:1, nat:1},
+  {id:'euro', name:'Eurocopa', espn:'uefa.euro', primary:'espn', cup:1, nat:1},
+  {id:'euroq', name:'Eliminatorias Eurocopa', espn:'uefa.euroq', primary:'espn', cup:1, nat:1},
+  {id:'cnl', name:'Liga de Naciones CONCACAF', espn:'concacaf.nations.league', primary:'espn', cup:1, nat:1},
+  {id:'wcqcc', name:'Eliminatorias CONCACAF', espn:'fifa.worldq.concacaf', primary:'espn', cup:1, nat:1},
+  {id:'gold', name:'Copa Oro', espn:'concacaf.gold', primary:'espn', cup:1, nat:1},
+  {id:'afcon', name:'Copa Africana', espn:'caf.nations', primary:'espn', cup:1, nat:1},
+  {id:'afconq', name:'Eliminatorias Copa Africana', espn:'caf.nations_qual', primary:'espn', cup:1, nat:1},
+  {id:'wcqcaf', name:'Eliminatorias África', espn:'fifa.worldq.caf', primary:'espn', cup:1, nat:1},
+  {id:'asian', name:'Copa Asiática', espn:'afc.asian.cup', primary:'espn', cup:1, nat:1},
+  {id:'wcqafc', name:'Eliminatorias Asia', espn:'fifa.worldq.afc', primary:'espn', cup:1, nat:1},
   {id:'copaecu', name:'Copa Ecuador', manual:1, tsdb:'5636', primary:'manual', cup:1},
   {id:'supecu', name:'Supercopa Ecuador', manual:1, tsdb:'5884', primary:'manual', cup:1},
   {id:'facup', name:'FA Cup', espn:'eng.fa', primary:'espn', cup:1},
@@ -131,7 +148,8 @@ function mapFd(j){
     d:String(m.utcDate).slice(0,16), s:FD_STATUS[m.status]||'NS',
     g:[m.score&&m.score.fullTime?m.score.fullTime.home:null, m.score&&m.score.fullTime?m.score.fullTime.away:null]}));
 }
-function mapEspn(j){
+const NAT_LOGOS = {};
+function mapEspn(j, nat){
   const out = [];
   for(const ev of (j.events||[])){
     const c = ev.competitions && ev.competitions[0]; if(!c || !c.competitors) continue;
@@ -141,14 +159,16 @@ function mapEspn(j){
     let s = 'NS';
     if(st.completed) s = 'FT'; else if(st.state==='in') s = 'LIVE'; else if(/postpon|cancel|suspend|abandon/i.test((st.name||'')+(st.description||''))) s = 'PST';
     const num = v => { const n = parseInt(v,10); return isNaN(n) ? null : n; };
+    if(nat) [h, a].forEach(x=>{ if(x.team && x.team.logo) NAT_LOGOS[x.team.displayName||x.team.name] = x.team.logo; });
     out.push({i:'e'+ev.id, h:h.team.displayName||h.team.name, a:a.team.displayName||a.team.name,
       d:String(ev.date).slice(0,16), s, g:s==='FT' ? [num(h.score),num(a.score)] : [null,null],
       v: (c.venue && c.venue.address && c.venue.address.city) ? [c.venue.address.city, c.venue.address.country||''].join('|') : undefined});
   }
   return out;
 }
-async function espnFixtures(cfg){
-  const t0 = Date.now()-75*86400e3, t1 = Date.now()+19*86400e3;
+async function espnFixtures(cfg, prev){
+  const t0 = Date.now()-(cfg.nat ? 540 : 75)*86400e3, t1 = Date.now()+19*86400e3;
+  const old = cfg.nat && prev && prev.deep ? prev.fx || [] : null; // selecciones: los meses viejos ya guardados no se vuelven a pedir
   const months = [];
   for(let d = new Date(Date.UTC(new Date(t0).getUTCFullYear(), new Date(t0).getUTCMonth(), 1)); d.getTime() <= t1; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1))){
     const yy = d.getUTCFullYear(), mm = String(d.getUTCMonth()+1).padStart(2,'0');
@@ -157,7 +177,9 @@ async function espnFixtures(cfg){
   }
   const seen = new Map(); let lastErr = null;
   for(const w of months){
-    try{ mapEspn(await getJson(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w.m}`)).forEach(f=>seen.set(f.i,f)); }
+    const mEnd = Date.UTC(+w.m.slice(0,4), +w.m.slice(4,6), 1);
+    if(old && mEnd < Date.now()-40*86400e3){ old.filter(f=>f.d.slice(0,7).replace('-','')===w.m).forEach(f=>seen.set(f.i,f)); continue; }
+    try{ mapEspn(await getJson(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w.m}${cfg.nat?'&limit=500':''}`), cfg.nat).forEach(f=>seen.set(f.i,f)); }
     catch(e1){
       try{ mapEspn(await getJson(`${ESPN_BASE}/${cfg.espn}/scoreboard?dates=${w.r}`)).forEach(f=>seen.set(f.i,f)); }
       catch(e2){ lastErr = e2; }
@@ -215,10 +237,10 @@ async function loadFixtures(cfg, prev, known){
   for(const src of order){
     if(!cfg[src] || (src==='fd' && fdDead)) continue;
     try{
-      const fx = src==='fd' ? mapFd(await fdGet(`/competitions/${cfg.fd}/matches`)) : await espnFixtures(cfg);
+      const fx = src==='fd' ? mapFd(await fdGet(`/competitions/${cfg.fd}/matches`)) : await espnFixtures(cfg, prev);
       if(!fx.length){ errs.push(`${src}: sin partidos`); continue; }
       log.push({name:cfg.name, ok:true, msg:`${fx.length} partidos · ${src==='fd'?'football-data.org':'ESPN'}`});
-      return {t:Date.now(), season:seasonYear(cfg.id), src, fx};
+      return Object.assign({t:Date.now(), season:seasonYear(cfg.id), src, fx}, cfg.nat ? {deep:1} : {});
     }catch(e){
       errs.push(`${src==='fd'?'football-data.org':'ESPN'}: ${e.message}`);
       if(src==='fd' && e.status===401) fdDead = true;
@@ -339,13 +361,14 @@ function applySummary(j, id, stats){
   out.logosLg = Object.assign({}, prev.logosLg||{}); // v38.5: escudos por liga (mismo nombre en ligas distintas)
   const tl = {}; // v39.6: equipos oficiales de ESPN por liga [id, nombre, corto, nombre club, sigla, ciudad]
   for(const cfg of LEAGUES){
-    if(!cfg.espn) continue;
+    if(!cfg.espn || cfg.nat) continue;
     try{
       const j = await getJson(`${ESPN_BASE}/${cfg.espn}/teams`);
       const ts = (((j.sports||[])[0]||{}).leagues||[])[0];
       ((ts&&ts.teams)||[]).forEach(x=>{ const t = x.team||x; const lg = (t.logos&&t.logos[0]&&t.logos[0].href)||t.logo; if(lg){ if(t.displayName) out.logos[t.displayName]=lg; if(t.shortDisplayName) out.logos[t.shortDisplayName]=lg; const L = out.logosLg[cfg.espn] = out.logosLg[cfg.espn] || {}; [t.displayName, t.shortDisplayName, t.name].forEach(n=>{ if(n) L[n] = lg; }); } if(t.id){ const T = tl[cfg.espn] = tl[cfg.espn] || []; T.push([String(t.id), t.displayName||'', t.shortDisplayName||'', t.name||'', t.abbreviation||'', t.location||'']); } });
     }catch(e){ log.push({name:'Logos '+cfg.name, ok:false, msg:e.message}); }
   }
+  Object.assign(out.logos, NAT_LOGOS);
   out.teamsLg = Object.assign({}, prev.teamsLg||{}, tl);
   const okLeagues = Object.keys(out.fx).length;
   fs.writeFileSync(OUT, JSON.stringify(out));

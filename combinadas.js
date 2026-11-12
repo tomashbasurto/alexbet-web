@@ -53,7 +53,7 @@ function cbLegs(want) {
   };
   try {
     if (want === 'futbol') LEAGUES.forEach(l => l.fixtures.forEach(f => {
-      if (!l.teams[f[0]] || !l.teams[f[1]] || isoDateOnlyEcuador(f[2], l.utcOffset) !== day) return;
+      if (l.friendly || !l.teams[f[0]] || !l.teams[f[1]] || isoDateOnlyEcuador(f[2], l.utcOffset) !== day) return; // los amistosos no entran en combinadas
       const pk = matchPicks(l, f); if (!pk) return;
       pk.picks.slice(0, 4).forEach(k => push('futbol', l.id, f[0], f[1], f[2], pkTs(f[2], l.utcOffset), null, k, l.name));
     }));

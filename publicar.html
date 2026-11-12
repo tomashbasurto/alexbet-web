@@ -607,7 +607,9 @@ if(new URLSearchParams(location.search).has('bot')){
         const nOk = Math.min(okL.length, Math.round(5 * okL.length / Math.max(1, TODOS.length))); // misma proporción que el balance real
         SELB = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b) => a.ts - b.ts);
       } else {
-        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
+        // primero lo que más mira el público de Ecuador: la Selección y el fútbol ecuatoriano
+        const ecu = p => /Ecuador/i.test(p.h + ' ' + p.a + ' ' + (p.where || '')) || /LigaPro|Copa Ecuador/i.test(p.where || '') ? 1 : 0;
+        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => ecu(b) - ecu(a) || (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
         if(m === 'pro'){ const n = +opt || 4; SELB = variado(pool.filter(p => p.kind === 'team'), n, Math.max(2, Math.ceil(n / 3))).sort((a,b) => b.prob - a.prob); }
         else if(opt === 'nba'){ // Reel solo de NBA: 2 partidos y 2 jugadores titulares
           const nb = pool.filter(p => p.sp === 'nba'), t = variado(nb.filter(p => p.kind === 'team'), 2, 2), j = variado(nb.filter(p => p.kind === 'player' && p.role === 'top').sort((a,b) => b.prob - a.prob), 4 - t.length, 4);

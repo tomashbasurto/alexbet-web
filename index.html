@@ -1325,6 +1325,54 @@ const STATIC_LEAGUES = [
     id:'supecu', name:'Supercopa Ecuador', color:'#fde68a', utcOffset:-5, cup:1, teams:{}, fixtures:[],
   },
   {
+    id:'selamist', name:'Amistosos internacionales', color:'#94a3b8', utcOffset:0, cup:1, nat:1, friendly:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'wcqsa', name:'Eliminatorias Sudamérica', color:'#ffd100', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'copaam', name:'Copa América', color:'#f59e0b', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'mundial', name:'Mundial', color:'#c6ff00', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'unl', name:'Liga de Naciones UEFA', color:'#4da3ff', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'wcqeu', name:'Eliminatorias Europa', color:'#60a5fa', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'euro', name:'Eurocopa', color:'#3b82f6', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'euroq', name:'Eliminatorias Eurocopa', color:'#93c5fd', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'cnl', name:'Liga de Naciones CONCACAF', color:'#ef4444', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'wcqcc', name:'Eliminatorias CONCACAF', color:'#f87171', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'gold', name:'Copa Oro', color:'#eab308', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'afcon', name:'Copa Africana', color:'#22c55e', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'afconq', name:'Eliminatorias Copa Africana', color:'#4ade80', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'wcqcaf', name:'Eliminatorias África', color:'#86efac', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'asian', name:'Copa Asiática', color:'#a78bfa', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'wcqafc', name:'Eliminatorias Asia', color:'#c4b5fd', utcOffset:0, cup:1, nat:1, teams:{}, fixtures:[],
+  },
+  {
     id:'facup', name:'FA Cup', color:'#e11d48', utcOffset:0, cup:1, teams:{}, fixtures:[],
   },
   {
@@ -1833,8 +1881,9 @@ function matchPicks(league, f){
   calLiveApply(cc, 'futbol');
   const best = {};
   cc.forEach(x=>{ x.score = pkScore(x, x.est); if(!best[x.cat] || x.score>best[x.cat].score) best[x.cat] = x; });
-  const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:65)).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
-    ...x, conf: x.est ? 'est' : (x.prob>=75 ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))
+  const fr = !!league.friendly; if(fr) notes.push('Amistoso: los técnicos prueban jugadores y rotan, el modelo es menos confiable');
+  const picks = Object.values(best).filter(x=>x.prob>=(x.est?70:(fr?70:65))).sort((a,b)=>b.score-a.score).slice(0,3).map(x=>({
+    ...x, conf: x.est ? 'est' : (x.prob>=75 && !fr ? 'alta' : (x.prob>=65 ? 'media' : 'baja'))
   }));
   return {picks, best: picks.length ? picks[0].score : 0, p, notes};
 }
@@ -4252,6 +4301,7 @@ function ldModelHTML(m, D){
 // v36: ligas agrupadas por país (los países con varias ligas tienen la opción "Todas")
 const LG_GROUPS = [
   ['🇪🇨 Ecuador', ['ecuador','copaecu','supecu'], 'ecu'],
+  ['🌎 Selecciones', ['selamist','wcqsa','copaam','mundial','unl','wcqeu','euro','euroq','cnl','wcqcc','gold','afcon','afconq','wcqcaf','asian','wcqafc'], 'sel'],
   ['🏆 Copas de Sudamérica', ['lib','sud','recopa'], 'csa'],
   ['🇧🇷 Brasil', ['bra','bra2','cdb','supbra','paulista','carioca','mineiro','gaucho'], 'bra'],
   ['🇦🇷 Argentina', ['arg','copaarg','suparg','tdcarg'], 'arg'],
@@ -5212,6 +5262,22 @@ const SRC = {
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
   copaecu:    {             primary:'manual'},
   supecu:     {             primary:'manual'},
+  selamist:   {             espn:'fifa.friendly', primary:'espn', nat:1},
+  wcqsa:      {             espn:'fifa.worldq.conmebol', primary:'espn', nat:1},
+  copaam:     {             espn:'conmebol.america', primary:'espn', nat:1},
+  mundial:    {             espn:'fifa.world', primary:'espn', nat:1},
+  unl:        {             espn:'uefa.nations', primary:'espn', nat:1},
+  wcqeu:      {             espn:'fifa.worldq.uefa', primary:'espn', nat:1},
+  euro:       {             espn:'uefa.euro', primary:'espn', nat:1},
+  euroq:      {             espn:'uefa.euroq', primary:'espn', nat:1},
+  cnl:        {             espn:'concacaf.nations.league', primary:'espn', nat:1},
+  wcqcc:      {             espn:'fifa.worldq.concacaf', primary:'espn', nat:1},
+  gold:       {             espn:'concacaf.gold', primary:'espn', nat:1},
+  afcon:      {             espn:'caf.nations', primary:'espn', nat:1},
+  afconq:     {             espn:'caf.nations_qual', primary:'espn', nat:1},
+  wcqcaf:     {             espn:'fifa.worldq.caf', primary:'espn', nat:1},
+  asian:      {             espn:'afc.asian.cup', primary:'espn', nat:1},
+  wcqafc:     {             espn:'fifa.worldq.afc', primary:'espn', nat:1},
   facup:      {             espn:'eng.fa', primary:'espn'},
   eflcup:     {             espn:'eng.league_cup', primary:'espn'},
   efltrophy:  {             espn:'eng.trophy', primary:'espn'},
@@ -5248,7 +5314,7 @@ const SRC = {
   recopa:     {             espn:'conmebol.recopa', primary:'espn'},
   supuefa:    {             espn:'uefa.super_cup', primary:'espn'},
 };
-const APP_VERSION = 'v47.3 · nuevo diseño: nombres completos, escudos, fotos de tenis e íconos';
+const APP_VERSION = 'v48 · selecciones: amistosos, eliminatorias, Liga de Naciones y más';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -5405,7 +5471,8 @@ async function loadFixtures(sl, log, st){
         fx = [...seen.values()];
       }
       if(!fx.length){ errs.push(`${src==='fd'?'football-data.org':'ESPN'}: sin partidos`); continue; }
-      LS.set('ab_fx_'+sl.id, {t:Date.now(), season:y, fx, src});
+      if(cfg.nat){ const old = (LS.get('ab_fx_'+sl.id,null)||{}).fx || [], m = new Map(old.map(f=>[f.i,f])); fx.forEach(f=>m.set(f.i,f)); fx = [...m.values()]; }
+      LS.set('ab_fx_'+sl.id, {t:Date.now(), season:y, fx, src, deep:cfg.nat?1:undefined});
       st.ok++;
       log.push({name:sl.name, ok:true, msg:`${fx.length} partidos · ${src==='fd'?'football-data.org':'ESPN'}`});
       return;
@@ -5609,6 +5676,33 @@ async function pmPrime(){
 }
 // v35: datos de última hora por partido (árbitro y alineación), de ESPN, solo para partidos de las próximas 3 horas
 const PM = {};
+// v48 · fuerza de cada selección: ataque y defensa ajustados por el nivel de los rivales (todas las competencias de
+// selecciones de los últimos 18 meses, los recientes pesan más; los amistosos pesan menos que los oficiales)
+function natRatings(dataBy){
+  const M = [], now = Date.now();
+  STATIC_LEAGUES.filter(l=>l.nat).forEach(l=>{ const d = dataBy[l.id]; if(!d) return;
+    d.fx.forEach(f=>{ if(!(FINISHED.includes(f.s)&&f.g&&f.g[0]!=null&&f.g[1]!=null)) return; const t = Date.parse(f.d+':00Z'), age = (now-t)/864e5; if(age > 560) return;
+      M.push({h:f.h, a:f.a, gh:f.g[0], ga:f.g[1], w:Math.exp(-age/365)*(l.friendly ? 0.7 : 1)}); }); });
+  if(M.length < 30) return {r:{}, base:1.3};
+  let W = 0, G = 0; M.forEach(m=>{ W += 2*m.w; G += (m.gh+m.ga)*m.w; });
+  const base = G/W, att = {}, def = {}, nW = {}, nN = {};
+  M.forEach(m=>[m.h,m.a].forEach(t=>{ att[t] = 1; def[t] = 1; nW[t] = (nW[t]||0)+m.w; nN[t] = (nN[t]||0)+1; }));
+  const K = 2.5; // partidos "prestados" del promedio: con pocos partidos la selección queda cerca de lo normal
+  for(let it=0; it<25; it++){
+    const sa = {}, sb = {}, da = {}, db = {};
+    M.forEach(m=>{
+      sa[m.h] = (sa[m.h]||0)+m.w*m.gh; sb[m.h] = (sb[m.h]||0)+m.w*base*def[m.a];
+      sa[m.a] = (sa[m.a]||0)+m.w*m.ga; sb[m.a] = (sb[m.a]||0)+m.w*base*def[m.h];
+      da[m.h] = (da[m.h]||0)+m.w*m.ga; db[m.h] = (db[m.h]||0)+m.w*base*att[m.a];
+      da[m.a] = (da[m.a]||0)+m.w*m.gh; db[m.a] = (db[m.a]||0)+m.w*base*att[m.h];
+    });
+    Object.keys(att).forEach(t=>{ att[t] = (sa[t]+K*base)/(sb[t]+K*base); def[t] = (da[t]+K*base)/(db[t]+K*base); });
+    const ma = Object.values(att).reduce((x,y)=>x+y,0)/Object.keys(att).length, md = Object.values(def).reduce((x,y)=>x+y,0)/Object.keys(def).length;
+    Object.keys(att).forEach(t=>{ att[t] /= ma; def[t] /= md; });
+  }
+  const r = {}; Object.keys(att).forEach(t=>{ r[t] = {att:att[t], def:def[t], n:nN[t]}; });
+  return {r, base};
+}
 function buildLive(){
   const out = {};
   const stats = LS.get('ab_stats',{});
@@ -5650,6 +5744,7 @@ function buildLive(){
     const lid = Object.keys(o).sort((x,y)=>o[y]-o[x])[0], dv = LG_DIV[lid] || 1;
     return [1, 1, 0.78, 0.66, 0.58, 0.5][dv];
   };
+  const NR = natRatings(dataBy);
   for(const sl of STATIC_LEAGUES){
     const d = dataBy[sl.id]; if(!d) continue;
     const fin = d.fx.filter(f=>FINISHED.includes(f.s)&&f.g&&f.g[0]!=null&&f.g[1]!=null);
@@ -5662,13 +5757,14 @@ function buildLive(){
       const ms = histFor(n), rec = ms.slice(-10);
       const sy = ms.filter(x=>x.y!=null).slice(-8), sc = ms.filter(x=>x.c!=null).slice(-8);
       const stEst = staticStatsFor(sl.id, n);
+      const nr = sl.nat && NR.r[n];
       teams[n] = {
-        gf: rec.length>=3 ? avg(rec,x=>x.gf) : lgGoals,
-        ga: rec.length>=3 ? avg(rec,x=>x.ga) : lgGoals,
+        gf: nr ? nr.att*NR.base : rec.length>=3 ? avg(rec,x=>x.gf) : lgGoals,
+        ga: nr ? nr.def*NR.base : rec.length>=3 ? avg(rec,x=>x.ga) : lgGoals,
         cards: sy.length>=3 ? avg(sy,x=>x.y) : (stEst ? stEst.cards : lgCards),
         corners: sc.length>=3 ? avg(sc,x=>x.c) : (stEst ? stEst.corners : lgCorners),
-        n: rec.length, ny: sy.length, nc: sc.length, S: sl.cup ? (divS(n) || (sl.cup===2 ? 0.8 : 0.5)) : undefined,
-        estG: rec.length<3, estC: sy.length<3, estK: sc.length<3,
+        n: nr ? nr.n : rec.length, ny: sy.length, nc: sc.length, S: sl.nat ? undefined : sl.cup ? (divS(n) || (sl.cup===2 ? 0.8 : 0.5)) : undefined,
+        estG: nr ? nr.n<4 : rec.length<3, estC: sy.length<3, estK: sc.length<3,
         lastMatches: ms.slice(-5).reverse().map(x=>({opponent:x.opp, where:x.home?'H':'A', score:`${x.gf}-${x.ga}`,
           outcome:x.gf>x.ga?'W':(x.gf<x.ga?'L':'D'), date:x.f.d, fid:x.f.i}))
       };
@@ -5680,7 +5776,7 @@ function buildLive(){
       .sort((x,y)=>x.d.localeCompare(y.d))
       .map(f=>[f.h,f.a,f.d]);
     const sc = LS.get('ab_sc_'+sl.id,null);
-    out[sl.id] = {id:sl.id, name:sl.name, color:sl.color, utcOffset:0, teams, fixtures, live:true, season:d.season, t:d.t, nMatches:fin.length, scorers: sc?sc.list:null};
+    out[sl.id] = {id:sl.id, name:sl.name, color:sl.color, utcOffset:0, teams, fixtures, live:true, cup:sl.cup, nat:sl.nat, friendly:sl.friendly, season:d.season, t:d.t, nMatches:fin.length, scorers: sc?sc.list:null};
   }
   return out;
 }
