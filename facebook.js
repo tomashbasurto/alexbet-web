@@ -83,8 +83,8 @@ async function reel(p, file, txt) {
   const p = process.argv.includes('--sin-fb') ? null : await pagina();
   if (MODE === 'check') return;
   const out = await panel(async page => {
-    if (MODE === 'reel') {
-      const info = await page.evaluate(() => window.__bot.elegir('reel'));
+    if (MODE.startsWith('reel')) {
+      const info = await page.evaluate(o => window.__bot.elegir('reel', o), MODE.split(':')[1] || null);
       console.log('Reel con:', info.join(' | '));
       const f = await bajar(page, () => window.__bot.video());
       return [{file: f, txt: await page.evaluate(() => window.__bot.texto())}];

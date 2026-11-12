@@ -590,7 +590,7 @@ function pintarVideo(){
 
 // ---------- modo automático (facebook.js lo abre sin pantalla con ?bot=1) ----------
 if(new URLSearchParams(location.search).has('bot')){
-  let SELB = [], TODOS = [], MB = 'pro';
+  let SELB = [], TODOS = [], MB = 'pro', LIGA = '';
   // variedad: un partido una sola vez y como mucho maxSp sugerencias por deporte
   const variado = (L, n, maxSp) => { const out = [], cnt = {}, seen = new Set();
     for(const p of L){ const k = p.h + '|' + p.a; if(seen.has(k) || (cnt[p.sp]||0) >= maxSp) continue; out.push(p); seen.add(k); cnt[p.sp] = (cnt[p.sp]||0) + 1; if(out.length >= n) break; } return out; };
@@ -609,6 +609,10 @@ if(new URLSearchParams(location.search).has('bot')){
       } else {
         const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
         if(m === 'pro'){ const n = +opt || 4; SELB = variado(pool.filter(p => p.kind === 'team'), n, Math.max(2, Math.ceil(n / 3))).sort((a,b) => b.prob - a.prob); }
+        else if(opt === 'nba'){ // Reel solo de NBA: 2 partidos y 2 jugadores titulares
+          const nb = pool.filter(p => p.sp === 'nba'), t = variado(nb.filter(p => p.kind === 'team'), 2, 2), j = variado(nb.filter(p => p.kind === 'player' && p.role === 'top').sort((a,b) => b.prob - a.prob), 4 - t.length, 4);
+          SELB = t.concat(j); if(SELB.length < 4) SELB = SELB.concat(variado(nb.filter(p => !SELB.includes(p)), 4 - SELB.length, 4)); LIGA = 'NBA';
+        }
         else {
           // jugadores: primero los titulares de básquet (puntos, rebotes, asistencias, triples); si no hay, otros con línea de verdad (1.5 o más)
           const pl = pool.filter(p => p.kind === 'player' && p.vals), plTop = pl.filter(p => p.role === 'top').sort((a,b) => b.prob - a.prob), plOtros = pl.filter(p => !p.role && p.ln >= 1.5 && !/falta|tarjeta/i.test(p.mk || ''));
@@ -621,7 +625,10 @@ if(new URLSearchParams(location.search).has('bot')){
     },
     async imagenes(){ MODE = MB; await generar(SELB, TODOS, GL().find(g => g.k === 'top')); return OUT.length; },
     bajar(i){ const a = document.createElement('a'); a.href = OUT[i].url; a.download = OUT[i].name; document.body.appendChild(a); a.click(); },
-    texto(i){ return i == null ? textoVideo(SELB) : OUT[i].txt; },
+    texto(i){ if(i != null) return OUT[i].txt; let t = textoVideo(SELB);
+      if(LIGA === 'NBA'){ const tags = [...new Set(SELB.flatMap(p => [p.h, p.a]).map(n => '#' + String(n).split(' ').pop().replace(/[^A-Za-z0-9]/g, '')))].slice(0, 6).join(' ');
+        t = t.replace(/^🎬 (\d) OPORTUNIDADES DE HOY/, '🏀 $1 OPORTUNIDADES NBA DE HOY').replace(/#apuestas #pronosticos #NBA #futbol$/, '#NBA #NBAenEspañol #pronosticos #apuestas ' + tags); }
+      return t; },
     // un solo texto para la publicación con varias imágenes
     textoPro(){ const ic = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
       return `📊 PRONÓSTICOS DEL DÍA · ${fechaTxt(DAY).toLowerCase()}\n\n` + SELB.map(p => `${ic(p.sp)} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
@@ -633,7 +640,7 @@ if(new URLSearchParams(location.search).has('bot')){
     async video(){
       VZ.id = 'es_ES-sharvard-medium'; VZ.tono = 1; VZ.vel = 1; // voz elegida por Alexander: España · hombre 2, tono y velocidad normales
       const voz = await vozLista(), logo = await loadImg('icon-512.png');
-      const r = await crearVideo(SELB, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
+      const r = await crearVideo(SELB, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, liga: LIGA, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
       const a = document.createElement('a'); a.href = r.url; a.download = `alexbet-reel-${DAY}.${r.ext}`; document.body.appendChild(a); a.click();
     }
   };

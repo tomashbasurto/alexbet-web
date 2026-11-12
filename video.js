@@ -146,7 +146,7 @@ export function guion(p, i) {
   }
   return {voz: hablar(`${cab} ${qui}. ${mk}. ${est} ${p.prob}%.`)};
 }
-export const vozIntro = (day, n) => hablar(`${n === 1 ? 'Una oportunidad' : n2w(n) + ' oportunidades'} para hoy, ${fechaVoz(day)}. ¡Vamos!`).replace(/^./, c => c.toUpperCase());
+export const vozIntro = (day, n, liga) => hablar(`${n === 1 ? 'Una oportunidad' : n2w(n) + ' oportunidades'}${liga ? ' de la ' + liga : ''} para hoy, ${fechaVoz(day)}. ¡Vamos!`).replace(/^./, c => c.toUpperCase());
 export const vozCierre = st => hablar((st && st.n >= 100 ? `${st.pct}% de aciertos en ${st.n} pronósticos reales. ` : '') + 'Más en álex bet pro, punto web, punto app. Juega con responsabilidad.');
 
 // ---------- dibujo ----------
@@ -319,7 +319,7 @@ export async function crearVideo(sel, ctx) {
   const deps = [...new Set(L.map(p => ({futbol: 'fútbol', nba: 'la NBA', ncaa: 'la NCAA', eul: 'la Euroliga', nhl: 'la NHL', mlb: 'MLB', tenis: 'tenis'})[p.sp] || p.sp))];
   const depsTxt = deps.length > 1 ? deps.slice(0, -1).join(', ') + ' y ' + deps[deps.length - 1] : deps[0];
   const scenes = [];
-  scenes.push({k: 'intro', n: L.length, fecha: ctx.fecha, items: L, voz: vozIntro(ctx.day, L.length),
+  scenes.push({k: 'intro', n: L.length, fecha: (ctx.liga ? ctx.liga + ' · ' : '') + ctx.fecha, items: L, voz: vozIntro(ctx.day, L.length, ctx.liga),
     tit: L.map(p => p.kind === 'player' ? `${p.pname} · más de ${p.ln} ${String(p.mk).toLowerCase()}` : p.label),
     sub: L.map(p => `${ctx.lugar(p)} · ${ctx.hora(p)}${p.kind === 'player' ? '' : ' · ' + p.h + ' vs ' + p.a}`)});
   for (const [i, p] of L.entries()) {
