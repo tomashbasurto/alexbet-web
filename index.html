@@ -1499,8 +1499,10 @@ function poissonOverHalf(line, lambda){ // for lines like 1.5, 2.5 -> P(X >= lin
 const cupR = (home, away) => (home && away && home.S && away.S) ? Math.sqrt(home.S/away.S) : 1;
 function project(home, away){
   const cr = cupR(home, away);
-  const lambdaHome = (home.gf + away.ga)/2*cr;
-  const lambdaAway = (away.gf + home.ga)/2/cr;
+  // v48 · selecciones: ataque × defensa del rival (ya ajustados por nivel); local un poco favorecido
+  const nat = home.att!=null && away.att!=null;
+  const lambdaHome = nat ? home.base*home.att*away.def*1.1 : (home.gf + away.ga)/2*cr;
+  const lambdaAway = nat ? away.base*away.att*home.def/1.1 : (away.gf + home.ga)/2/cr;
   const lambdaTotal = lambdaHome + lambdaAway;
 
   const over15 = poissonOverHalf(1.5, lambdaTotal);
@@ -5471,7 +5473,7 @@ async function loadFixtures(sl, log, st){
         fx = [...seen.values()];
       }
       if(!fx.length){ errs.push(`${src==='fd'?'football-data.org':'ESPN'}: sin partidos`); continue; }
-      if(cfg.nat){ const old = (LS.get('ab_fx_'+sl.id,null)||{}).fx || [], m = new Map(old.map(f=>[f.i,f])); fx.forEach(f=>m.set(f.i,f)); fx = [...m.values()]; }
+      if(cfg.nat){ const old = (LS.get('ab_fx_'+sl.id,null)||{}).fx || [], m = new Map(old.map(f=>[f.i,f])); fx.forEach(f=>{ const o0 = m.get(f.i); if(o0){ f.h = o0.h; f.a = o0.a; } m.set(f.i,f); }); fx = [...m.values()]; }
       LS.set('ab_fx_'+sl.id, {t:Date.now(), season:y, fx, src, deep:cfg.nat?1:undefined});
       st.ok++;
       log.push({name:sl.name, ok:true, msg:`${fx.length} partidos · ${src==='fd'?'football-data.org':'ESPN'}`});
@@ -5687,7 +5689,7 @@ function natRatings(dataBy){
   let W = 0, G = 0; M.forEach(m=>{ W += 2*m.w; G += (m.gh+m.ga)*m.w; });
   const base = G/W, att = {}, def = {}, nW = {}, nN = {};
   M.forEach(m=>[m.h,m.a].forEach(t=>{ att[t] = 1; def[t] = 1; nW[t] = (nW[t]||0)+m.w; nN[t] = (nN[t]||0)+1; }));
-  const K = 2.5; // partidos "prestados" del promedio: con pocos partidos la selección queda cerca de lo normal
+  const K = window.NAT_K || 1; // partidos "prestados" del promedio (probado con 322 partidos oficiales desde mayo 2026: K=1 y local ×1.1 dan el mejor ajuste)
   for(let it=0; it<25; it++){
     const sa = {}, sb = {}, da = {}, db = {};
     M.forEach(m=>{
@@ -5763,6 +5765,7 @@ function buildLive(){
         ga: nr ? nr.def*NR.base : rec.length>=3 ? avg(rec,x=>x.ga) : lgGoals,
         cards: sy.length>=3 ? avg(sy,x=>x.y) : (stEst ? stEst.cards : lgCards),
         corners: sc.length>=3 ? avg(sc,x=>x.c) : (stEst ? stEst.corners : lgCorners),
+        att: nr ? nr.att : undefined, def: nr ? nr.def : undefined, base: nr ? NR.base : undefined,
         n: nr ? nr.n : rec.length, ny: sy.length, nc: sc.length, S: sl.nat ? undefined : sl.cup ? (divS(n) || (sl.cup===2 ? 0.8 : 0.5)) : undefined,
         estG: nr ? nr.n<4 : rec.length<3, estC: sy.length<3, estK: sc.length<3,
         lastMatches: ms.slice(-5).reverse().map(x=>({opponent:x.opp, where:x.home?'H':'A', score:`${x.gf}-${x.ga}`,
