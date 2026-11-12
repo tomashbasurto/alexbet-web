@@ -469,7 +469,7 @@ async function lienzo(fn){
 }
 // subtítulo según lo elegido: una liga, un deporte o varios
 function subOf(sel, def){ const sp = [...new Set(sel.map(p => p.sp))], lg = [...new Set(sel.map(lugar))];
-  if(lg.length === 1) return lg[0]; if(sp.length === 1) return SPN[sp[0]] || sp[0]; return def || sp.map(k => SPN[k] || k).join(' · '); }
+  if(lg.length === 1) return lg[0]; if(sp.length === 1) return SPN[sp[0]] || sp[0]; if(sp.every(k => ['nba','ncaa','eul'].includes(k))) return 'Básquet'; return def || sp.map(k => SPN[k] || k).join(' · '); }
 const GT = g => '';
 async function generar(sel, todos, G){
   const b = $('gen'); b.disabled = true; b.textContent = 'Creando…';
@@ -596,16 +596,19 @@ if(new URLSearchParams(location.search).has('bot')){
     for(const p of L){ const k = p.h + '|' + p.a; if(seen.has(k) || (cnt[p.sp]||0) >= maxSp) continue; out.push(p); seen.add(k); cnt[p.sp] = (cnt[p.sp]||0) + 1; if(out.length >= n) break; } return out; };
   window.__bot = {
     ok: () => PICKS.length > 0 || !!document.querySelector('.msg.err'),
-    elegir(m){
+    // deportes con resultados ayer (para publicar uno por deporte)
+    deportesRes(){ const d = sumDay(hoy(), -1), c = {}; PICKS.filter(p => dayOf(p.ts) === d && (p.res === 0 || p.res === 1)).forEach(p => { const k = ['nba','ncaa','eul'].includes(p.sp) ? 'bask' : p.sp; c[k] = (c[k]||0) + 1; }); return Object.keys(c).filter(k => c[k] >= 3).sort((a,b) => c[b] - c[a]); },
+    elegir(m, opt){
       MB = m; DAY = m === 'res' ? sumDay(hoy(), -1) : hoy(); const now = Date.now();
       if(m === 'res'){
-        TODOS = PICKS.filter(p => dayOf(p.ts) === DAY && (p.res === 0 || p.res === 1));
+        const enDep = p => !opt || (opt === 'bask' ? ['nba','ncaa','eul'].includes(p.sp) : p.sp === opt);
+        TODOS = PICKS.filter(p => dayOf(p.ts) === DAY && (p.res === 0 || p.res === 1) && enDep(p));
         const okL = TODOS.filter(p => p.res === 1).sort((a,b) => b.prob - a.prob), badL = TODOS.filter(p => p.res === 0).sort((a,b) => b.prob - a.prob);
         const nOk = Math.min(okL.length, Math.round(5 * okL.length / Math.max(1, TODOS.length))); // misma proporción que el balance real
         SELB = okL.slice(0, nOk).concat(badL.slice(0, 5 - nOk)).sort((a,b) => a.ts - b.ts);
       } else {
         const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
-        if(m === 'pro') SELB = variado(pool.filter(p => p.kind === 'team'), 4, 2).sort((a,b) => b.prob - a.prob);
+        if(m === 'pro'){ const n = +opt || 4; SELB = variado(pool.filter(p => p.kind === 'team'), n, Math.max(2, Math.ceil(n / 3))).sort((a,b) => b.prob - a.prob); }
         else {
           // jugadores: primero los titulares de básquet (puntos, rebotes, asistencias, triples); si no hay, otros con línea de verdad (1.5 o más)
           const pl = pool.filter(p => p.kind === 'player' && p.vals), plTop = pl.filter(p => p.role === 'top').sort((a,b) => b.prob - a.prob), plOtros = pl.filter(p => !p.role && p.ln >= 1.5 && !/falta|tarjeta/i.test(p.mk || ''));
@@ -619,6 +622,14 @@ if(new URLSearchParams(location.search).has('bot')){
     async imagenes(){ MODE = MB; await generar(SELB, TODOS, GL().find(g => g.k === 'top')); return OUT.length; },
     bajar(i){ const a = document.createElement('a'); a.href = OUT[i].url; a.download = OUT[i].name; document.body.appendChild(a); a.click(); },
     texto(i){ return i == null ? textoVideo(SELB) : OUT[i].txt; },
+    // un solo texto para la publicación con varias imágenes
+    textoPro(){ const ic = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
+      return `📊 PRONÓSTICOS DEL DÍA · ${fechaTxt(DAY).toLowerCase()}\n\n` + SELB.map(p => `${ic(p.sp)} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
+        `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #futbol #NBA`; },
+    textoRes(){ const d = sumDay(hoy(), -1), R = PICKS.filter(p => dayOf(p.ts) === d && (p.res === 0 || p.res === 1)), ok = R.filter(p => p.res === 1).length;
+      const G = [['🏀 Básquet', p => ['nba','ncaa','eul'].includes(p.sp)], ['⚽ Fútbol', p => p.sp==='futbol'], ['🎾 Tenis', p => p.sp==='tenis'], ['🏒 NHL', p => p.sp==='nhl'], ['⚾ MLB', p => p.sp==='mlb']]
+        .map(([t, f]) => { const L = R.filter(f); return L.length ? `${t}: ${L.filter(p => p.res === 1).length} de ${L.length}` : ''; }).filter(Boolean);
+      return `✅ RESULTADOS DE AYER · ${fechaTxt(d).toLowerCase()}\n\n${ok} de ${R.length} sugerencias acertadas (${R.length ? Math.round(ok / R.length * 100) : 0}%)\n\n${G.join('\n')}\n\nAciertos y fallos, sin esconder nada. Todas, día por día 👉 alexbetpro.web.app/resultados.html\nLas de hoy ya están listas 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`; },
     async video(){
       VZ.id = 'es_MX-ald-medium'; VZ.tono = 0.92; VZ.vel = 1.1;
       const voz = await vozLista(), logo = await loadImg('icon-512.png');

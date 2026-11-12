@@ -6,7 +6,7 @@
 const fs = require('fs'), path = require('path');
 const G = 'https://graph.facebook.com/v21.0';
 const MODE = process.argv[2] || 'check', DRY = process.argv.includes('--prueba');
-const ROOT = __dirname;
+const ROOT = __dirname; let NB = 0;
 
 async function api(url, opt) {
   const r = await fetch(url, opt), j = await r.json().catch(() => ({}));
@@ -53,13 +53,23 @@ async function panel(fn) {
 }
 async function bajar(page, js, arg) {
   const [d] = await Promise.all([page.waitForEvent('download', {timeout: 600000}), page.evaluate(js, arg)]);
-  const f = path.join(ROOT, 'fb-out', d.suggestedFilename()); fs.mkdirSync(path.dirname(f), {recursive: true}); await d.saveAs(f); return f;
+  const f = path.join(ROOT, 'fb-out', String(++NB).padStart(2, '0') + '-' + d.suggestedFilename()); fs.mkdirSync(path.dirname(f), {recursive: true}); await d.saveAs(f); return f;
 }
 
 // ---------- publicar ----------
 async function foto(p, file, txt) {
   const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(file)]), path.basename(file)); fd.append('message', txt); fd.append('access_token', p.access_token);
   return api(`${G}/${p.id}/photos`, {method: 'POST', body: fd});
+}
+async function album(p, files, txt) {
+  const ids = [];
+  for (const f of files) {
+    const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(f)]), path.basename(f)); fd.append('published', 'false'); fd.append('access_token', p.access_token);
+    ids.push((await api(`${G}/${p.id}/photos`, {method: 'POST', body: fd})).id);
+  }
+  const fd = new FormData(); fd.append('message', txt); fd.append('access_token', p.access_token);
+  ids.forEach((id, i) => fd.append(`attached_media[${i}]`, JSON.stringify({media_fbid: id})));
+  return api(`${G}/${p.id}/feed`, {method: 'POST', body: fd});
 }
 async function reel(p, file, txt) {
   const st = await api(`${G}/${p.id}/video_reels`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({upload_phase: 'start', access_token: p.access_token})});
@@ -79,15 +89,25 @@ async function reel(p, file, txt) {
       const f = await bajar(page, () => window.__bot.video());
       return [{file: f, txt: await page.evaluate(() => window.__bot.texto())}];
     }
-    const info = await page.evaluate(m => window.__bot.elegir(m), MODE);
-    console.log((MODE === 'res' ? 'Resultados de ayer con: ' : 'Pronósticos con: ') + info.join(' | '));
-    if (!info.length) return [];
-    const n = await page.evaluate(() => window.__bot.imagenes());
-    const res = [];
-    for (let i = 0; i < n; i++) res.push({file: await bajar(page, k => window.__bot.bajar(k), i), txt: await page.evaluate(k => window.__bot.texto(k), i)});
+    // pro[:N] = N sugerencias (4 por imagen) · res = ayer, todo junto · resdep = ayer, una imagen por deporte
+    const [m, opt] = MODE.split(':'), res = [];
+    const tandas = m === 'resdep' ? (await page.evaluate(() => window.__bot.deportesRes())).map(d => ['res', d]) : [[m, opt]];
+    for (const [mm, oo] of tandas) {
+      const info = await page.evaluate(([a, b]) => window.__bot.elegir(a, b), [mm, oo || null]);
+      console.log((mm === 'res' ? `Resultados de ayer${oo ? ' (' + oo + ')' : ''}: ` : 'Pronósticos con: ') + info.join(' | '));
+      if (!info.length) continue;
+      const n = await page.evaluate(() => window.__bot.imagenes());
+      for (let i = 0; i < n; i++) res.push({file: await bajar(page, k => window.__bot.bajar(k), i), txt: await page.evaluate(k => window.__bot.texto(k), i)});
+    }
+    // varias imágenes del mismo tipo: una sola publicación (álbum) con un solo texto
+    if (res.length > 1) res.album = await page.evaluate(m => m === 'pro' ? window.__bot.textoPro() : window.__bot.textoRes(), m);
     return res;
   });
   if (!out.length) { console.log('Nada para publicar hoy.'); return; }
+  if (out.album) {
+    if (DRY) { console.log(`[prueba] no se publica: álbum de ${out.length} imágenes\n${out.album}`); return; }
+    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); return;
+  }
   for (const o of out) {
     const kb = Math.round(fs.statSync(o.file).size / 1024);
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
