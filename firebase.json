@@ -18,6 +18,8 @@
       "equipos.js",
       "escudos.js",
       "calibracion.js",
+      "facebook.js",
+      "fb-out/**",
       "node_modules/**"
     ],
     "headers": [

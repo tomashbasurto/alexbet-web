@@ -1,0 +1,41 @@
+name: Publicar en Facebook
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'check, pro, res o reel'
+        default: 'check'
+      prueba:
+        description: 'si: arma todo pero no publica'
+        default: 'si'
+permissions:
+  contents: read
+concurrency:
+  group: facebook
+  cancel-in-progress: false
+jobs:
+  fb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar navegador sin pantalla
+        if: inputs.modo != 'check'
+        run: |
+          npm i --no-save --no-package-lock playwright@1.47.2
+          npx playwright install --with-deps chromium
+      - name: Publicar
+        run: node facebook.js "${{ inputs.modo }}" ${{ inputs.prueba == 'si' && '--prueba' || '' }}
+        env:
+          FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+      - name: Guardar lo armado (para revisarlo)
+        if: always() && inputs.modo != 'check'
+        uses: actions/upload-artifact@v4
+        with:
+          name: publicacion
+          path: fb-out/
+          if-no-files-found: ignore
