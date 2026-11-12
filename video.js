@@ -1,6 +1,6 @@
 // AlexBet · videos cortos con voz (panel de publicaciones)
 // Voz: Piper (modelos abiertos, MIT) corriendo dentro del navegador con ONNX Runtime. El modelo se baja una vez de
-// Hugging Face y queda guardado en el navegador (Cache Storage). El video se dibuja en un canvas 1080×1920 y se graba
+// Hugging Face y queda guardado en el navegador (IndexedDB). El video se dibuja en un canvas 1080×1920 y se graba
 // con MediaRecorder junto con la voz (MP4 si el navegador lo permite, si no WebM).
 
 const ORT_BASE = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
@@ -15,17 +15,26 @@ export const VOCES = {
 };
 
 // ---------- descargas guardadas ----------
+// La voz pesa 60–75 MB: se guarda en IndexedDB como Blob (en iPhone, Cache Storage no la guardaba).
+const IDB = 'alexbet-voz', ST = 'f';
+function idb() { return new Promise((res, rej) => { const q = indexedDB.open(IDB, 1); q.onupgradeneeded = () => q.result.createObjectStore(ST); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbGet(k) { try { const d = await idb(); return await new Promise(res => { const q = d.transaction(ST).objectStore(ST).get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } }
+async function idbPut(k, v) { const d = await idb(); return new Promise((res, rej) => { const t = d.transaction(ST, 'readwrite'); t.objectStore(ST).put(v, k); t.oncomplete = () => res(true); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('sin espacio')); }); }
+async function viejoCache(url) { try { const c = await caches.open('alexbet-voz-1'); const h = await c.match(url); return h ? await h.blob() : null; } catch (e) { return null; } }
+export let guardadoErr = '';
 async function guardado(url, onProg) {
-  let cache = null;
-  try { cache = await caches.open('alexbet-voz-1'); const hit = await cache.match(url); if (hit) return await hit.arrayBuffer(); } catch (e) {}
+  let b = await idbGet(url);
+  if (!b) { b = await viejoCache(url); if (b) { try { await idbPut(url, b); } catch (e) {} } }
+  if (b) return await b.arrayBuffer();
+  try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (e) {}
   const r = await fetch(url); if (!r.ok) throw new Error('No se pudo bajar la voz (' + r.status + ')');
   const total = +(r.headers.get('Content-Length') || 0), rd = r.body && r.body.getReader(), parts = []; let got = 0;
   if (rd) { for (;;) { const {done, value} = await rd.read(); if (done) break; parts.push(value); got += value.length; onProg && onProg(got, total); } }
-  const buf = rd ? await new Blob(parts).arrayBuffer() : await r.arrayBuffer();
-  try { if (cache) await cache.put(url, new Response(buf.slice(0), {headers: {'Content-Type': 'application/octet-stream'}})); } catch (e) {}
-  return buf;
+  const blob = rd ? new Blob(parts) : await r.blob();
+  try { await idbPut(url, blob); guardadoErr = ''; } catch (e) { guardadoErr = 'No se pudo guardar la voz en este navegador (' + (e && e.name || 'error') + '): se volverá a bajar la próxima vez.'; }
+  return await blob.arrayBuffer();
 }
-export async function vozGuardada(id) { try { const c = await caches.open('alexbet-voz-1'); return !!(await c.match(HF + VOCES[id].p)); } catch (e) { return false; } }
+export async function vozGuardada(id) { const u = HF + VOCES[id].p; return !!((await idbGet(u)) || (await viejoCache(u))); }
 
 let ortP = null;
 function cargarOrt() {
@@ -36,27 +45,27 @@ let phonP = null;
 const cargarPhon = () => phonP = phonP || import(PHON_JS);
 
 export class Voz {
-  constructor(id) { this.id = id; this.ses = null; this.cfg = null; }
+  constructor(id) { this.id = id; this.ses = null; this.cfg = null; this.memo = new Map(); }
   async init(onProg) {
     const ort = await cargarOrt(); ort.env.wasm.wasmPaths = ORT_BASE; ort.env.wasm.numThreads = 1;
     const v = VOCES[this.id], [cfgBuf, model] = await Promise.all([guardado(HF + v.p + '.json'), guardado(HF + v.p, onProg)]);
     this.cfg = JSON.parse(new TextDecoder().decode(cfgBuf));
-    this.ses = await ort.InferenceSession.create(model);
+    this.ses = await ort.InferenceSession.create(model, {executionProviders: ['wasm'], graphOptimizationLevel: 'all'});
     await cargarPhon();
   }
-  async fonemas(text) {
-    const {createPiperPhonemize} = await cargarPhon();
+  // todos los textos en una sola pasada del diccionario de pronunciación (antes se cargaba una vez por frase)
+  async fonemasVarios(texts) {
+    const {createPiperPhonemize} = await cargarPhon(), out = [];
     return new Promise((res, rej) => {
       createPiperPhonemize({
-        print: l => { try { res(JSON.parse(l).phoneme_ids); } catch (e) { rej(e); } },
+        print: l => { try { out.push(JSON.parse(l).phoneme_ids); if (out.length === texts.length) res(out); } catch (e) { rej(e); } },
         printErr: l => { if (/error/i.test(l)) rej(new Error(l)); },
         locateFile: f => f.endsWith('.wasm') ? PHON_BASE + '.wasm' : f.endsWith('.data') ? PHON_BASE + '.data' : f,
-      }).then(m => m.callMain(['-l', this.cfg.espeak.voice, '--input', JSON.stringify([{text}]), '--espeak_data', '/espeak-ng-data'])).catch(rej);
+      }).then(m => m.callMain(['-l', this.cfg.espeak.voice, '--input', JSON.stringify(texts.map(text => ({text}))), '--espeak_data', '/espeak-ng-data'])).catch(rej);
     });
   }
-  // texto -> {pcm: Float32Array, sr}
-  async decir(text, vel = 1) {
-    const ort = window.ort, ids = await this.fonemas(text), I = this.cfg.inference;
+  async correr(ids, vel) {
+    const ort = window.ort, I = this.cfg.inference;
     const feeds = {
       input: new ort.Tensor('int64', BigInt64Array.from(ids.map(BigInt)), [1, ids.length]),
       input_lengths: new ort.Tensor('int64', BigInt64Array.from([BigInt(ids.length)]), [1]),
@@ -64,10 +73,19 @@ export class Voz {
     };
     if (Object.keys(this.cfg.speaker_id_map || {}).length) feeds.sid = new ort.Tensor('int64', BigInt64Array.from([BigInt(VOCES[this.id] && VOCES[this.id].sid || 0)]), [1]);
     const out = await this.ses.run(feeds), pcm = Float32Array.from(out.output.data);
-    // volumen parejo (pico a 0.9)
     let mx = 0; for (const s of pcm) mx = Math.max(mx, Math.abs(s)); if (mx > 0) { const k = 0.9 / mx; for (let i = 0; i < pcm.length; i++) pcm[i] *= k; }
     return {pcm, sr: this.cfg.audio.sample_rate};
   }
+  // textos -> [{pcm, sr}] (lo ya generado con la misma voz y velocidad sale al instante)
+  async decirVarios(texts, vel = 1, onEach) {
+    const key = t => vel.toFixed(3) + '|' + t, falta = [...new Set(texts.filter(t => !this.memo.has(key(t))))];
+    if (falta.length) {
+      const ids = await this.fonemasVarios(falta);
+      for (const [i, t] of falta.entries()) { onEach && onEach(i + 1, falta.length); this.memo.set(key(t), await this.correr(ids[i], vel)); await new Promise(r => setTimeout(r, 0)); }
+    }
+    return texts.map(t => this.memo.get(key(t)));
+  }
+  async decir(text, vel = 1) { return (await this.decirVarios([text], vel))[0]; }
 }
 
 // ---------- texto para la voz ----------
@@ -313,9 +331,10 @@ export async function crearVideo(sel, ctx) {
       avgTxt: av != null && !p.diff ? `promedio ${dec1(av)}${unidad ? ' ' + unidad : ''}` : ''}, im));
   }
   scenes.push({k: 'cierre', st: ctx.stats, voz: vozCierre(ctx.stats)});
+  msg('Preparando el texto de la voz…');
+  const auds = await voz.decirVarios(scenes.map(s => s.voz), (ctx.vel || 1) / (ctx.tono || 1), (i, n) => msg(`Generando la voz ${i} de ${n}…`, Math.round((i - 1) / n * 100)));
   for (const [i, s] of scenes.entries()) {
-    msg(`Generando la voz ${i + 1} de ${scenes.length}…`);
-    s.au = await voz.decir(s.voz, (ctx.vel || 1) / (ctx.tono || 1));
+    s.au = auds[i];
     s.dur = Math.max(s.k === 'pick' ? 5.8 : s.k === 'intro' ? 3.6 : 4.5, s.au.pcm.length / s.au.sr / (ctx.tono || 1) + (s.k === 'cierre' ? 1.2 : 0.7));
   }
   let t0 = 0; scenes.forEach(s => { s.t0 = t0; t0 += s.dur; }); const total = t0;

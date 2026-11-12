@@ -75,7 +75,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo } from './video.js?v=1';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, guardadoErr } from './video.js?v=2';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -301,7 +301,8 @@ function pintar(){
   $('gen').onclick = () => generar(chosen, pool.filter(p => sps2.includes(p.sp)), G);
   $('out').onclick = () => signOut(auth);
   if($('vGen')){
-    $('vVoz').onchange = e => { VZ.id = e.target.value; VZ.voz = null; };
+    $('vVoz').onchange = e => { VZ.id = e.target.value; VZ.voz = null; VZ.pre = null; precargar(); };
+    precargar();
     $('vVel').onchange = e => { VZ.vel = +e.target.value; };
     $('vTono').onchange = e => { VZ.tono = +e.target.value; };
     $('vTry').onclick = () => probarVoz();
@@ -511,7 +512,12 @@ async function generar(sel, todos, G){
 // ---------- video con voz ----------
 const VZ = {id: 'es_MX-ald-medium', tono: 0.92, vel: 1.1, voz: null, busy: false, out: null, cv: null};
 const vmsg = (t, pct) => { const m = $('vMsg'); if(m) m.innerHTML = esc(t) + (pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''); };
+async function precargar(){ // si la voz ya está guardada, se prepara en segundo plano
+  if(VZ.voz || VZ.pre) return; if(!(await vozGuardada(VZ.id))) return;
+  const id = VZ.id, v = new Voz(id); VZ.pre = v.init().then(() => { if(VZ.id === id && !VZ.voz) VZ.voz = v; }).catch(() => {}).finally(() => { VZ.pre = null; });
+}
 async function vozLista(){
+  if(VZ.pre){ vmsg('Preparando la voz…'); await VZ.pre; }
   if(VZ.voz && VZ.voz.id === VZ.id) return VZ.voz;
   const guard = await vozGuardada(VZ.id);
   vmsg(guard ? 'Preparando la voz…' : 'Bajando la voz por primera vez (unos 60 MB)…', guard ? null : 0);
@@ -546,9 +552,9 @@ async function hacerVideo(L){
   const box = $('vOut'); box.innerHTML = ''; const cv = document.createElement('canvas'); box.appendChild(cv);
   try{
     const voz = await vozLista(), logo = await loadImg('icon-512.png');
-    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, onMsg: t => vmsg(t)});
+    const r = await crearVideo(L, {day: DAY, fecha: fechaTxt(DAY), logo, img: imgsVideo, lugar, hora: p => hora(p.ts), stats: statsGen(), voz, vel: VZ.vel, tono: VZ.tono, canvas: cv, onMsg: (t, pc) => vmsg(t, pc)});
     VZ.out = Object.assign(r, {txt: textoVideo(L), name: `alexbet-video-${DAY}.${r.ext}`});
-    vmsg(`Listo · ${Math.round(r.dur)} segundos · ${(r.blob.size/1e6).toFixed(1)} MB · ${r.ext.toUpperCase()}`);
+    vmsg(`Listo · ${Math.round(r.dur)} segundos · ${(r.blob.size/1e6).toFixed(1)} MB · ${r.ext.toUpperCase()}${guardadoErr ? ' · ' + guardadoErr : ''}`);
   }catch(e){ console.error(e); vmsg('No se pudo crear el video: ' + e.message); }
   VZ.busy = false; b.disabled = false; b.textContent = 'Crear video'; pintarVideo();
 }
