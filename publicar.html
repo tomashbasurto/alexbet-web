@@ -585,7 +585,10 @@ const FB_PROG = [['08:00', 'resdep', 'Resultados de ayer (una imagen por deporte
 const FB_N = {resdep: 'Resultados de ayer', res: 'Resultados de ayer', 'pro:8': 'Pronósticos', pro: 'Pronósticos', reel: 'Reel con voz', 'reel:nba': 'Reel de NBA', sem: 'Resumen semanal'};
 let FSM = null;
 async function fbFS(){ if(FSM) return FSM; const M = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'); FSM = {M, db: M.getFirestore(app)}; return FSM; }
-async function fbLoad(){ if(new URLSearchParams(location.search).has('bot')) return; try{ const {M, db} = await fbFS(); const d = await M.getDoc(M.doc(db, 'users', auth.currentUser.uid)); FBS.st = (d.exists() && d.data().fb) || {}; FBS.err = ''; }catch(e){ FBS.err = 'No pude leer el estado (' + (e.code || e.message) + ').'; } fbBox(); }
+async function fbLoad(){ if(new URLSearchParams(location.search).has('bot')) return; try{ const {M, db} = await fbFS(); const ref = M.doc(db, 'users', auth.currentUser.uid); let d = await M.getDoc(ref);
+    if(!d.exists()){ // la cuenta del administrador todavía no existe en la app: se crea igual que al registrarse (el servidor la busca por el correo)
+      const u = auth.currentUser; await M.setDoc(ref, {email: (u.email || '').toLowerCase(), nombre: u.displayName || 'Administrador', creado: M.serverTimestamp(), premiumHasta: null, plan: 'gratis', pendiente: ''}); d = await M.getDoc(ref); }
+    FBS.st = (d.exists() && d.data().fb) || {}; FBS.err = ''; }catch(e){ FBS.err = 'No pude leer el estado (' + (e.code || e.message) + ').'; } fbBox(); }
 async function fbSet(o){ FBS.busy = true; fbBox(); try{ const {M, db} = await fbFS(); await M.updateDoc(M.doc(db, 'users', auth.currentUser.uid), Object.fromEntries(Object.entries(o).map(([k, v]) => ['fb.' + k, v]))); Object.assign(FBS.st = FBS.st || {}, o); FBS.err = ''; }catch(e){ FBS.err = 'No se pudo guardar (' + (e.code || e.message) + ').'; } FBS.busy = false; fbBox(); }
 function fbBox(){
   const el = $('fbBox'); if(!el) return;
