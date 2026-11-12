@@ -20,6 +20,7 @@ async function pagina() {
   const L = j.data || []; const want = process.env.FB_PAGE_ID;
   const p = (want && L.find(x => x.id === want)) || L.find(x => /alexbet/i.test(x.name)) || L[0];
   if (!p) throw new Error('la llave no tiene ninguna página (¿marcaste AlexBet al dar permisos?)');
+  try { const pi = await api(`${G}/${p.id}?fields=username,link,followers_count,fan_count&access_token=${encodeURIComponent(p.access_token)}`); console.log(`Página: usuario=${pi.username || '(sin usuario)'} · link=${pi.link} · seguidores=${pi.followers_count ?? '-'} · me gusta=${pi.fan_count ?? '-'}`); } catch (e) { console.log('info de la página:', e.message); }
   console.log(`Llave de ${dbg.name} · páginas: ${L.map(x => x.name).join(', ')} · uso: ${p.name} (${p.id}) · permisos de página: ${(p.tasks || []).join(', ')}`);
   return p;
 }
