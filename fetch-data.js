@@ -376,6 +376,8 @@ function applySummary(j, id, stats){
   }
   Object.assign(out.logos, NAT_LOGOS);
   out.teamsLg = Object.assign({}, prev.teamsLg||{}, tl);
+  // v48.1 · la ciudad del estadio solo hace falta en los partidos por jugar (clima): menos espacio en el celular
+  Object.values(out.fx).forEach(d=>(d.fx||[]).forEach(f=>{ if(f.s==='FT') delete f.v; }));
   const okLeagues = Object.keys(out.fx).length;
   fs.writeFileSync(OUT, JSON.stringify(out));
   console.log(`datos.json escrito: ${okLeagues}/${LEAGUES.length} ligas, ${Object.keys(out.stats).length} estadísticas`);
