@@ -598,7 +598,7 @@ function fbBox(){
   const prox = FB_PROG.filter(([h, m]) => (m !== 'sem' || dom)).map(([h, m, t]) => { const x = hoyLog.find(l => l.modo === m); return `<div class="fb-r"><span>${h}</span><em>${esc(t)}</em><i>${x ? (x.ok ? '✅' : x.txt === 'En pausa' ? '⏸' : '⚠️') : (h > hh ? (st.pausa ? '⏸' : '🕒') : '·')}</i></div>`; }).join('');
   const hist = log.map(x => { const t = new Date(x.t + ECU).toISOString(), lk = x.id ? `<a href="https://www.facebook.com/${esc(String(x.id))}" target="_blank" rel="noopener">ver</a>` : '';
     return `<div class="fb-r"><span>${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</span><em>${x.ok ? '✅' : x.txt === 'En pausa' ? '⏸' : '⚠️'} ${esc(FB_N[x.modo] || x.modo)}<small>${esc(x.txt || '')}</small></em><i>${lk}</i></div>`; }).join('');
-  const pend = st.ya ? `<div class="note" style="margin:6px 0 0">⏳ Pedido: <b>${esc(FB_N[st.ya] || st.ya)}</b>. Sale en los próximos 15 minutos.</div>` : '';
+  const pend = st.ya ? `<div class="note" style="margin:6px 0 0">⏳ Pedido: <b>${esc(FB_N[st.ya] || st.ya)}</b>. Sale en unos 5 minutos (lo que tarda en armarse).</div>` : '';
   el.innerHTML = `<div class="ch-h" style="cursor:pointer" id="fbT"><b>📣 Facebook automático · ${st.pausa ? '<span style="color:#ffb547">en pausa</span>' : '<span style="color:var(--accent)">activo</span>'}</b><span>${FBS.open ? '▲' : '▼'}</span></div>
     ${FBS.open ? `<div class="note" style="margin:0 0 6px">Hoy${dom ? ' (domingo)' : ''}:</div>${prox}
     <div class="btns" style="margin-top:8px;grid-template-columns:1fr;display:grid"><button class="btn ghost" id="fbP" ${FBS.busy ? 'disabled' : ''}>${st.pausa ? '▶ Reanudar' : '⏸ Pausar lo programado'}</button></div>
@@ -608,7 +608,7 @@ function fbBox(){
     ${FBS.err ? `<div class="msg err" style="margin-top:6px">${esc(FBS.err)}</div>` : ''}`;
   $('fbT').onclick = () => { FBS.open = !FBS.open; fbBox(); };
   if($('fbP')) $('fbP').onclick = () => fbSet({pausa: !st.pausa});
-  if($('fbY')) $('fbY').onclick = () => { const m = $('fbM').value; if(confirm(`¿Publicar "${FB_N[m]}" en la página de Facebook ahora? Sale en unos 15 minutos.`)) fbSet({ya: m, yaT: Date.now()}); };
+  if($('fbY')) $('fbY').onclick = () => { const m = $('fbM').value; if(confirm(`¿Publicar "${FB_N[m]}" en la página de Facebook ahora? Sale en unos 5 minutos.`)) fbSet({ya: m, yaT: Date.now()}); };
 }
 // ---------- video con voz ----------
 const VZ = {id: 'es_ES-sharvard-medium', tono: 1, vel: 1, voz: null, busy: false, out: null, cv: null};

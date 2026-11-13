@@ -105,7 +105,41 @@ async function reel(p, file, txt) {
   return Object.assign({video_id: st.video_id}, await api(`${G}/${p.id}/video_reels`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({upload_phase: 'finish', video_id: st.video_id, video_state: 'PUBLISHED', description: txt, access_token: p.access_token})}));
 }
 
+// ---------- plan: un trabajo que queda despierto ~5,5 h, revisa cada minuto el horario y los pedidos del panel, y al terminar se vuelve a lanzar ----------
+// (los horarios propios de GitHub llegan con horas de atraso o no llegan; así las publicaciones salen a su hora)
+const SLOTS = [ // hora de Ecuador, modo, hasta qué hora todavía vale la pena publicarlo, días (0 = domingo)
+  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['16:00', 'reel:nba', '18:45'], ['18:00', 'sem', '22:00', [0]]];
+const ecuNow = () => { const d = new Date(Date.now() - 5 * 3600e3); return {day: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay()}; };
+function correr(m, programado) {
+  console.log(`\n===== ${new Date().toISOString()} · publicar ${m}${programado ? ' (programado)' : ' (pedido desde el panel)'} =====`);
+  const r = require('child_process').spawnSync(process.execPath, [path.join(ROOT, 'facebook.js'), m], {stdio: 'inherit', env: Object.assign({}, process.env, {FB_PROGRAMADO: programado ? '1' : '0'}), timeout: 25 * 60e3});
+  console.log(`===== ${m}: ${r.status === 0 ? 'listo' : 'terminó con error ' + r.status} =====`);
+}
+async function plan() {
+  const T0 = Date.now(), MAX = (+process.env.PLAN_MIN || 330) * 60e3;
+  console.log('Plan: revisando cada minuto hasta', new Date(T0 + MAX).toISOString());
+  while (Date.now() - T0 < MAX) {
+    try {
+      const st = await estado();
+      if (st) {
+        const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
+        Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
+        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
+          await estadoSet({ya: '', yaT: 0, hecho}); correr(m, false); continue; }
+        for (const [h, m, hasta, dias] of SLOTS) {
+          const k = now.day + '|' + m;
+          if (hecho[k] || (dias && !dias.includes(now.dow)) || now.hm < h || now.hm > hasta) continue;
+          hecho[k] = Date.now(); await estadoSet({hecho}); correr(m, true); break;
+        }
+      }
+    } catch (e) { console.log('plan:', e.message); }
+    await new Promise(r => setTimeout(r, 60e3));
+  }
+  console.log('Plan: fin de este turno (el siguiente sigue).');
+}
+
 (async () => {
+  if (MODE === 'plan') return plan();
   // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
   if (MODE === 'poll') {
     const st = await estado() || {}; let m = 'none';

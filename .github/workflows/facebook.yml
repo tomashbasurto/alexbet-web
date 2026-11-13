@@ -1,78 +1,61 @@
 name: Publicar en Facebook
 # Horario (Ecuador = UTC-5): 8:00 resultados de ayer · 10:00 pronósticos (2 imágenes) · 10:30 Reel general · 16:00 Reel de NBA · domingo 18:00 resumen semanal
-# Cada 15 min revisa si en el panel de publicaciones pidieron "Publicar ya". La pausa del panel frena lo programado.
+# Los horarios de GitHub llegan con horas de atraso, así que un trabajo "plan" queda despierto ~5,5 h, revisa cada minuto
+# el horario y los pedidos del panel ("Publicar ya", pausa) y al terminar lanza el siguiente. Los horarios de abajo solo lo reviven si se corta.
 on:
   schedule:
-    - cron: '3 13 * * *'
-    - cron: '3 15 * * *'
-    - cron: '33 15 * * *'
-    - cron: '3 21 * * *'
-    - cron: '3 23 * * 0'
-    - cron: '*/15 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       modo:
-        description: 'check, pro:8, resdep, reel, reel:nba o sem'
-        default: 'check'
+        description: 'plan, check, pro:8, resdep, reel, reel:nba o sem'
+        default: 'plan'
       prueba:
-        description: 'si: arma todo pero no publica'
-        default: 'si'
+        description: 'si: arma todo pero no publica (no aplica a plan)'
+        default: 'no'
 permissions:
   contents: read
+  actions: write
 concurrency:
-  group: facebook-${{ github.event.schedule == '*/15 * * * *' && 'poll' || 'pub' }}
+  group: facebook
   cancel-in-progress: false
 jobs:
   fb:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 350
     steps:
-      - name: Qué toca publicar
+      - name: Qué toca
         id: m
         run: |
-          case "${{ github.event.schedule }}" in
-            '3 13 * * *')  echo "modo=resdep"  >> $GITHUB_OUTPUT ;;
-            '3 15 * * *')  echo "modo=pro:8"   >> $GITHUB_OUTPUT ;;
-            '33 15 * * *') echo "modo=reel"    >> $GITHUB_OUTPUT ;;
-            '3 21 * * *')  echo "modo=reel:nba" >> $GITHUB_OUTPUT ;;
-            '3 23 * * 0')  echo "modo=sem" >> $GITHUB_OUTPUT ;;
-            '*/15 * * * *') echo "modo=poll" >> $GITHUB_OUTPUT ;;
-            *) echo "modo=${{ inputs.modo }}" >> $GITHUB_OUTPUT ;;
-          esac
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.prueba }}" = "si" ]; then echo "prueba=--prueba" >> $GITHUB_OUTPUT; else echo "prueba=" >> $GITHUB_OUTPUT; fi
-          if [ "${{ github.event_name }}" = "schedule" ]; then echo "prog=1" >> $GITHUB_OUTPUT; else echo "prog=0" >> $GITHUB_OUTPUT; fi
+          M="${{ inputs.modo }}"; [ -z "$M" ] && M=plan
+          echo "modo=$M" >> $GITHUB_OUTPUT; echo "t0=$(date +%s)" >> $GITHUB_OUTPUT
+          if [ "$M" != "plan" ] && [ "${{ inputs.prueba }}" = "si" ]; then echo "prueba=--prueba" >> $GITHUB_OUTPUT; else echo "prueba=" >> $GITHUB_OUTPUT; fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Pedido desde el panel
-        id: p
-        if: steps.m.outputs.modo == 'poll'
-        run: node facebook.js poll
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      - name: Modo final
-        id: f
-        run: |
-          if [ "${{ steps.m.outputs.modo }}" = "poll" ]; then echo "modo=${{ steps.p.outputs.modo || 'none' }}" >> $GITHUB_OUTPUT; echo "prog=0" >> $GITHUB_OUTPUT; else echo "modo=${{ steps.m.outputs.modo }}" >> $GITHUB_OUTPUT; echo "prog=${{ steps.m.outputs.prog }}" >> $GITHUB_OUTPUT; fi
-      - name: Instalar navegador sin pantalla
-        if: steps.f.outputs.modo != 'check' && steps.f.outputs.modo != 'none'
+      - name: Instalar navegador sin pantalla y programa de video
+        if: steps.m.outputs.modo != 'check'
         run: |
           npm i --no-save --no-package-lock playwright@1.47.2
           npx playwright install --with-deps chromium
-      - name: Programa de video
-        if: startsWith(steps.f.outputs.modo, 'reel')
-        run: which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+          which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
       - name: Publicar
-        if: steps.f.outputs.modo != 'none'
-        run: node facebook.js "${{ steps.f.outputs.modo }}" ${{ steps.m.outputs.prueba }}
+        run: node facebook.js "${{ steps.m.outputs.modo }}" ${{ steps.m.outputs.prueba }}
         env:
           FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          FB_PROGRAMADO: ${{ steps.f.outputs.prog }}
+      - name: Lanzar el siguiente turno
+        if: always() && steps.m.outputs.modo == 'plan'
+        run: |
+          # si este turno terminó muy rápido (algo falló), espera 20 min para no lanzar turnos en cadena
+          e=$(( $(date +%s) - ${{ steps.m.outputs.t0 }} )); [ $e -lt 1200 ] && sleep $(( 1200 - e )) || true
+          gh api -X POST repos/${{ github.repository }}/actions/workflows/facebook.yml/dispatches -f ref=main -f 'inputs[modo]=plan' -f 'inputs[prueba]=no'
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Guardar lo armado (para revisarlo)
-        if: always() && steps.f.outputs.modo != 'check' && steps.f.outputs.modo != 'none'
+        if: always() && steps.m.outputs.modo != 'check'
         uses: actions/upload-artifact@v4
         with:
           name: publicacion
