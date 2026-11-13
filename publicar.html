@@ -135,7 +135,7 @@ const RGROUPS = [
   {k:'rmlb', t:'MLB',                ic:'⚾', f:p => p.sp==='mlb'},
 ];
 let SPF = 'all', LGF = 'all';
-let QB = '', QBT = 0, LIM = 40;
+let QB = '', QBT = 0, LIM = 40, PTF = 'all';
 let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
 
 // primero GitHub Pages; si el archivo aún no llegó ahí (las publicaciones de Pages a veces se atrasan), directo del repositorio
@@ -236,7 +236,11 @@ function pintar(){
   const sps = [...new Set(all0.map(p => p.sp))]; if(SPF!=='all' && !sps.includes(SPF)) SPF = 'all';
   const all1 = all0.filter(p => SPF==='all' || p.sp===SPF);
   const lgs = [...new Set(all1.map(lugar))].sort((a,b)=>a.localeCompare(b,'es')); if(LGF!=='all' && !lgs.includes(LGF)) LGF = 'all';
-  const all = all1.filter(p => LGF==='all' || lugar(p)===LGF);
+  const all2 = all1.filter(p => LGF==='all' || lugar(p)===LGF);
+  // v49.1 · filtro por partido: solo las sugerencias y estadísticas de ese partido
+  const pk = p => p.h + ' vs ' + p.a, pts = [...new Map(all2.map(p => [pk(p), p])).values()].sort((a, b) => a.ts - b.ts || pk(a).localeCompare(pk(b), 'es'));
+  if(PTF!=='all' && !pts.some(p => pk(p)===PTF)) PTF = 'all';
+  const all = all2.filter(p => PTF==='all' || pk(p)===PTF);
   const base = MODE === 'res' ? all.filter(p => p.res === 0 || p.res === 1) : all;
   const gs = GL().map(g => ({...g, n: base.filter(g.f).length})).filter(g => g.n || g.k === 'top');
   if(!gs.find(g => g.k === GRP)) GRP = 'top';
@@ -273,6 +277,7 @@ function pintar(){
     <div class="flt">
       <label><span>Deporte</span><select id="fSp"><option value="all">Todos (${all0.length})</option>${sps.map(k => `<option value="${k}" ${SPF===k?'selected':''}>${esc(SPN[k]||k)} (${all0.filter(p=>p.sp===k).length})</option>`).join('')}</select></label>
       <label><span>Liga</span><select id="fLg"><option value="all">Todas (${all1.length})</option>${lgs.map(k => `<option value="${esc(k)}" ${LGF===k?'selected':''}>${esc(k)} (${all1.filter(p=>lugar(p)===k).length})</option>`).join('')}</select></label>
+      <label style="grid-column:1/-1"><span>Partido</span><select id="fPt"><option value="all">Todos los partidos (${pts.length})</option>${pts.map(p => `<option value="${esc(pk(p))}" ${PTF===pk(p)?'selected':''}>${({futbol:'⚽',tenis:'🎾',nhl:'🏒',mlb:'⚾'})[p.sp]||'🏀'} ${hora(p.ts)} · ${esc(pk(p))} (${all2.filter(x=>pk(x)===pk(p)).length})</option>`).join('')}</select></label>
     </div>
     ${MODE!=='res' && TYPE==='player' ? (() => {
       // jugadores: muchos mercados → lista desplegable, agrupada por deporte (solo los que hay con los filtros puestos)
@@ -314,8 +319,9 @@ function pintar(){
   $('dd').onchange = e => { if(e.target.value){ DAY = e.target.value; OUT=[]; pintar(); } };
   document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TYPE = b.dataset.t; GRP = 'top'; OUT=[]; pintar(); });
   document.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { ROLE = b.dataset.r; GRP = 'top'; SPF = 'all'; LGF = 'all'; OUT=[]; pintar(); });
-  $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; OUT=[]; pintar(); };
-  $('fLg').onchange = e => { LGF = e.target.value; OUT=[]; pintar(); };
+  $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; PTF = 'all'; OUT=[]; pintar(); };
+  $('fLg').onchange = e => { LGF = e.target.value; PTF = 'all'; OUT=[]; pintar(); };
+  $('fPt').onchange = e => { PTF = e.target.value; GRP = 'top'; LIM = 40; OUT=[]; pintar(); };
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
   if($('fMk')) $('fMk').onchange = e => { GRP = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('.row').forEach(r => r.onclick = () => { const id = r.dataset.id; if(S[id]) delete S[id]; else { if(MODE==='res' && nSel>=maxN) return; S[id] = 1; } pintar(); });
