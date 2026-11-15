@@ -35,6 +35,7 @@
   .fb-r{ display:flex; gap:10px; align-items:baseline; padding:6px 0; border-top:1px solid var(--line); font-size:13px; } .fb-r span{ color:var(--dim); white-space:nowrap; font-variant-numeric:tabular-nums; } .fb-r em{ flex:1; font-style:normal; min-width:0; } .fb-r em small{ display:block; color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .fb-r i{ font-style:normal; } .fb-r a{ color:#4f8dff; }
   .srch{ width:100%; box-sizing:border-box; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:500 14px Inter; padding:0 12px; margin:0 0 8px; color-scheme:dark; }
   .more{ width:100%; min-height:44px; border:0; border-top:1px solid var(--line); background:transparent; color:var(--accent); font:700 13.5px Inter; cursor:pointer; }
+  .vplay{ display:block; width:70%; margin:0 auto 8px; border-radius:12px; background:#000; }
   .vthumb{ display:block; width:60%; margin:0 auto 8px; border-radius:12px; }
   .vid-srv video{ width:100%; max-height:420px; border-radius:12px; background:#000; margin-bottom:8px; }
   .flt select{ width:100%; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13.5px Inter; padding:0 10px; color-scheme:dark; }
@@ -84,7 +85,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=7';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=8';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -333,7 +334,7 @@ function pintar(){
       ${vidHTML('Ana')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v50.4</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v50.5</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -544,7 +545,7 @@ async function generar(sel, todos, G){
           pie(c);
         });
         const txt = `📊 PRONÓSTICOS DEL DÍA${GT(G)} · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map(p => `${p.sp==='futbol'?'⚽':p.sp==='tenis'?'🎾':p.sp==='nhl'?'🏒':p.sp==='mlb'?'⚾':'🏀'} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
-          `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`;
+          `\n\n¿Cuál juegas tú? Comenta 👇\nMás análisis en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.`;
         OUT.push(Object.assign(r, {txt, name: `alexbet-pronosticos-${DAY}${G.k==='top'?'':'-'+G.k}${pages.length>1?'-'+(k+1):''}.png`}));
       }
     } else {
@@ -651,7 +652,7 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
   const st = FBS.st || {}, v = st['vid' + kind] || (kind === 'Reel' && st.vid ? Object.assign({}, st.vid, {}) : null), m = kind === 'Ana' ? 'ana:sel' : 'reel:sel', arm = st.ya === m || (st.armando === m && +st.armandoT > Date.now() - 20 * 60e3 && !(v && v.t > +st.armandoT));
   let h = arm ? `<div class="note" style="margin:10px 0 0">⏳ ${st.ya ? 'Pedido recibido: empieza en menos de 1 minuto…' : esc(st.paso || 'Armando el video en el servidor…')}<br><small>Tarda unos 2 a 4 minutos. Esta parte se actualiza sola.</small></div>` : '';
   if(v && v.url && v.t > Date.now() - 48 * 3600e3){ const t = new Date(v.t + ECU).toISOString();
-    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div>${v.img ? `<img class="vthumb" data-isrc="${esc(v.img)}" alt="">` : ''}<div class="note" style="margin:0 0 8px">🎬 ${esc((v.txt || '').split('\n').filter(Boolean).slice(1, 3).join(' · ') || v.name || '')}</div>
+    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div>${(() => { const m = String(v.url).match(/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([0-9a-f]{40})\/(.+)$/); return m ? `<video class="vplay" src="https://cdn.jsdelivr.net/gh/${m[1]}@${m[2]}/${m[3]}" controls playsinline preload="metadata" ${v.img ? `data-thumb="${esc(v.img)}"` : ''}></video>` : (v.img ? `<img class="vthumb" data-isrc="${esc(v.img)}" alt="">` : ''); })()}<div class="note" style="margin:0 0 8px">🎬 ${esc((v.txt || '').split('\n').filter(Boolean).slice(1, 3).join(' · ') || v.name || '')}</div>
       <div class="btns"><button class="btn" data-vsh="${kind}">📲 Compartir</button><button class="btn ghost" data-vdl="${kind}">⬇️ Descargar</button></div>
       <button class="btn ghost" data-vcp="${kind}" style="width:100%;margin-top:8px">Copiar texto</button></div>`; }
   return h;
@@ -660,6 +661,8 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
 const VBL = {};
 async function vidBlob(url){ if(!VBL[url]) VBL[url] = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(b => new Blob([b], {type: 'video/mp4'})); return VBL[url]; }
 function vidBind(){
+  document.querySelectorAll('video.vplay').forEach(el => { if(el.dataset.thumb) fetch(el.dataset.thumb).then(r => r.blob()).then(b => { el.poster = URL.createObjectURL(new Blob([b], {type: 'image/jpeg'})); }).catch(() => {});
+    el.onerror = () => { const t = el.dataset.thumb; el.outerHTML = t ? `<img class="vthumb" data-isrc="${t}" alt=""><div class="note" style="text-align:center">Para verlo, usa Compartir o Descargar.</div>` : ''; vidBind(); }; });
   document.querySelectorAll('img[data-isrc]').forEach(el => fetch(el.dataset.isrc).then(r => r.blob()).then(b => { el.src = URL.createObjectURL(new Blob([b], {type: 'image/jpeg'})); }).catch(() => el.remove()));
   document.querySelectorAll('[data-vdl]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vdl] || st0.vid; if(!v) return; b.textContent = 'Preparando…';
     try{ const bl = await vidBlob(v.url), a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = v.name || 'alexbet.mp4'; document.body.appendChild(a); a.click(); a.remove(); }catch(e){} b.textContent = '⬇️ Descargar'; });
@@ -717,7 +720,7 @@ async function imgsVideo(p){
 }
 function textoVideo(L){
   return `🎬 ${L.length} OPORTUNIDADES DE HOY · ${fechaTxt(DAY).toLowerCase()}\n\n` + L.map((p, i) => `${i+1}️⃣ ${p.kind==='player' ? p.pname + ': ' + p.label.replace(/^.*?·\s*/, '') : p.label} (${p.prob}%)\n   ${p.h} vs ${p.a} · ${hora(p.ts)}${p.hit!=null && p.n ? `\n   📊 ${p.hit} de ${p.n} en sus últimos partidos` : ''}`).join('\n') +
-    `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#apuestas #pronosticos #NBA #futbol`;
+    `\n\n¿Cuál juegas tú? Comenta 👇\nMás análisis en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#apuestas #pronosticos #NBA #futbol`;
 }
 async function hacerVideo(L){
   if(VZ.busy || !L.length) return; VZ.busy = true; const ac = audioToque();
@@ -806,7 +809,7 @@ if(new URLSearchParams(location.search).has('bot')){
     // un solo texto para la publicación con varias imágenes
     textoPro(){ const ic = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
       return `📊 PRONÓSTICOS DEL DÍA · ${fechaTxt(DAY).toLowerCase()}\n\n` + SELB.map(p => `${ic(p.sp)} ${p.h} vs ${p.a} (${hora(p.ts)})\n   👉 ${p.label} · ${p.prob}%`).join('\n') +
-        `\n\n¿Cuál juegas tú? Comenta 👇\nAnálisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #futbol #NBA`; },
+        `\n\n¿Cuál juegas tú? Comenta 👇\nMás análisis en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #futbol #NBA`; },
     textoRes(){ const d = sumDay(hoy(), -1), R = PICKS.filter(p => dayOf(p.ts) === d && (p.res === 0 || p.res === 1)), ok = R.filter(p => p.res === 1).length;
       const G = [['🏀 Básquet', p => ['nba','ncaa','eul'].includes(p.sp)], ['⚽ Fútbol', p => p.sp==='futbol'], ['🎾 Tenis', p => p.sp==='tenis'], ['🏒 NHL', p => p.sp==='nhl'], ['⚾ MLB', p => p.sp==='mlb']]
         .map(([t, f]) => { const L = R.filter(f); return L.length ? `${t}: ${L.filter(p => p.res === 1).length} de ${L.length}` : ''; }).filter(Boolean);

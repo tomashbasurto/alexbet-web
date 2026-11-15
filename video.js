@@ -416,7 +416,7 @@ export async function crearAnalisis(ctx) {
     d.l5 && R.l5 ? {img: D, foco: R.l5, tit: [['Últimos 5:'], [d.l5 + '.', 1]], badge: [d.l5, 'ÚLTIMOS 5'], voz: `Últimos cinco: ${d.l5}.`} : null,
     {img: D, foco: R.avg, tit: [['Promedio:'], [`${d.avg} ${d.uni}.`, 1]], badge: [d.avg, 'PROMEDIO'], voz: `Promedio de ${d.avg} ${d.uni} por partido.`},
     {img: D, foco: R.prob, tit: [['El modelo lo confirma:'], [d.prob + '.', 1]], badge: [d.prob, 'PROBABILIDAD'], voz: `Y el modelo lo confirma: ${d.prob}.`},
-    {fin: 1, voz: 'No es suerte. Son datos. Míralo gratis en álex bet pro, punto web, punto app.'}
+    {fin: 1, voz: 'No es suerte. Son datos. Este y otros análisis, en la versión premium de álex bet pro, punto web, punto app.'}
   ].filter(Boolean);
   // cámara: un recuadro con la forma de la pantalla del celular, centrado en lo que se muestra
   sc.forEach(s => { if (!s.foco) return; const im = s.img, asp = im.w / im.h, f = s.foco;
@@ -446,7 +446,7 @@ export async function crearAnalisis(ctx) {
       const k = seg(lt, 0, .6); c.globalAlpha = k; marca(c, ctx.logo, 300, 560, 120); c.globalAlpha = 1;
       titular(c, [['No es suerte.']], 880, seg(lt, .2, .6)); c.globalAlpha = seg(lt, .4, .6); titular(c, [['Son datos.', 1]], 970, seg(lt, .4, .6)); c.globalAlpha = 1;
       const kb = seg(lt, .9, .5); c.globalAlpha = kb; rr(c, 250, 1090, 580, 120, 60); c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 40; c.fill(); c.shadowBlur = 0;
-      c.fillStyle = '#061006'; c.font = '900 46px Inter'; c.textAlign = 'center'; c.fillText('Mira el análisis →', 540, 1166);
+      c.fillStyle = '#061006'; c.font = '900 44px Inter'; c.textAlign = 'center'; c.fillText('Versión Premium →', 540, 1150); c.font = '700 24px Inter'; c.fillText('este y otros análisis', 540, 1188);
       c.font = '700 40px Orbitron'; c.fillStyle = A; c.fillText('alexbetpro.web.app', 540, 1290); c.font = '600 26px Inter'; c.fillStyle = DIM;
       c.fillText('+18 · Análisis estadístico, no garantiza resultados.', 540, 1700); c.fillText('Juega con responsabilidad.', 540, 1740); c.textAlign = 'left'; c.globalAlpha = 1; return; }
     const prev = sc[i - 1] && !sc[i - 1].fin && sc[i - 1].img === s.img ? sc[i - 1] : null, kc = prev ? seg(lt, 0, .7) : 1;

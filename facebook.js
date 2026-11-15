@@ -157,7 +157,7 @@ async function analisis() {
     await estadoSet({paso: '3/3 · Subiendo el video…'}).catch(() => {});
     const ic = {futbol: '⚽', nba: '🏀', ncaa: '🏀', eul: '🏀', nhl: '🏒', mlb: '⚾', tenis: '🎾'}[o.sp] || '📊';
     const lab = `${d.quien ? d.quien + ': ' : ''}Más de ${o.ln} ${mk}${d.mkt ? ' ' + d.mkt : ''}`;
-    const txt = `🎬 ANÁLISIS DEL DÍA\n\n${ic} ${o.h} vs ${o.a}\n👉 ${lab} · ${d.prob}\n📊 Superó la línea en ${hn} de sus últimos ${hd} · promedio ${d.avg}${d.l5 ? ' · últimos 5: ' + d.l5 : ''}\n\nNo es suerte, son datos. Mira el análisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #${o.sp === 'futbol' ? 'futbol' : 'NBA'}`;
+    const txt = `🎬 ANÁLISIS DEL DÍA\n\n${ic} ${o.h} vs ${o.a}\n👉 ${lab} · ${d.prob}\n📊 Superó la línea en ${hn} de sus últimos ${hd} · promedio ${d.avg}${d.l5 ? ' · últimos 5: ' + d.l5 : ''}\n\nNo es suerte, son datos. Este y otros análisis, en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #${o.sp === 'futbol' ? 'futbol' : 'NBA'}`;
     return {file, txt};
   }
   return null;
