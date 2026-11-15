@@ -263,8 +263,6 @@ function pintar(){
   const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
   const anaP = chosen.find(p => p.ok && (p.vals || []).length >= 6);
-  // jugadas que sirven para el video análisis: las de la lista con los filtros puestos (las elegidas primero)
-  const anaL = MODE === 'res' ? [] : [...new Map(chosen.concat(base.filter(G.f)).filter(p => p.ok && (p.vals || []).length >= 6 && p.ts > Date.now()).sort((a, b) => (S[b.id] ? 1 : 0) - (S[a.id] ? 1 : 0) || b.prob - a.prob).map(p => [p.ok, p])).values()].slice(0, 80);
   $('app').innerHTML = `
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
@@ -318,15 +316,16 @@ function pintar(){
       <div class="msg" id="vMsg"></div><div id="vOut"></div></div>
     <div class="vbox">
       <div class="ch-h"><b>🎬 Video análisis (una jugada, con las pantallas de la app)</b></div>
-      <div class="note" style="margin:0 0 8px">Elige la jugada: el servidor abre la app, toma las pantallas de ese partido, arma el video con voz (zoom a la línea, las barras, el promedio y el %) en unos 2 a 4 minutos. "Para compartir" lo deja aquí abajo para mandarlo por WhatsApp, TikTok o donde quieras; "publicar" además lo sube a tu página. Salen las jugadas con barras de sus últimos partidos; usa los filtros de arriba (deporte, liga, partido) para encontrarla.</div>
-      ${anaL.length ? `<div class="flt one"><label><span>Jugada (${anaL.length})</span><select id="anaSel">${anaL.map(p => `<option value="${esc(p.ok)}" ${anaP && anaP.ok===p.ok?'selected':''}>${esc(p.label)} · ${esc(p.h)} vs ${esc(p.a)} · ${hora(p.ts)} · ${p.prob}%</option>`).join('')}</select></label></div>
-      <div class="btns"><button class="btn ghost" id="anaC">📲 Armar para compartir</button><button class="btn" id="anaGo">📣 Armar y publicar</button></div>` : '<div class="note" style="margin:0">Con estos filtros no hay jugadas con barras. Cambia el deporte, la liga o el partido.</div>'}
+      <div class="note" style="margin:0 0 8px">Usa la jugada que marcaste arriba (si marcaste varias, la primera con barras): el servidor abre la app, toma las pantallas de ese partido, arma el video con voz (zoom a la línea, las barras, el promedio y el %) en unos 2 a 4 minutos. "Para compartir" lo deja aquí abajo para mandarlo por WhatsApp, TikTok o donde quieras; "publicar" además lo sube a tu página.</div>
+      ${anaP ? `<div class="ch" style="border:0;padding:0 0 10px"><span>${ico(anaP.sp)}</span><em><b>${esc(anaP.label)}</b> <small>· ${esc(anaP.h)} vs ${esc(anaP.a)} · ${hora(anaP.ts)} · ${anaP.prob}%</small></em></div>
+      <div class="btns"><button class="btn ghost" id="anaC">📲 Armar para compartir</button><button class="btn" id="anaGo">📣 Armar y publicar</button></div>`
+      : `<div class="note" style="margin:0">${nSel ? 'Las elegidas no tienen barras de sus últimos partidos.' : 'Todavía no elegiste ninguna.'} Marca arriba una jugada con barras (las de Oportunidades: equipos o jugadores) y aquí se arma su video.</div>`}
       ${vidHTML()}
     </div>` : ''}
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
   fbBox();
-  const anaPide = solo => { const k = $('anaSel').value, p = anaL.find(x => x.ok === k); if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: k, soloDesc: solo}); };
+  const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: p.ok, soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
   if($('anaC')) $('anaC').onclick = () => anaPide(true);
   vidBind();
