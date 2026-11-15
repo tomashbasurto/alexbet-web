@@ -35,6 +35,7 @@
   .fb-r{ display:flex; gap:10px; align-items:baseline; padding:6px 0; border-top:1px solid var(--line); font-size:13px; } .fb-r span{ color:var(--dim); white-space:nowrap; font-variant-numeric:tabular-nums; } .fb-r em{ flex:1; font-style:normal; min-width:0; } .fb-r em small{ display:block; color:var(--dim); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .fb-r i{ font-style:normal; } .fb-r a{ color:#4f8dff; }
   .srch{ width:100%; box-sizing:border-box; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:500 14px Inter; padding:0 12px; margin:0 0 8px; color-scheme:dark; }
   .more{ width:100%; min-height:44px; border:0; border-top:1px solid var(--line); background:transparent; color:var(--accent); font:700 13.5px Inter; cursor:pointer; }
+  .vthumb{ display:block; width:60%; margin:0 auto 8px; border-radius:12px; }
   .vid-srv video{ width:100%; max-height:420px; border-radius:12px; background:#000; margin-bottom:8px; }
   .flt select{ width:100%; min-height:42px; border-radius:12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:600 13.5px Inter; padding:0 10px; color-scheme:dark; }
   label.h{ display:block; font-size:13px; font-weight:700; margin:14px 0 8px; }
@@ -137,6 +138,15 @@ const RGROUPS = [
 ];
 let SPF = 'all', LGF = 'all';
 let QB = '', QBT = 0, LIM = 40, PTF = 'all';
+// v50.4 · qué se le manda al servidor para el video análisis: la llave de una oportunidad, o los datos de una sugerencia "Más de X" (goles, córners, tarjetas, puntos)
+function anaSpec(p){
+  if(p.ok && (p.vals || []).length >= 6) return p.ok;
+  const m = p.mkt || {}; if(m.t !== 'tot' || m.o !== 1 || !m.L) return null;
+  const base = {sp: p.sp, lid: p.lid, h: p.h, a: p.a, kind: 'team', who: 'Partido', ln: m.L, t: 2, lname: p.where || '', when: new Date(p.ts).toISOString().slice(0, 16)};
+  if(p.sp === 'futbol'){ const mi = {g: 3, c: 0, k: 2}[m.k]; if(mi == null) return null; return JSON.stringify(Object.assign(base, {m: mi, mk: {g: 'goles', c: 'córners', k: 'tarjetas'}[m.k]})); }
+  if(!p.gid || p.sp === 'tenis') return null;
+  return JSON.stringify(Object.assign(base, {gid: String(p.gid), mk: p.sp === 'nhl' ? 'goles' : p.sp === 'mlb' ? 'carreras' : 'puntos'}));
+}
 const opKey = x => [x.sp, x.h, x.a, x.kind, x.pname || x.who || '', x.mk, x.ln].join('|'); // la misma llave que usa facebook.js para el video análisis
 let PICKS = [], OPS = [], ESC = {}, MODE = 'pro', DAY = hoy(), GRP = 'top', SEL = {}, OUT = [];
 
@@ -262,7 +272,7 @@ function pintar(){
   const chosen = pool.filter(p => S[p.id]).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob)), nSel = chosen.length;
   const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
-  const anaP = chosen.find(p => p.ok && (p.vals || []).length >= 6);
+  const anaP = chosen.find(p => anaSpec(p));
   $('app').innerHTML = `
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
@@ -316,16 +326,16 @@ function pintar(){
       <div class="msg" id="vMsg"></div><div id="vOut"></div></div>
     <div class="vbox">
       <div class="ch-h"><b>🎬 Video análisis (una jugada, con las pantallas de la app)</b></div>
-      <div class="note" style="margin:0 0 8px">Usa la jugada que marcaste arriba (si marcaste varias, la primera con barras): el servidor abre la app, toma las pantallas de ese partido, arma el video con voz (zoom a la línea, las barras, el promedio y el %) en unos 2 a 4 minutos. "Para compartir" lo deja aquí abajo para mandarlo por WhatsApp, TikTok o donde quieras; "publicar" además lo sube a tu página.</div>
+      <div class="note" style="margin:0 0 8px">Usa la jugada que marcaste arriba (si marcaste varias, la primera que sirva): el servidor abre la app, toma las pantallas de ese partido, arma el video con voz (zoom a la línea, las barras, el promedio y el %) en unos 2 a 4 minutos. "Para compartir" lo deja aquí abajo para mandarlo por WhatsApp, TikTok o donde quieras; "publicar" además lo sube a tu página.</div>
       ${anaP ? `<div class="ch" style="border:0;padding:0 0 10px"><span>${ico(anaP.sp)}</span><em><b>${esc(anaP.label)}</b> <small>· ${esc(anaP.h)} vs ${esc(anaP.a)} · ${hora(anaP.ts)} · ${anaP.prob}%</small></em></div>
       <div class="btns"><button class="btn ghost" id="anaC">📲 Armar para compartir</button><button class="btn" id="anaGo">📣 Armar y publicar</button></div>`
-      : `<div class="note" style="margin:0">${nSel ? 'Las elegidas no tienen barras de sus últimos partidos.' : 'Todavía no elegiste ninguna.'} Marca arriba una jugada con barras (las de Oportunidades: equipos o jugadores) y aquí se arma su video.</div>`}
+      : `<div class="note" style="margin:0">${nSel ? 'Ninguna de las elegidas sirve para el video análisis.' : 'Todavía no elegiste ninguna.'} Sirven las de "Más de" (goles, córners, tarjetas, puntos) y las de jugadores u Oportunidades. No sirven "Gana X" ni "Menos de".</div>`}
       ${vidHTML('Ana')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v50.3</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v50.4</div>`;
   fbBox();
-  const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: p.ok, soloDesc: solo}); };
+  const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
   if($('anaC')) $('anaC').onclick = () => anaPide(true);
   vidBind();
@@ -641,7 +651,7 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
   const st = FBS.st || {}, v = st['vid' + kind] || (kind === 'Reel' && st.vid ? Object.assign({}, st.vid, {}) : null), m = kind === 'Ana' ? 'ana:sel' : 'reel:sel', arm = st.ya === m || (st.armando === m && +st.armandoT > Date.now() - 20 * 60e3 && !(v && v.t > +st.armandoT));
   let h = arm ? `<div class="note" style="margin:10px 0 0">⏳ ${st.ya ? 'Pedido recibido: empieza en menos de 1 minuto…' : esc(st.paso || 'Armando el video en el servidor…')}<br><small>Tarda unos 2 a 4 minutos. Esta parte se actualiza sola.</small></div>` : '';
   if(v && v.url && v.t > Date.now() - 48 * 3600e3){ const t = new Date(v.t + ECU).toISOString();
-    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div><video data-vsrc="${esc(v.url)}" controls playsinline preload="auto"></video>
+    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div>${v.img ? `<img class="vthumb" data-isrc="${esc(v.img)}" alt="">` : ''}<div class="note" style="margin:0 0 8px">🎬 ${esc((v.txt || '').split('\n').filter(Boolean).slice(1, 3).join(' · ') || v.name || '')}</div>
       <div class="btns"><button class="btn" data-vsh="${kind}">📲 Compartir</button><button class="btn ghost" data-vdl="${kind}">⬇️ Descargar</button></div>
       <button class="btn ghost" data-vcp="${kind}" style="width:100%;margin-top:8px">Copiar texto</button></div>`; }
   return h;
@@ -650,10 +660,7 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
 const VBL = {};
 async function vidBlob(url){ if(!VBL[url]) VBL[url] = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(b => new Blob([b], {type: 'video/mp4'})); return VBL[url]; }
 function vidBind(){
-  document.querySelectorAll('video[data-vsrc]').forEach(el => { el.insertAdjacentHTML('beforebegin', '<div class="note vload" style="margin:0 0 6px">Cargando el video…</div>');
-    vidBlob(el.dataset.vsrc).then(b => { const n = el.previousElementSibling; if(n && n.classList.contains('vload')) n.remove(); if(!el.src){ el.src = URL.createObjectURL(b); el.load(); }
-      el.onerror = () => el.insertAdjacentHTML('afterend', '<div class="note">Este celular no muestra el video aquí, pero puedes compartirlo o descargarlo con los botones.</div>'); })
-    .catch(e => { el.outerHTML = '<div class="note">No pude cargar el video (' + esc(e.message) + '). Recarga la página.</div>'; }); });
+  document.querySelectorAll('img[data-isrc]').forEach(el => fetch(el.dataset.isrc).then(r => r.blob()).then(b => { el.src = URL.createObjectURL(new Blob([b], {type: 'image/jpeg'})); }).catch(() => el.remove()));
   document.querySelectorAll('[data-vdl]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vdl] || st0.vid; if(!v) return; b.textContent = 'Preparando…';
     try{ const bl = await vidBlob(v.url), a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = v.name || 'alexbet.mp4'; document.body.appendChild(a); a.click(); a.remove(); }catch(e){} b.textContent = '⬇️ Descargar'; });
   document.querySelectorAll('[data-vsh]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vsh] || st0.vid; if(!v) return; b.textContent = 'Preparando…';

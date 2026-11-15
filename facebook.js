@@ -89,6 +89,7 @@ const opKey = o => [o.sp, o.h, o.a, o.kind, o.pname || o.who || '', o.mk, o.ln].
 function candidatos() {
   const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6);
   const sel = process.env.FB_ANA || '';
+  if (sel && sel[0] === '{') { try { return [JSON.parse(sel)]; } catch (e) { console.log('pedido inválido'); return []; } } // una sugerencia 'Más de' elegida en el panel
   if (sel) { const x = I.find(o => opKey(o) === sel); if (!x) console.log('No encontré la jugada elegida en el panel:', sel); return x ? [x] : []; }
   const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
   const prio = o => /Ecuador/i.test(o.h + ' ' + o.a) || ['ecuador','copaecu','supecu'].includes(o.lid) ? 3 : (o.sp === 'futbol' && TOPL.includes(o.lid)) || o.sp === 'nba' ? 2 : o.sp === 'ncaa' ? 0 : 1;
@@ -176,9 +177,14 @@ async function guardarVideo(f, txt, kind) {
     r = await fetch(`${A}/contents/v/${name}`, {method: 'PUT', headers: H, body: JSON.stringify({message: 'video ' + name, branch: 'videos', content: fs.readFileSync(f).toString('base64')})});
     if (!r.ok) { console.log('no pude guardar el video:', r.status, (await r.text()).slice(0, 200)); return null; }
     const L = await (await fetch(`${A}/contents/v?ref=videos`, {headers: H})).json();
-    if (Array.isArray(L)) for (const x of L.sort((a, b) => b.name.localeCompare(a.name)).slice(8)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
-    const sha = ((await r.json()).commit || {}).sha || 'videos';
-    const vid = {url: `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name}`, name, t: Date.now(), txt}; // el panel lo baja y lo muestra como video (con el commit exacto no hay caché vieja)
+    if (Array.isArray(L)) for (const x of L.filter(x => x.name.startsWith('alexbet-')).sort((a, b) => b.name.localeCompare(a.name)).slice(16)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
+    let sha = ((await r.json()).commit || {}).sha || 'videos', img = '';
+    try { // miniatura (un cuadro del segundo 4) para mostrarla en el panel
+      const jp = f.replace(/\.[a-z0-9]+$/, '.jpg'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-ss', '4', '-i', f, '-frames:v', '1', '-vf', 'scale=360:-1', '-q:v', '4', jp]);
+      const ri = await fetch(`${A}/contents/v/${name.replace(/\.[a-z0-9]+$/, '.jpg')}`, {method: 'PUT', headers: H, body: JSON.stringify({message: 'miniatura', branch: 'videos', content: fs.readFileSync(jp).toString('base64')})});
+      if (ri.ok) { sha = ((await ri.json()).commit || {}).sha || sha; img = `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name.replace(/\.[a-z0-9]+$/, '.jpg')}`; }
+    } catch (e) { console.log('sin miniatura:', e.message); }
+    const vid = {url: `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name}`, img, name, t: Date.now(), txt}; // el panel lo baja y lo muestra como video (con el commit exacto no hay caché vieja)
     await estadoSet({['vid' + kind]: vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
   } catch (e) { console.log('no pude guardar el video:', e.message); return null; }
 }
