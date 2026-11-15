@@ -163,7 +163,7 @@ async function analisis() {
 }
 
 // ---------- v50.1 · guardar el video armado para descargarlo desde el panel (rama "videos" del repo, se guardan los últimos 8) ----------
-async function guardarVideo(f, txt) {
+async function guardarVideo(f, txt, kind) {
   const T = process.env.GH_TOKEN, REPO = process.env.GITHUB_REPOSITORY; if (!T || !REPO) return null;
   const H = {authorization: 'Bearer ' + T, accept: 'application/vnd.github+json', 'content-type': 'application/json'}, A = `https://api.github.com/repos/${REPO}`;
   try {
@@ -177,8 +177,9 @@ async function guardarVideo(f, txt) {
     if (!r.ok) { console.log('no pude guardar el video:', r.status, (await r.text()).slice(0, 200)); return null; }
     const L = await (await fetch(`${A}/contents/v?ref=videos`, {headers: H})).json();
     if (Array.isArray(L)) for (const x of L.sort((a, b) => b.name.localeCompare(a.name)).slice(8)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
-    const vid = {url: `https://raw.githubusercontent.com/${REPO}/videos/v/${name}`, name, t: Date.now(), txt};
-    await estadoSet({vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
+    const sha = ((await r.json()).commit || {}).sha || 'videos';
+    const vid = {url: `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name}`, name, t: Date.now(), txt}; // el panel lo baja y lo muestra como video (con el commit exacto no hay caché vieja)
+    await estadoSet({['vid' + kind]: vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
   } catch (e) { console.log('no pude guardar el video:', e.message); return null; }
 }
 const SOLO = process.env.FB_SOLO === '1';
@@ -254,8 +255,8 @@ async function plan() {
   if (MODE.startsWith('ana')) { // v50 · video análisis de una jugada, con capturas de la app
     const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(res.file)}\n${res.txt}`); return; }
-    let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
-    await guardarVideo(f, res.txt);
+    let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
+    await guardarVideo(f, res.txt, 'Ana');
     if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); return; }
     const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); return;
   }
@@ -299,7 +300,7 @@ async function plan() {
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
     if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); }
     else { let f = o.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
-      if (/:sel$/.test(MODE)) await guardarVideo(f, o.txt);
+      if (/:sel$/.test(MODE)) await guardarVideo(f, o.txt, 'Reel');
       if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); continue; }
       const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); }
   }

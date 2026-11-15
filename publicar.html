@@ -83,7 +83,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=6';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=7';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -312,7 +312,7 @@ function pintar(){
         <label><span>Velocidad</span><select id="vVel">${[[0.95,'Calmada'],[1,'Normal'],[1.1,'Un poco más rápida'],[1.2,'Rápida']].map(([v,t]) => `<option value="${v}" ${VZ.vel==v?'selected':''}>${t}</option>`).join('')}</select></label></div>
       <div class="btns"><button class="btn ghost" id="vTry">▶ Probar voz</button><button class="btn" id="vGen" ${nSel?'':'disabled style="opacity:.5"'}>Crear video</button></div>
       ${nSel ? '<div class="btns" style="margin-top:8px"><button class="btn ghost" id="vSrvC">📲 Armar para compartir</button><button class="btn ghost" id="vSrv">📣 Armar y publicar</button></div><div class="note" style="margin:4px 0 0">El servidor arma el mismo video con las elegidas (no depende de tu celular ni de la batería). "Para compartir" lo deja aquí abajo para mandarlo por WhatsApp, TikTok o donde quieras; "publicar" además lo sube a tu página.</div>' : ''}
-      ${vidHTML()}
+      ${vidHTML('Reel')}
       <div class="msg" id="vMsg"></div><div id="vOut"></div></div>
     <div class="vbox">
       <div class="ch-h"><b>🎬 Video análisis (una jugada, con las pantallas de la app)</b></div>
@@ -320,7 +320,7 @@ function pintar(){
       ${anaP ? `<div class="ch" style="border:0;padding:0 0 10px"><span>${ico(anaP.sp)}</span><em><b>${esc(anaP.label)}</b> <small>· ${esc(anaP.h)} vs ${esc(anaP.a)} · ${hora(anaP.ts)} · ${anaP.prob}%</small></em></div>
       <div class="btns"><button class="btn ghost" id="anaC">📲 Armar para compartir</button><button class="btn" id="anaGo">📣 Armar y publicar</button></div>`
       : `<div class="note" style="margin:0">${nSel ? 'Las elegidas no tienen barras de sus últimos partidos.' : 'Todavía no elegiste ninguna.'} Marca arriba una jugada con barras (las de Oportunidades: equipos o jugadores) y aquí se arma su video.</div>`}
-      ${vidHTML()}
+      ${vidHTML('Ana')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
@@ -637,25 +637,30 @@ function fbBox(){
   if($('fbY')) $('fbY').onclick = () => { const m = $('fbM').value; if(confirm(`¿Publicar "${FB_N[m]}" en la página de Facebook ahora? Sale en unos 5 minutos.`)) fbSet({ya: m, yaT: Date.now()}); };
 }
 // v50.1 · el video que armó el servidor: verlo, compartirlo (WhatsApp, TikTok…), descargarlo y copiar el texto
-function vidHTML(){
-  const st = FBS.st || {}, v = st.vid, arm = st.ya && /:sel$/.test(st.ya) || (st.armando && +st.armandoT > Date.now() - 20 * 60e3 && !(v && v.t > +st.armandoT));
+function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz armado en el servidor)
+  const st = FBS.st || {}, v = st['vid' + kind] || (kind === 'Reel' && st.vid ? Object.assign({}, st.vid, {}) : null), m = kind === 'Ana' ? 'ana:sel' : 'reel:sel', arm = st.ya === m || (st.armando === m && +st.armandoT > Date.now() - 20 * 60e3 && !(v && v.t > +st.armandoT));
   let h = arm ? `<div class="note" style="margin:10px 0 0">⏳ ${st.ya ? 'Pedido recibido: empieza en menos de 1 minuto…' : esc(st.paso || 'Armando el video en el servidor…')}<br><small>Tarda unos 2 a 4 minutos. Esta parte se actualiza sola.</small></div>` : '';
   if(v && v.url && v.t > Date.now() - 48 * 3600e3){ const t = new Date(v.t + ECU).toISOString();
-    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div><video src="${esc(v.url)}" controls playsinline preload="metadata"></video>
-      <div class="btns"><button class="btn" data-vsh="1">📲 Compartir</button><a class="btn ghost" href="${esc(v.url)}" download="${esc(v.name || 'alexbet.mp4')}" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:grid;place-items:center">⬇️ Descargar</a></div>
-      <button class="btn ghost" data-vcp="1" style="width:100%;margin-top:8px">Copiar texto</button></div>`; }
+    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div><video data-vsrc="${esc(v.url)}" controls playsinline></video>
+      <div class="btns"><button class="btn" data-vsh="${kind}">📲 Compartir</button><button class="btn ghost" data-vdl="${kind}">⬇️ Descargar</button></div>
+      <button class="btn ghost" data-vcp="${kind}" style="width:100%;margin-top:8px">Copiar texto</button></div>`; }
   return h;
 }
+// el video se baja una vez y se muestra desde el celular (así el iPhone lo reproduce, lo comparte y lo guarda)
+const VBL = {};
+async function vidBlob(url){ if(!VBL[url]) VBL[url] = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(b => new Blob([b], {type: 'video/mp4'})); return VBL[url]; }
 function vidBind(){
-  const v = (FBS.st || {}).vid; if(!v) return;
-  document.querySelectorAll('[data-vsh]').forEach(b => b.onclick = async () => { b.textContent = 'Preparando…';
-    try{ const bl = await (await fetch(v.url)).blob(), f = new File([bl], v.name || 'alexbet.mp4', {type: 'video/mp4'});
+  document.querySelectorAll('video[data-vsrc]').forEach(el => vidBlob(el.dataset.vsrc).then(b => { if(!el.src) el.src = URL.createObjectURL(b); }).catch(() => { el.outerHTML = '<div class="note">No pude cargar el video. Recarga la página.</div>'; }));
+  document.querySelectorAll('[data-vdl]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vdl] || st0.vid; if(!v) return; b.textContent = 'Preparando…';
+    try{ const bl = await vidBlob(v.url), a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = v.name || 'alexbet.mp4'; document.body.appendChild(a); a.click(); a.remove(); }catch(e){} b.textContent = '⬇️ Descargar'; });
+  document.querySelectorAll('[data-vsh]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vsh] || st0.vid; if(!v) return; b.textContent = 'Preparando…';
+    try{ const bl = await vidBlob(v.url), f = new File([bl], v.name || 'alexbet.mp4', {type: 'video/mp4'});
       if(navigator.canShare && navigator.canShare({files: [f]})) await navigator.share({files: [f], text: v.txt || ''}); else window.open(v.url, '_blank'); }catch(e){}
     b.textContent = '📲 Compartir'; });
-  document.querySelectorAll('[data-vcp]').forEach(b => b.onclick = async () => { try{ await navigator.clipboard.writeText(v.txt || ''); b.textContent = 'Texto copiado ✓'; }catch(e){} });
+  document.querySelectorAll('[data-vcp]').forEach(b => b.onclick = async () => { const v = (FBS.st || {})['vid' + b.dataset.vcp] || {}; try{ await navigator.clipboard.writeText(v.txt || ''); b.textContent = 'Texto copiado ✓'; }catch(e){} });
 }
 // mientras el servidor arma un video pedido aquí, se revisa cada 20 s
-setInterval(() => { const st = FBS.st || {}; if(document.hidden || !(st.ya && /:sel$/.test(st.ya) || (st.armando && +st.armandoT > Date.now() - 20 * 60e3 && !(st.vid && st.vid.t > +st.armandoT)))) return; fbLoad().then(() => { if(typeof pintar === 'function' && !document.activeElement.matches('input,select')) pintar(); }); }, 10000);
+setInterval(() => { const st = FBS.st || {}, vk = st.armando === 'ana:sel' ? st.vidAna : st.vidReel; if(document.hidden || !(st.ya && /:sel$/.test(st.ya) || (st.armando && /:sel$/.test(st.armando) && +st.armandoT > Date.now() - 20 * 60e3 && !(vk && vk.t > +st.armandoT)))) return; fbLoad().then(() => { if(typeof pintar === 'function' && !document.activeElement.matches('input,select')) pintar(); }); }, 10000);
 // ---------- video con voz ----------
 const VZ = {id: 'es_ES-sharvard-medium', tono: 1, vel: 1, voz: null, busy: false, out: null, cv: null};
 const vmsg = (t, pct) => { const m = $('vMsg'); if(m) m.innerHTML = esc(t) + (pct != null ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ''); };

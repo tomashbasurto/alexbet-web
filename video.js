@@ -202,7 +202,7 @@ function escenaIntro(c, S, t, D) {
     rr(c, 90, 318, tw + 110, 76, 38); c.fillStyle = 'rgba(198,255,0,.14)'; c.fill(); c.strokeStyle = A; c.lineWidth = 3; c.stroke();
     c.fillStyle = A; c.fillText('✓', 122, 370); c.fillText(txt, 172, 370); c.globalAlpha = 1; }
   c.font = '900 120px Orbitron'; c.fillStyle = INK; c.globalAlpha = b; c.fillText(String(S.n), 90, 520 + (1 - b) * 40);
-  fitFont(c, 'OPORTUNIDADES', VW - 180, 92, 900, 'Orbitron', 60); c.fillText('OPORTUNIDADES', 90, 640 + (1 - b) * 40); c.fillStyle = A; c.fillText('DE HOY', 90, 750 + (1 - b) * 40); c.globalAlpha = 1;
+  const opw = S.n === 1 ? 'OPORTUNIDAD' : 'OPORTUNIDADES'; fitFont(c, opw, VW - 180, 92, 900, 'Orbitron', 60); c.fillText(opw, 90, 640 + (1 - b) * 40); c.fillStyle = A; c.fillText('DE HOY', 90, 750 + (1 - b) * 40); c.globalAlpha = 1;
   c.globalAlpha = d; c.font = '700 40px Orbitron'; c.fillStyle = A; c.fillText(S.fecha, 90, 850); c.globalAlpha = 1;
   S.items.forEach((p, i) => {
     const k = seg(t, .8 + i * .25, .5), y = 960 + i * 180; if (k <= 0) return;
