@@ -142,6 +142,7 @@ async function analisis() {
   const C = candidatos(); if (!C.length) return null;
   for (const o of C) {
     console.log('Análisis de:', opKey(o));
+    await estadoSet({paso: '1/3 · Abriendo la app y tomando las pantallas…'}).catch(() => {});
     let cap; try { cap = await capturar(o); } catch (e) { console.log('no pude tomar las capturas:', e.message); continue; }
     const [hn, hd] = String(cap.v.hit || '').split('/').map(Number); if (!hn || !hd || !cap.v.prob) { console.log('la pantalla no mostró los datos:', JSON.stringify(cap.v)); continue; }
     if (!cap.r.hero) cap.r.hero = [15, 104, 360, 156];
@@ -150,7 +151,9 @@ async function analisis() {
     const mk = String(o.mk).toLowerCase(), opp = o.kind === 'player' ? (o.team === o.h ? o.a : o.h) : o.who && o.who !== 'Partido' ? (o.who === o.h ? o.a : o.h) : '';
     const d = {h: o.h, a: o.a, liga: o.lname || '', ln: String(o.ln), uni: mk, mkt: !o.who || o.who === 'Partido' ? (o.kind === 'player' ? '' : 'en el partido') : '',
       quien: o.kind === 'player' ? o.pname : o.who && o.who !== 'Partido' ? o.who : '', opp, hitN: hn, hitD: hd, l5: cap.v.l5 || '', avg: cap.v.avg, prob: cap.v.prob};
+    await estadoSet({paso: '2/3 · Generando la voz y grabando el video (30 s)…'}).catch(() => {});
     const file = await panel(async page => bajar(page, a => window.__bot.analisis(a), {lista: cap.lista, lf: cap.lf, det: cap.det, r: cap.r, d}));
+    await estadoSet({paso: '3/3 · Subiendo el video…'}).catch(() => {});
     const ic = {futbol: '⚽', nba: '🏀', ncaa: '🏀', eul: '🏀', nhl: '🏒', mlb: '⚾', tenis: '🎾'}[o.sp] || '📊';
     const lab = `${d.quien ? d.quien + ': ' : ''}Más de ${o.ln} ${mk}${d.mkt ? ' ' + d.mkt : ''}`;
     const txt = `🎬 ANÁLISIS DEL DÍA\n\n${ic} ${o.h} vs ${o.a}\n👉 ${lab} · ${d.prob}\n📊 Superó la línea en ${hn} de sus últimos ${hd} · promedio ${d.avg}${d.l5 ? ' · últimos 5: ' + d.l5 : ''}\n\nNo es suerte, son datos. Mira el análisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #${o.sp === 'futbol' ? 'futbol' : 'NBA'}`;
@@ -175,7 +178,7 @@ async function guardarVideo(f, txt) {
     const L = await (await fetch(`${A}/contents/v?ref=videos`, {headers: H})).json();
     if (Array.isArray(L)) for (const x of L.sort((a, b) => b.name.localeCompare(a.name)).slice(8)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
     const vid = {url: `https://raw.githubusercontent.com/${REPO}/videos/v/${name}`, name, t: Date.now(), txt};
-    await estadoSet({vid, armando: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
+    await estadoSet({vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
   } catch (e) { console.log('no pude guardar el video:', e.message); return null; }
 }
 const SOLO = process.env.FB_SOLO === '1';
@@ -267,7 +270,9 @@ async function plan() {
       const info = await page.evaluate(o => window.__bot.elegir('reel', o), MODE.split(':')[1] || null);
       console.log('Reel con:', info.join(' | '));
       if (info.length < (MODE === 'reel:sel' ? 1 : 2)) return []; // sin partidos suficientes ese día: no se publica
+      if (/:sel$/.test(MODE)) await estadoSet({paso: '1/2 · Generando la voz y grabando el video…'}).catch(() => {});
       const f = await bajar(page, () => window.__bot.video());
+      if (/:sel$/.test(MODE)) await estadoSet({paso: '2/2 · Subiendo el video…'}).catch(() => {});
       return [{file: f, txt: await page.evaluate(() => window.__bot.texto())}];
     }
     // pro[:N] = N sugerencias (4 por imagen) · res = ayer, todo junto · resdep = ayer, una imagen por deporte
