@@ -262,6 +262,8 @@ function pintar(){
   const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
   const anaP = chosen.find(p => p.ok && (p.vals || []).length >= 6);
+  // jugadas que sirven para el video análisis: las de la lista con los filtros puestos (las elegidas primero)
+  const anaL = MODE === 'res' ? [] : [...new Map(chosen.concat(base.filter(G.f)).filter(p => p.ok && (p.vals || []).length >= 6 && p.ts > Date.now()).sort((a, b) => (S[b.id] ? 1 : 0) - (S[a.id] ? 1 : 0) || b.prob - a.prob).map(p => [p.ok, p])).values()].slice(0, 80);
   $('app').innerHTML = `
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
@@ -300,7 +302,6 @@ function pintar(){
     ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Están todas: las sugerencias de la app y las rachas de Oportunidades (equipos y jugadores que superaron la línea en sus últimos partidos). Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
     <div class="chosen"><div class="ch-h"><b>Elegidas: ${nSel}</b>${nSel ? '<button id="clr">Quitar todas</button>' : ''}</div>
       ${nSel ? chosen.map(p => `<div class="ch" data-x="${esc(p.id)}"><span>${ico(p.sp)}</span><em>${esc(p.label)} <small>· ${esc(p.h)} vs ${esc(p.a)}</small></em><i>✕</i></div>`).join('') : '<div class="note" style="margin:4px 0 0">Marca sugerencias de cualquier deporte; se juntan aquí.</div>'}
-      ${MODE!=='res' && nSel ? (anaP ? `<button class="btn ghost" id="anaB" style="margin-top:10px">🎬 Video análisis de: ${esc(anaP.label)}</button><div class="note" style="margin:4px 0 0">Se arma con las pantallas de la app y se publica en Facebook en unos 5 a 8 minutos.</div>` : '<div class="note" style="margin:8px 0 0">🎬 Para el video análisis elige una jugada con barras de los últimos partidos (las de Oportunidades).</div>') : ''}
     </div>
     <button class="btn" id="gen" ${nSel?'':'disabled style="opacity:.5"'}>Crear ${MODE==='res'?'imagen de resultados':'imágenes'}</button>
     ${MODE==='res' ? '<button class="btn ghost" id="sem">📅 Resumen de la semana (7 días hasta ayer)</button>' : ''}
@@ -312,11 +313,17 @@ function pintar(){
         <label><span>Velocidad</span><select id="vVel">${[[0.95,'Calmada'],[1,'Normal'],[1.1,'Un poco más rápida'],[1.2,'Rápida']].map(([v,t]) => `<option value="${v}" ${VZ.vel==v?'selected':''}>${t}</option>`).join('')}</select></label></div>
       <div class="btns"><button class="btn ghost" id="vTry">▶ Probar voz</button><button class="btn" id="vGen" ${nSel?'':'disabled style="opacity:.5"'}>Crear video</button></div>
       ${nSel ? '<button class="btn ghost" id="vSrv" style="width:100%;margin-top:8px">☁️ Armar en el servidor y publicar en Facebook</button><div class="note" style="margin:4px 0 0">Si en el celular falla (pantalla apagada, ahorro de batería), el servidor arma el mismo video con las elegidas y lo publica en unos 5 minutos.</div>' : ''}
-      <div class="msg" id="vMsg"></div><div id="vOut"></div></div>` : ''}
+      <div class="msg" id="vMsg"></div><div id="vOut"></div></div>
+    <div class="vbox">
+      <div class="ch-h"><b>🎬 Video análisis (una jugada, con las pantallas de la app)</b></div>
+      <div class="note" style="margin:0 0 8px">Elige la jugada: el servidor abre la app, toma las pantallas de ese partido, arma el video con voz (zoom a la línea, las barras, el promedio y el %) y lo publica en Facebook en unos 5 a 8 minutos. Salen las jugadas con barras de sus últimos partidos; usa los filtros de arriba (deporte, liga, partido) para encontrarla.</div>
+      ${anaL.length ? `<div class="flt one"><label><span>Jugada (${anaL.length})</span><select id="anaSel">${anaL.map(p => `<option value="${esc(p.ok)}" ${anaP && anaP.ok===p.ok?'selected':''}>${esc(p.label)} · ${esc(p.h)} vs ${esc(p.a)} · ${hora(p.ts)} · ${p.prob}%</option>`).join('')}</select></label></div>
+      <button class="btn" id="anaGo" style="width:100%">🎬 Armar y publicar en Facebook</button>` : '<div class="note" style="margin:0">Con estos filtros no hay jugadas con barras. Cambia el deporte, la liga o el partido.</div>'}
+    </div>` : ''}
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
   fbBox();
-  if($('anaB')) $('anaB').onclick = () => { if(confirm(`¿Armar y publicar en Facebook el video análisis de:\n${anaP.label} · ${anaP.h} vs ${anaP.a}?`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaP.ok}); };
+  if($('anaGo')) $('anaGo').onclick = () => { const k = $('anaSel').value, p = anaL.find(x => x.ok === k); if(p && confirm(`¿Armar y publicar en Facebook el video análisis de:\n${p.label} · ${p.h} vs ${p.a}?`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: k}); };
   if($('mas')) $('mas').onclick = () => { LIM += 40; pintar(); };
   $('qB').oninput = e => { QB = e.target.value; LIM = 40; clearTimeout(QBT); QBT = setTimeout(() => { const pos = e.target.selectionStart; pintar(); const q = $('qB'); q.focus(); try{ q.setSelectionRange(pos, pos); }catch(x){} }, 250); };
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
