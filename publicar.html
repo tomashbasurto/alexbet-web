@@ -323,7 +323,7 @@ function pintar(){
       ${vidHTML('Ana')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v50.3</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: p.ok, soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -641,7 +641,7 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
   const st = FBS.st || {}, v = st['vid' + kind] || (kind === 'Reel' && st.vid ? Object.assign({}, st.vid, {}) : null), m = kind === 'Ana' ? 'ana:sel' : 'reel:sel', arm = st.ya === m || (st.armando === m && +st.armandoT > Date.now() - 20 * 60e3 && !(v && v.t > +st.armandoT));
   let h = arm ? `<div class="note" style="margin:10px 0 0">⏳ ${st.ya ? 'Pedido recibido: empieza en menos de 1 minuto…' : esc(st.paso || 'Armando el video en el servidor…')}<br><small>Tarda unos 2 a 4 minutos. Esta parte se actualiza sola.</small></div>` : '';
   if(v && v.url && v.t > Date.now() - 48 * 3600e3){ const t = new Date(v.t + ECU).toISOString();
-    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div><video data-vsrc="${esc(v.url)}" controls playsinline></video>
+    h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div><video data-vsrc="${esc(v.url)}" controls playsinline preload="auto"></video>
       <div class="btns"><button class="btn" data-vsh="${kind}">📲 Compartir</button><button class="btn ghost" data-vdl="${kind}">⬇️ Descargar</button></div>
       <button class="btn ghost" data-vcp="${kind}" style="width:100%;margin-top:8px">Copiar texto</button></div>`; }
   return h;
@@ -650,7 +650,10 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
 const VBL = {};
 async function vidBlob(url){ if(!VBL[url]) VBL[url] = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(b => new Blob([b], {type: 'video/mp4'})); return VBL[url]; }
 function vidBind(){
-  document.querySelectorAll('video[data-vsrc]').forEach(el => vidBlob(el.dataset.vsrc).then(b => { if(!el.src) el.src = URL.createObjectURL(b); }).catch(() => { el.outerHTML = '<div class="note">No pude cargar el video. Recarga la página.</div>'; }));
+  document.querySelectorAll('video[data-vsrc]').forEach(el => { el.insertAdjacentHTML('beforebegin', '<div class="note vload" style="margin:0 0 6px">Cargando el video…</div>');
+    vidBlob(el.dataset.vsrc).then(b => { const n = el.previousElementSibling; if(n && n.classList.contains('vload')) n.remove(); if(!el.src){ el.src = URL.createObjectURL(b); el.load(); }
+      el.onerror = () => el.insertAdjacentHTML('afterend', '<div class="note">Este celular no muestra el video aquí, pero puedes compartirlo o descargarlo con los botones.</div>'); })
+    .catch(e => { el.outerHTML = '<div class="note">No pude cargar el video (' + esc(e.message) + '). Recarga la página.</div>'; }); });
   document.querySelectorAll('[data-vdl]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vdl] || st0.vid; if(!v) return; b.textContent = 'Preparando…';
     try{ const bl = await vidBlob(v.url), a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = v.name || 'alexbet.mp4'; document.body.appendChild(a); a.click(); a.remove(); }catch(e){} b.textContent = '⬇️ Descargar'; });
   document.querySelectorAll('[data-vsh]').forEach(b => b.onclick = async () => { const st0 = FBS.st || {}, v = st0['vid' + b.dataset.vsh] || st0.vid; if(!v) return; b.textContent = 'Preparando…';
