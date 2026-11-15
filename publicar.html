@@ -85,7 +85,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, crearRadar, guardadoErr } from './video.js?v=9';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, crearRadar, guardadoErr } from './video.js?v=10';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -139,7 +139,7 @@ const RGROUPS = [
 ];
 let SPF = 'all', LGF = 'all';
 let QB = '', QBT = 0, LIM = 40, PTF = 'all';
-const VTIPOS = [['voz', '🎙️ Video con voz (hasta 4 jugadas)'], ['ana', '🔎 Video análisis (1 jugada, pantallas de la app)'], ['radar', '📡 Video radar (2 jugadores, con música)']];
+const VTIPOS = [['voz', '🎙️ Video con voz (hasta 4 jugadas)'], ['ana', '🔎 Video análisis (1 jugada, pantallas de la app)'], ['radar', '📡 Video radar (2 jugadas, con música)']];
 let VT = (() => { try{ return localStorage.getItem('ab_vt') || 'voz'; }catch(e){ return 'voz'; } })();
 // v50.4 · qué se le manda al servidor para el video análisis: la llave de una oportunidad, o los datos de una sugerencia "Más de X" (goles, córners, tarjetas, puntos)
 function anaSpec(p){
@@ -275,7 +275,7 @@ function pintar(){
   const chosen = pool.filter(p => S[p.id]).sort((a, b) => MODE === 'res' ? (a.ts - b.ts) : (b.prob - a.prob)), nSel = chosen.length;
   const ico = sp => sp==='futbol'?'⚽':sp==='tenis'?'🎾':sp==='nhl'?'🏒':sp==='mlb'?'⚾':'🏀';
   const pend = MODE === 'res' ? all.filter(p => p.res == null).length : 0;
-  const anaP = chosen.find(p => anaSpec(p)), radP = chosen.filter(p => p.kind === 'player' && p.ok && (p.vals || []).length >= 6);
+  const anaP = chosen.find(p => anaSpec(p)), radP = chosen.filter(p => anaSpec(p));
   $('app').innerHTML = `
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
@@ -337,20 +337,20 @@ function pintar(){
       ${vidHTML('Ana')}
     </div>
     <div class="vbox" style="${VT==='radar'?'':'display:none'}">
-      <div class="ch-h"><b>📡 Video radar (2 jugadores + el radar del día, con música)</b></div>
+      <div class="ch-h"><b>📡 Video radar (2 jugadas + el radar del día, con música)</b></div>
       <div class="note" style="margin:0 0 8px">Estilo comercial, sin voz: "¿Todavía eliges a ciegas?", la foto y el nombre de 2 jugadores, sus barras, "ajusta la línea" (de X% a Y%), el radar de jugadores del día y Premium. Unos 35 segundos.</div>
       ${radP.length >= 2 ? `${radP.slice(0, 2).map(p => `<div class="ch" style="border:0;padding:0 0 6px"><span>${ico(p.sp)}</span><em><b>${esc(p.label)}</b> <small>· ${esc(p.h)} vs ${esc(p.a)} · ${p.prob}%</small></em></div>`).join('')}`
-        : `<div class="note" style="margin:0 0 8px">${radP.length ? 'Marcaste 1 jugador: marca otro más,' : 'Marca arriba 2 jugadores (Jugadores),'} o deja que el servidor elija los 2 mejores del día.</div>`}
+        : `<div class="note" style="margin:0 0 8px">${radP.length ? 'Marcaste 1 jugada que sirve: marca otra más,' : 'Marca arriba 2 jugadas (jugadores o equipos: las de "Más de" o de Oportunidades),'} o deja que el servidor elija los 2 mejores jugadores del día.</div>`}
       <div class="btns"><button class="btn ghost" id="radC">📲 Armar para compartir</button><button class="btn" id="radGo">📣 Armar y publicar</button></div>
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.1</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.2</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
   if($('vTipo')) $('vTipo').onchange = e => { VT = e.target.value; try{ localStorage.setItem('ab_vt', VT); }catch(x){} pintar(); };
-  const radPide = solo => { const two = radP.length >= 2, L = radP.slice(0, 2); if(confirm(`¿Armar el video radar con ${two ? L.map(p => p.pname || p.label).join(' y ') : 'los 2 mejores jugadores del día'}${solo ? ' para compartir (no se publica)' : ' y publicarlo en Facebook'}?`)) fbSet({ya: two ? 'radar:sel' : 'radar', yaT: Date.now(), radarSel: two ? L.map(p => p.ok) : [], soloDesc: solo}); };
+  const radPide = solo => { const two = radP.length >= 2, L = radP.slice(0, 2); if(confirm(`¿Armar el video radar con ${two ? L.map(p => p.label).join(' y ') : 'los 2 mejores jugadores del día'}${solo ? ' para compartir (no se publica)' : ' y publicarlo en Facebook'}?`)) fbSet({ya: two ? 'radar:sel' : 'radar', yaT: Date.now(), radarSel: two ? L.map(p => anaSpec(p)) : [], soloDesc: solo}); };
   if($('radGo')) $('radGo').onclick = () => radPide(false);
   if($('radC')) $('radC').onclick = () => radPide(true);
   if($('anaC')) $('anaC').onclick = () => anaPide(true);
@@ -818,8 +818,8 @@ if(new URLSearchParams(location.search).has('bot')){
     // v51 · video radar (capturas de facebook.js)
     async radar(a){
       const load = b => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = 'data:image/png;base64,' + b; }), sc = async x => x ? Object.assign({img: await load(x.det), w: 390, h: 1000, r: x.r, v: x.v}) : null;
-      const J = []; for(const j of a.J) J.push({o: j.o, lnA: j.lnA, A: await sc(j.A), B: await sc(j.B), img: j.foto ? await load(j.foto).catch(() => null) : null});
-      const r = await crearRadar({J, radar: {img: await load(a.radar), w: 390, h: 1000}, prem: {img: await load(a.prem), w: 390, h: 1000}, nRadar: a.nRadar, logo: await loadImg('icon-512.png'), canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
+      const J = []; for(const j of a.J) J.push({o: j.o, lnA: j.lnA, A: await sc(j.A), B: await sc(j.B), img: j.foto ? await load(j.foto).catch(() => null) : null, img2: j.foto2 ? await load(j.foto2).catch(() => null) : null});
+      const r = await crearRadar({J, radar: {img: await load(a.radar), w: 390, h: 1000}, prem: {img: await load(a.prem), w: 390, h: 1000}, nRadar: a.nRadar, kRadar: a.kRadar, logo: await loadImg('icon-512.png'), canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
       const el = document.createElement('a'); el.href = r.url; el.download = `alexbet-radar-${DAY}.${r.ext}`; document.body.appendChild(el); el.click();
     },
     async semana(){ const r = await semana(); return r.n >= 10 ? [`${r.ok} de ${r.n} (${r.pct}%)`] : []; },

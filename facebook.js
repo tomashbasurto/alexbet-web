@@ -171,15 +171,17 @@ async function analisis() {
 }
 
 // ---------- v51 · Video radar: 2 jugadores (con foto y la línea ajustada), el radar del día y Premium; con música, sin voz ----------
-function jugadoresRadar() {
-  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => o.kind === 'player' && (o.vals || []).length >= 6);
+function jugadoresRadar() { // 2 jugadas: las que eligió Alexander (jugadores o equipos, de cualquier deporte) o los 2 mejores jugadores del día
+  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6);
   const ESC = JSON.parse(fs.readFileSync(path.join(ROOT, 'escudos', 'escudos.json'), 'utf8'));
-  const foto = o => { const f = ESC['j:' + String(o.pid).split('|')[0]]; return f && f !== '-' && fs.existsSync(path.join(ROOT, 'escudos', f)) ? path.join(ROOT, 'escudos', f) : null; };
-  const sel = (process.env.FB_RADAR ? JSON.parse(process.env.FB_RADAR) : []).map(k => I.find(o => opKey(o) === k)).filter(Boolean);
+  const img = k => { const f = ESC[k]; return f && f !== '-' && fs.existsSync(path.join(ROOT, 'escudos', f)) ? path.join(ROOT, 'escudos', f) : null; };
+  const foto = o => o.kind === 'player' ? img('j:' + String(o.pid).split('|')[0]) : img(o.who && o.who !== 'Partido' ? o.who : o.h);
+  const sel = (process.env.FB_RADAR ? JSON.parse(process.env.FB_RADAR) : []).map(k => { if (String(k)[0] === '{') { try { return JSON.parse(k); } catch (e) { return null; } } return I.find(o => opKey(o) === k); }).filter(Boolean);
+  if (process.env.FB_RADAR) { if (sel.length < 2) console.log('Radar: no encontré las jugadas elegidas', process.env.FB_RADAR); return sel.slice(0, 2).map(o => Object.assign({}, o, {foto: foto(o), foto2: o.kind !== 'player' && (!o.who || o.who === 'Partido') ? img(o.a) : null})); }
   const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
-  let C = sel.length ? sel : I.filter(o => ts(o) > now + 45 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && foto(o) && (o.sp !== 'nba' || o.role === 'top') && !/falta|tarjeta/i.test(o.mk))
+  const C = I.filter(o => o.kind === 'player' && ts(o) > now + 45 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && foto(o) && (o.sp !== 'nba' || o.role === 'top') && !/falta|tarjeta/i.test(o.mk))
     .sort((a, b) => (b.sp === 'nba') - (a.sp === 'nba') || b.hit / b.n - a.hit / a.n || b.p - a.p);
-  const out = []; for (const o of C) { if (out.length >= 2) break; if (out.some(x => x.pname === o.pname || (!sel.length && x.h === o.h && x.a === o.a))) continue; /* los elegidos en el panel pueden ser del mismo partido */ if (out.length && out[0].sp !== o.sp && !sel.length) continue; out.push(o); }
+  const out = []; for (const o of C) { if (out.length >= 2) break; if (out.some(x => x.pname === o.pname || (x.h === o.h && x.a === o.a))) continue; if (out.length && out[0].sp !== o.sp) continue; out.push(o); }
   return out.map(o => Object.assign({}, o, {foto: foto(o)}));
 }
 async function capturarRadar(P) {
@@ -189,32 +191,35 @@ async function capturarRadar(P) {
     const J = [];
     for (const [i, o] of P.entries()) {
       // jugador 2: primero una línea más alta (menos %) y después la de la app, para mostrar "ajusta la línea"
+      if (i === 1 && o.sp !== P[0].sp) { await page.evaluate(s => setSport(s), o.sp); await page.waitForTimeout(6000); }
       const paso = o.ln >= 10 ? Math.max(2, Math.round(o.ln * .15)) : 1, A = i === 1 ? await detalle(page, Object.assign({}, o, {ln: o.ln + paso})) : null;
-      if (i === 1 && o.sp !== sp) { await page.evaluate(s => setSport(s), o.sp); await page.waitForTimeout(6000); }
       const B = await detalle(page, o);
-      J.push({o: {pname: o.pname, team: o.team, h: o.h, a: o.a, mk: o.mk, ln: o.ln, lname: o.lname, sp: o.sp, when: o.when}, A, B, lnA: A ? o.ln + paso : null, foto: o.foto ? fs.readFileSync(o.foto).toString('base64') : null});
+      J.push({o: {kind: o.kind, who: o.who, pname: o.pname, team: o.team, h: o.h, a: o.a, mk: o.mk, ln: o.ln, lname: o.lname, sp: o.sp, when: o.when}, A, B, lnA: A ? o.ln + paso : null,
+        foto: o.foto ? fs.readFileSync(o.foto).toString('base64') : null, foto2: o.foto2 ? fs.readFileSync(o.foto2).toString('base64') : null});
     }
     // el radar: oportunidades de jugadores del día
     await page.evaluate(() => { try { goHome(); } catch (e) {} activeLeague = 'all'; setView('picks'); pkSecSet('oport'); }); await page.waitForTimeout(2500);
-    await page.evaluate(() => { if (typeof opKind === 'function') opKind('player'); }); await page.waitForTimeout(2500); await page.evaluate(() => scrollTo(0, 0));
+    if (P[0].sp !== sp) { await page.evaluate(s => setSport(s), P[0].sp); await page.waitForTimeout(5000); await page.evaluate(() => { activeLeague = 'all'; setView('picks'); pkSecSet('oport'); }); await page.waitForTimeout(2000); }
+    await page.evaluate(k => { if (typeof opKind === 'function') opKind(k); }, P[0].kind === 'player' ? 'player' : 'team'); await page.waitForTimeout(2500); await page.evaluate(() => scrollTo(0, 0));
     const radar = (await page.screenshot({type: 'png'})).toString('base64');
-    const nRadar = await page.evaluate(() => { const b = [...document.querySelectorAll('.op-kind button')].find(x => /Jugadores/.test(x.innerText)); return b ? parseInt((b.querySelector('.op-n') || {}).innerText) || 0 : 0; });
+    const nRadar = await page.evaluate(() => { const b = document.querySelector('.op-kind button.on'); return b ? parseInt((b.querySelector('.op-n') || {}).innerText) || 0 : 0; });
     // la pantalla de Premium
     await page.evaluate(() => { try { abPay(); } catch (e) {} }); await page.waitForTimeout(2000);
     const prem = (await page.screenshot({type: 'png'})).toString('base64');
-    return {J, radar, prem, nRadar};
+    return {J, radar, prem, nRadar, kRadar: P[0].kind === 'player' ? 'JUGADORES' : 'JUGADAS'};
   } finally { await browser.close(); }
 }
 async function radarVideo() {
   const P = jugadoresRadar(); if (P.length < 2) { console.log('Radar: no hay 2 jugadores que sirvan', process.env.FB_RADAR || ''); return null; }
-  console.log('Radar con:', P.map(o => `${o.pname} · más de ${o.ln} ${o.mk}`).join(' | '));
+  const nom = o => o.kind === 'player' ? o.pname : o.who && o.who !== 'Partido' ? o.who : `${o.h} vs ${o.a}`;
+  console.log('Radar con:', P.map(o => `${nom(o)} · más de ${o.ln} ${o.mk}`).join(' | '));
   await estadoSet({paso: '1/3 · Abriendo la app y tomando las pantallas…'}).catch(() => {});
   const cap = await capturarRadar(P);
   await estadoSet({paso: '2/3 · Armando el video (35 s)…'}).catch(() => {});
   const file = await panel(async page => bajar(page, a => window.__bot.radar(a), cap));
   await estadoSet({paso: '3/3 · Subiendo el video…'}).catch(() => {});
-  const ic = P[0].sp === 'futbol' ? '⚽' : '🏀', L = cap.J.map(j => `${ic} ${j.o.pname} (${j.o.h} vs ${j.o.a}): más de ${j.o.ln} ${String(j.o.mk).toLowerCase()} · ${j.B.v.hit} · ${j.B.v.prob}`).join('\n');
-  const txt = `📡 EL RADAR DE HOY\n\n${L}\n\n¿Todavía eliges a ciegas? Donde hay datos, hay ventaja.\nEste y todos los jugadores del día, en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#${P[0].sp === 'futbol' ? 'futbol' : 'NBA'} #pronosticos #apuestasdeportivas`;
+  const icn = o => ({futbol: '⚽', nhl: '🏒', mlb: '⚾', tenis: '🎾'})[o.sp] || '🏀', L = cap.J.map(j => `${icn(j.o)} ${nom(j.o)}${j.o.kind === 'player' || (j.o.who && j.o.who !== 'Partido') ? ` (${j.o.h} vs ${j.o.a})` : ''}: más de ${j.o.ln} ${String(j.o.mk).toLowerCase()} · ${j.B.v.hit} · ${j.B.v.prob}`).join('\n');
+  const txt = `📡 EL RADAR DE HOY\n\n${L}\n\n¿Todavía eliges a ciegas? Donde hay datos, hay ventaja.\nEstas y todas las jugadas del día, en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#${({futbol: 'futbol', nhl: 'NHL', mlb: 'MLB'})[P[0].sp] || 'NBA'} #pronosticos #apuestasdeportivas`;
   return {file, txt};
 }
 

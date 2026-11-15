@@ -516,6 +516,7 @@ function grande(c, l1, l2, y, k, size) { // titular grande en cursiva, la 2da l�
   [[l1, INK], [l2, A]].forEach(([t, col], i) => { if (!t) return; let s = size || 104; c.font = `italic 900 ${s}px Inter`; while (c.measureText(t).width > VW - 100 && s > 50) { s -= 4; c.font = `italic 900 ${s}px Inter`; }
     c.fillStyle = col; if (col === A) { c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 30; } c.fillText(t, VW / 2, y + i * (s + 14)); c.shadowBlur = 0; }); c.restore();
 }
+const j_eq = j => j.o.kind !== 'player';
 export async function crearRadar(ctx) {
   const msg = ctx.onMsg || (() => {}), J = ctx.J;
   await Promise.all([document.fonts.load('italic 900 104px Inter'), document.fonts.load('900 80px Orbitron'), document.fonts.load('900 28px Inter')]).catch(() => {});
@@ -524,15 +525,18 @@ export async function crearRadar(ctx) {
     return {x: Math.max(0, Math.min(im.w - w, f[0] + f[2] / 2 - w / 2)), y: Math.max(0, Math.min(im.h - h, f[1] + f[3] / 2 - h / 2)), w, h}; };
   const full = im => ({x: 0, y: 0, w: im.w, h: im.h});
   const j1 = J[0], j2 = J[1], hit = v => String(v || '').split('/');
+  // nombre de la jugada: jugador, equipo o el partido (para equipos y totales del partido)
+  const nom = j => j.o.kind === 'player' ? j.o.pname : j.o.who && j.o.who !== 'Partido' ? j.o.who : `${j.o.h} vs ${j.o.a}`;
+  const preg = j => j.o.kind === 'player' ? [`¿${ap(j.o.pname)} pasa`, `de ${j.o.ln}?`] : j.o.who && j.o.who !== 'Partido' ? [`¿${ap(j.o.who)} pasa`, `de ${j.o.ln}?`] : ['¿Más de', `${j.o.ln} ${String(j.o.mk).toLowerCase()}?`];
   const sc = [
     {k: 'hook', d: 3.2}, {k: 'logo', d: 1.8},
     {k: 'nombre', j: j1, d: 2.2},
-    {k: 'tel', im: j1.B, cam0: full(j1.B), foco: j1.B.r.line, chip: `${j1.o.pname} · ${j1.o.mk}`.toUpperCase(), t1: `¿${ap(j1.o.pname)} pasa`, t2: `de ${j1.o.ln}?`, d: 3},
+    {k: 'tel', im: j1.B, cam0: full(j1.B), foco: j1.B.r.line, chip: `${nom(j1)} · ${j1.o.mk}`.toUpperCase(), t1: preg(j1)[0], t2: preg(j1)[1], d: 3},
     {k: 'tel', im: j1.B, foco: j1.B.r.bars, chip: `ÚLTIMOS ${hit(j1.B.v.hit)[1]} PARTIDOS`, t1: `${hit(j1.B.v.hit)[0]} de ${hit(j1.B.v.hit)[1]}`, t2: 'en verde', stk: [j1.B.v.hit, 'EN VERDE ✓'], d: 3.2},
     {k: 'nombre', j: j2, d: 2.2},
     {k: 'ajusta', d: 4.4},
     {k: 'tel', im: j2.B, foco: j2.B.r.bars, chip: `ÚLTIMOS ${hit(j2.B.v.hit)[1]} PARTIDOS`, t1: `De ${j2.A.v.prob}`, t2: `a ${j2.B.v.prob}`, stk: [j2.B.v.hit, `EN ${j2.o.ln}`], d: 3},
-    {k: 'tel', im: ctx.radar, cam0: full(ctx.radar), chip: `HOY · ${ctx.nRadar || ''} JUGADORES`.replace(' ·  ', ' · '), t1: 'El radar', t2: 'de hoy', stk: ['¿Y LOS', 'DEMÁS?'], d: 3.4},
+    {k: 'tel', im: ctx.radar, cam0: full(ctx.radar), chip: `HOY · ${ctx.nRadar || ''} ${ctx.kRadar || 'JUGADORES'}`.replace(' ·  ', ' · '), t1: 'El radar', t2: 'de hoy', stk: ['¿Y LOS', 'DEMÁS?'], d: 3.4},
     {k: 'tel', im: ctx.prem, cam0: full(ctx.prem), chip: 'ALEXBET PREMIUM', t1: 'Desbloquea', t2: 'todo', d: 3},
     {k: 'fin', d: 4.6}];
   let t0 = 0; sc.forEach(s => { s.t0 = t0; t0 += s.d; if (s.im && !s.cam) s.cam = s.foco ? camF(s.im, s.foco) : full(s.im); }); const total = t0;
@@ -550,6 +554,13 @@ export async function crearRadar(ctx) {
     else if (s.k === 'logo') { const k = seg(lt, 0, .6); c.save(); c.strokeStyle = A; c.lineWidth = 26; c.globalAlpha = .9; c.beginPath(); c.arc(VW / 2, 860, 200 + 260 * k, 0, Math.PI * 2); c.stroke(); c.restore();
       if (ctx.logo) { c.save(); c.globalAlpha = k; rr(c, VW / 2 - 130, 700, 260, 260, 60); c.clip(); c.drawImage(ctx.logo, VW / 2 - 130, 700, 260, 260); c.restore(); }
       c.globalAlpha = k; c.font = '900 92px Orbitron'; c.textAlign = 'center'; c.fillStyle = INK; const w = c.measureText('ALEXBET').width; c.textAlign = 'left'; c.fillText('ALEX', VW / 2 - w / 2, 1100); c.fillStyle = A; c.fillText('BET', VW / 2 - w / 2 + c.measureText('ALEX').width, 1100); c.globalAlpha = 1; }
+    else if (s.k === 'nombre' && j_eq(s.j)) { const j = s.j, k = seg(lt, 0, .5), dos = !!j.img2, nm = nom(j).toUpperCase();
+      c.save(); c.globalAlpha = k; c.textAlign = 'center'; let fs = 120; c.font = `italic 900 ${fs}px Inter`; while (c.measureText(nm).width > VW - 80 && fs > 56) { fs -= 6; c.font = `italic 900 ${fs}px Inter`; }
+      c.fillStyle = INK; c.fillText(nm, VW / 2, 560); c.restore();
+      const cr = (im, x, y, z) => { if (!im) return; const w = z, h = z * im.height / im.width; c.save(); c.globalAlpha = k; c.shadowColor = 'rgba(198,255,0,.35)'; c.shadowBlur = 60; c.drawImage(im, x - w / 2, y - h / 2 + (1 - k) * 60, w, h); c.restore(); };
+      if (dos) { cr(j.img, VW / 2 - 230, 1080, 380); cr(j.img2, VW / 2 + 230, 1080, 380); c.save(); c.globalAlpha = k; c.font = 'italic 900 90px Inter'; c.fillStyle = A; c.textAlign = 'center'; c.fillText('VS', VW / 2, 1110); c.restore(); }
+      else cr(j.img, VW / 2, 1100, 560);
+      c.save(); c.globalAlpha = seg(lt, .5, .4); c.font = '800 34px Inter'; c.textAlign = 'center'; c.fillStyle = INK; c.fillText(`${(j.o.lname || '').toUpperCase()}${j.o.who && j.o.who !== 'Partido' ? ' · HOY VS ' + (j.o.who === j.o.h ? j.o.a : j.o.h).toUpperCase() : ' · HOY'}`, VW / 2, 1560); c.restore(); }
     else if (s.k === 'nombre') { const j = s.j, k = seg(lt, 0, .5), parts = String(j.o.pname).toUpperCase().split(' '), n1 = parts.slice(0, -1).join(' '), n2 = parts.slice(-1)[0];
       c.save(); c.textAlign = 'center'; c.globalAlpha = k; c.font = 'italic 900 150px Inter'; c.lineWidth = 4; c.strokeStyle = A; if (n1) c.strokeText(n1, VW / 2, 470);
       let s2 = 200; c.font = `italic 900 ${s2}px Inter`; while (c.measureText(n2).width > VW - 60) { s2 -= 8; c.font = `italic 900 ${s2}px Inter`; } c.fillStyle = INK; c.fillText(n2, VW / 2, 660); c.restore();
@@ -557,7 +568,7 @@ export async function crearRadar(ctx) {
       c.save(); c.globalAlpha = seg(lt, .5, .4); c.font = '800 34px Inter'; c.textAlign = 'center'; c.fillStyle = INK; c.fillText(`${(j.o.team || '').toUpperCase()} · HOY VS ${(j.o.team === j.o.h ? j.o.a : j.o.h).toUpperCase()}`, VW / 2, 1720); c.restore(); }
     else if (s.k === 'ajusta') { // primero la línea alta (menos %), un toque en "−" y aparece la línea de la app (más %)
       const A0 = j2.A, B0 = j2.B, camA = camF(A0, [A0.r.line[0], A0.r.line[1], A0.r.line[2], A0.r.prob[1] + A0.r.prob[3] - A0.r.line[1]], 1), kx = seg(lt, 2.0, .35);
-      chipTop(c, `${j2.o.pname} · ${j2.o.mk}`.toUpperCase(), 1); grande(c, 'Ajusta', 'la línea', 290, seg(lt, 0, .4), 96);
+      chipTop(c, `${nom(j2)} · ${j2.o.mk}`.toUpperCase(), 1); grande(c, 'Ajusta', 'la línea', 290, seg(lt, 0, .4), 96);
       const T = telefono(c, A0, camA, null, lt, 1); telefono(c, B0, camA, null, lt, 1, kx);
       const st = A0.r.line, tx = T.sx + (st[0] + st[2] - 100 - camA.x) * T.z, ty = T.sy + (st[1] + st[3] / 2 - camA.y) * T.z, tp = seg(lt, 1.4, .3) * (1 - seg(lt, 2.2, .3)); // el dedo
       if (tp > 0) { c.save(); c.globalAlpha = tp; c.fillStyle = 'rgba(255,255,255,.85)'; c.beginPath(); c.arc(tx, ty, 38, 0, Math.PI * 2); c.fill(); c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 6; c.beginPath(); c.arc(tx, ty, 38 + 30 * seg(lt, 1.8, .4), 0, Math.PI * 2); c.stroke(); c.restore(); }
