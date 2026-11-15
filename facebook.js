@@ -195,7 +195,7 @@ async function capturarRadar(P) {
       J.push({o: {pname: o.pname, team: o.team, h: o.h, a: o.a, mk: o.mk, ln: o.ln, lname: o.lname, sp: o.sp, when: o.when}, A, B, lnA: A ? o.ln + paso : null, foto: o.foto ? fs.readFileSync(o.foto).toString('base64') : null});
     }
     // el radar: oportunidades de jugadores del día
-    await page.evaluate(() => { activeLeague = 'all'; setView('picks'); pkSecSet('oport'); }); await page.waitForTimeout(2500);
+    await page.evaluate(() => { try { goHome(); } catch (e) {} activeLeague = 'all'; setView('picks'); pkSecSet('oport'); }); await page.waitForTimeout(2500);
     await page.evaluate(() => { if (typeof opKind === 'function') opKind('player'); }); await page.waitForTimeout(2500); await page.evaluate(() => scrollTo(0, 0));
     const radar = (await page.screenshot({type: 'png'})).toString('base64');
     const nRadar = await page.evaluate(() => { const b = [...document.querySelectorAll('.op-kind button')].find(x => /Jugadores/.test(x.innerText)); return b ? parseInt((b.querySelector('.op-n') || {}).innerText) || 0 : 0; });
