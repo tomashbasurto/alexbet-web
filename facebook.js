@@ -83,6 +83,80 @@ async function bajar(page, js, arg) {
   const f = path.join(ROOT, 'fb-out', String(++NB).padStart(2, '0') + '-' + d.suggestedFilename()); fs.mkdirSync(path.dirname(f), {recursive: true}); await d.saveAs(f); return f;
 }
 
+// ---------- v50 · video análisis: elige la jugada, toma capturas de la app real y arma el video en el panel ----------
+const TOPL = ['lib','sud','recopa','wcqsa','copaam','mundial','wcqeu','euro','euroq','unl','cnl','wcqcc','gold','epl','laliga','seriea','bundes','ligue1','ucl','uel','arg','col','mex','bra','mls'];
+const opKey = o => [o.sp, o.h, o.a, o.kind, o.pname || o.who || '', o.mk, o.ln].join('|');
+function candidatos() {
+  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6);
+  const sel = process.env.FB_ANA || '';
+  if (sel) { const x = I.find(o => opKey(o) === sel); if (!x) console.log('No encontré la jugada elegida en el panel:', sel); return x ? [x] : []; }
+  const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
+  const prio = o => /Ecuador/i.test(o.h + ' ' + o.a) || ['ecuador','copaecu','supecu'].includes(o.lid) ? 3 : (o.sp === 'futbol' && TOPL.includes(o.lid)) || o.sp === 'nba' ? 2 : o.sp === 'ncaa' ? 0 : 1;
+  return I.filter(o => ts(o) > now + 60 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && (o.kind !== 'player' || o.sp === 'futbol' || o.role === 'top') && !/falta/i.test(o.mk))
+    .sort((a, b) => prio(b) - prio(a) || b.hit / b.n - a.hit / a.n || b.p - a.p).slice(0, 4);
+}
+async function capturar(o) {
+  const {chromium} = require('playwright');
+  const browser = await chromium.launch(), ctx = await browser.newContext({viewport: {width: 390, height: 1000}, deviceScaleFactor: 3, serviceWorkers: 'block', timezoneId: 'America/Guayaquil'});
+  const page = await ctx.newPage(); page.on('pageerror', e => console.log('error en la app:', e.message));
+  // la app se abre con una cuenta de prueba (sin Firebase de verdad) para que muestre todo
+  const U = 'const U={uid:"bot",email:"bot@alexbet.local"};';
+  const FB = {
+    'firebase-app': 'export function initializeApp(){return {}}',
+    'firebase-auth': U + 'export function getAuth(){return {currentUser:U}} export function onAuthStateChanged(a,f){setTimeout(()=>f(U),50)} export class GoogleAuthProvider{} export async function signInWithPopup(){} export async function signOut(){} export async function createUserWithEmailAndPassword(){} export async function signInWithEmailAndPassword(){} export async function sendPasswordResetEmail(){}',
+    'firebase-firestore': 'const D={email:"bot@alexbet.local",creado:{toMillis:()=>Date.now()-3*864e5},premiumHasta:null,plan:"gratis",pendiente:""}; export function getFirestore(){return {}} export function doc(){return {}} export function collection(){return {}} export function query(){return {}} export function where(){return {}} export function orderBy(){return {}} export function limit(){return {}} export async function getDoc(){return {exists:()=>true,data:()=>D}} export async function getDocs(){return {docs:[],forEach(){}}} export async function setDoc(){} export async function updateDoc(){} export function serverTimestamp(){return null} export function onSnapshot(r,f){setTimeout(()=>f({exists:()=>true,data:()=>D}),10);return ()=>{}}',
+    'firebase-messaging': 'export const getMessaging=()=>({}),getToken=async()=>"",onMessage=()=>{},deleteToken=async()=>{}'};
+  await page.route('**/*', async r => { const u = r.request().url();
+    const fbk = Object.keys(FB).find(k => u.includes('gstatic.com/firebasejs/') && u.includes(k + '.js')); if (fbk) return r.fulfill({contentType: 'text/javascript', body: FB[fbk]});
+    for (const pre of ['https://alexbetpro.web.app/', 'tomashbasurto.github.io/alexbet-web/', 'raw.githubusercontent.com/tomashbasurto/alexbet-web/main/']) if (u.includes(pre)) {
+      const f = path.join(ROOT, decodeURIComponent(u.split(pre)[1].split('?')[0] || 'index.html')); return fs.existsSync(f) ? r.fulfill({path: f, headers: {'access-control-allow-origin': '*'}}) : r.fulfill({status: 404}); }
+    return r.continue(); });
+  try {
+    await page.goto('https://alexbetpro.web.app/index.html'); await page.waitForTimeout(6000);
+    await page.addStyleTag({content: '#abBar{visibility:hidden!important} #alToast,#wlBox{display:none!important}'});
+    const sp = o.sp;
+    if (sp !== 'futbol') { await page.evaluate(s => setSport(s), sp); await page.waitForTimeout(6000); }
+    // lista de sugerencias del deporte
+    await page.evaluate(() => { activeLeague = 'all'; setView('picks'); pkSecSet('mejores'); }); await page.waitForTimeout(3500);
+    await page.evaluate(() => scrollTo(0, 0));
+    const lista = await page.screenshot({type: 'png'});
+    const lf = await page.evaluate(() => { const c = [...document.querySelectorAll('.prob-card')].find(e => /Mejores opciones/.test(e.innerText)); if (!c) return null; const r = c.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); });
+    // detalle del partido en la pestaña de la estadística (igual que tocar la oportunidad en la app)
+    await page.evaluate(o => { setView('matches'); OP_LIST.length = 0; OP_LIST.push(o); opGo(0); }, o);
+    const box = o.kind === 'player' ? '#pjBox' : '#pbBox';
+    await page.waitForFunction(b => { const e = document.querySelector(b + ' .pb-tiles'); return e && e.offsetHeight > 0; }, box, {timeout: 60000});
+    await page.waitForTimeout(2500);
+    await page.evaluate(() => { const y = document.querySelector('#matchList').getBoundingClientRect().top + scrollY; scrollTo(0, Math.max(0, y - 70)); }); await page.waitForTimeout(800);
+    const info = await page.evaluate(([b, h, a]) => {
+      const R = e => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); }, B = document.querySelector(b);
+      const hero = [...document.querySelectorAll('#matchList *')].filter(e => { const r = e.getBoundingClientRect(), t = e.innerText || ''; return r.height > 110 && r.height < 320 && t.includes(h) && t.includes(a) && !B.contains(e); }).sort((x, y) => x.getBoundingClientRect().height - y.getBoundingClientRect().height)[0];
+      const t = B.querySelectorAll('.pb-tiles > div'), l5 = [...B.querySelectorAll('.pb-per button')].find(x => /^L5/.test(x.innerText.trim()));
+      return {r: {hero: R(hero), line: R(B.querySelector('.pb-line2')), prob: R(t[0]), avg: R(t[1]), hit: R(t[2]), bars: R(B.querySelector('.pb-bars')), l5: R(l5)},
+        v: {prob: t[0] && t[0].querySelector('b').innerText.trim(), avg: t[1] && t[1].querySelector('b').innerText.trim(), hit: t[2] && t[2].querySelector('b').innerText.trim(), l5: l5 && (l5.querySelector('b') || {}).innerText}};
+    }, [box, o.h, o.a]);
+    const det = await page.screenshot({type: 'png'});
+    return {lista: lista.toString('base64'), lf, det: det.toString('base64'), r: info.r, v: info.v};
+  } finally { await browser.close(); }
+}
+async function analisis() {
+  const C = candidatos(); if (!C.length) return null;
+  for (const o of C) {
+    console.log('Análisis de:', opKey(o));
+    let cap; try { cap = await capturar(o); } catch (e) { console.log('no pude tomar las capturas:', e.message); continue; }
+    const [hn, hd] = String(cap.v.hit || '').split('/').map(Number); if (!hn || !hd || !cap.v.prob) { console.log('la pantalla no mostró los datos:', JSON.stringify(cap.v)); continue; }
+    if (!cap.r.hero) cap.r.hero = [15, 104, 360, 156];
+    const mk = String(o.mk).toLowerCase(), opp = o.kind === 'player' ? (o.team === o.h ? o.a : o.h) : o.who && o.who !== 'Partido' ? (o.who === o.h ? o.a : o.h) : '';
+    const d = {h: o.h, a: o.a, liga: o.lname || '', ln: String(o.ln), uni: mk, mkt: !o.who || o.who === 'Partido' ? (o.kind === 'player' ? '' : 'en el partido') : '',
+      quien: o.kind === 'player' ? o.pname : o.who && o.who !== 'Partido' ? o.who : '', opp, hitN: hn, hitD: hd, l5: cap.v.l5 || '', avg: cap.v.avg, prob: cap.v.prob};
+    const file = await panel(async page => bajar(page, a => window.__bot.analisis(a), {lista: cap.lista, lf: cap.lf, det: cap.det, r: cap.r, d}));
+    const ic = {futbol: '⚽', nba: '🏀', ncaa: '🏀', eul: '🏀', nhl: '🏒', mlb: '⚾', tenis: '🎾'}[o.sp] || '📊';
+    const lab = `${d.quien ? d.quien + ': ' : ''}Más de ${o.ln} ${mk}${d.mkt ? ' ' + d.mkt : ''}`;
+    const txt = `🎬 ANÁLISIS DEL DÍA\n\n${ic} ${o.h} vs ${o.a}\n👉 ${lab} · ${d.prob}\n📊 Superó la línea en ${hn} de sus últimos ${hd} · promedio ${d.avg}${d.l5 ? ' · últimos 5: ' + d.l5 : ''}\n\nNo es suerte, son datos. Mira el análisis completo gratis 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #${o.sp === 'futbol' ? 'futbol' : 'NBA'}`;
+    return {file, txt};
+  }
+  return null;
+}
+
 // ---------- publicar ----------
 async function foto(p, file, txt) {
   const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(file)]), path.basename(file)); fd.append('message', txt); fd.append('access_token', p.access_token);
@@ -109,7 +183,7 @@ async function reel(p, file, txt) {
 // ---------- plan: un trabajo que queda despierto ~5,5 h, revisa cada minuto el horario y los pedidos del panel, y al terminar se vuelve a lanzar ----------
 // (los horarios propios de GitHub llegan con horas de atraso o no llegan; así las publicaciones salen a su hora)
 const SLOTS = [ // hora de Ecuador, modo, hasta qué hora todavía vale la pena publicarlo, días (0 = domingo)
-  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['16:00', 'reel:nba', '18:45'], ['18:00', 'sem', '22:00', [0]]];
+  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['13:00', 'ana', '16:30'], ['16:00', 'reel:nba', '18:45'], ['18:00', 'sem', '22:00', [0]]];
 const ecuNow = () => { const d = new Date(Date.now() - 5 * 3600e3); return {day: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay()}; };
 function correr(m, programado) {
   console.log(`\n===== ${new Date().toISOString()} · publicar ${m}${programado ? ' (programado)' : ' (pedido desde el panel)'} =====`);
@@ -125,8 +199,8 @@ async function plan() {
       if (st) {
         const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
         Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
-        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
-          await estadoSet({ya: '', yaT: 0, hecho}); correr(m, false); continue; }
+        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem|ana(:sel)?)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
+          await estadoSet({ya: '', yaT: 0, hecho}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; correr(m, false); process.env.FB_ANA = ''; continue; }
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
           if (hecho[k] || (dias && !dias.includes(now.dow)) || now.hm < h || now.hm > hasta) continue;
@@ -144,13 +218,19 @@ async function plan() {
   // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
   if (MODE === 'poll') {
     const st = await estado() || {}; let m = 'none';
-    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
+    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem|ana(:sel)?)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'modo=' + m + '\n'); else console.log('modo=' + m);
     return;
   }
   if (MODE !== 'check' && process.env.FB_PROGRAMADO === '1' && !DRY) { const st = await estado(); if (st && st.pausa) { console.log('En pausa desde el panel: no se publica.'); await anotar({ok: false, txt: 'En pausa'}); return; } }
   const p = process.argv.includes('--sin-fb') ? null : await pagina();
   if (MODE === 'check') return;
+  if (MODE.startsWith('ana')) { // v50 · video análisis de una jugada, con capturas de la app
+    const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
+    if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(res.file)}\n${res.txt}`); return; }
+    let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); return;
+  }
   const out = await panel(async page => {
     if (MODE === 'sem') { // resumen de los 7 días hasta ayer (domingos)
       const info = await page.evaluate(() => window.__bot.semana()); console.log('Semana:', info.join(' | ') || 'pocas resueltas');

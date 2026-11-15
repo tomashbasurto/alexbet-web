@@ -384,3 +384,95 @@ export async function crearVideo(sel, ctx) {
   const type = (mime || 'video/webm').split(';')[0], blob = new Blob(chunks, {type});
   return {blob, url: URL.createObjectURL(blob), ext: type === 'video/mp4' ? 'mp4' : 'webm', dur: total, guion: scenes.map(s => s.voz)};
 }
+
+// ---------- v50 · Video análisis: una sola jugada mostrada en la app real (capturas dentro de un celular, con zoom y etiquetas) ----------
+// ctx: {voz, vel, tono, logo, lista:{img,w,h}, det:{img,w,h,r:{hero,line,prob,avg,hit,bars,l5}}, d:{h,a,liga,mkt,ln,uni,hit,l5,avg,prob}, onMsg, ac, pedirToque}
+const PH = {x: 0, y: 470, h: 1300}; // pantalla del celular
+function titular(c, partes, y, k) { // partes: [[texto, verde?], ...] centrado, hasta 2 líneas
+  c.font = '900 68px Inter'; const words = []; partes.forEach(([t, v]) => String(t).split(' ').filter(Boolean).forEach(w => words.push([w, v])));
+  const lines = [[]]; let lw = 0; const sp = c.measureText(' ').width;
+  words.forEach(w => { const ww = c.measureText(w[0]).width; if (lw + ww > VW - 140 && lines[lines.length - 1].length) { lines.push([]); lw = 0; } lines[lines.length - 1].push(w); lw += ww + sp; });
+  lines.forEach((L, i) => { const tw = L.reduce((a, w) => a + c.measureText(w[0]).width + sp, -sp); let x = (VW - tw) / 2; const yy = y + i * 82 + (1 - k) * 30;
+    L.forEach(([w, v]) => { c.fillStyle = v ? A : INK; if (v) { c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 24; } c.fillText(w, x, yy); c.shadowBlur = 0; x += c.measureText(w).width + sp; }); });
+}
+function etiqueta(c, big, small, x, y, k, col) {
+  col = col || A; c.save(); c.globalAlpha *= k; const s = .85 + .15 * k;
+  c.font = '900 76px Orbitron'; const w1 = c.measureText(big).width; c.font = '800 24px Inter'; const w2 = c.measureText(small).width; const w = Math.max(w1, w2) + 60, h = 150;
+  c.translate(x, y); c.scale(s, s); rr(c, -w / 2, -h / 2, w, h, 26); c.fillStyle = 'rgba(4,12,10,.92)'; c.fill(); c.shadowColor = col; c.shadowBlur = 40; c.strokeStyle = col; c.lineWidth = 5; c.stroke(); c.shadowBlur = 0;
+  c.textAlign = 'center'; c.fillStyle = col; c.font = '900 76px Orbitron'; c.fillText(big, 0, 22); c.font = '800 24px Inter'; c.fillStyle = INK; c.fillText(small, 0, 56); c.restore();
+}
+export async function crearAnalisis(ctx) {
+  const msg = ctx.onMsg || (() => {}), d = ctx.d, D = ctx.det, L = ctx.lista, R = D.r;
+  await Promise.all([document.fonts.load('900 68px Inter'), document.fonts.load('900 76px Orbitron'), document.fonts.load('800 24px Inter')]).catch(() => {});
+  const full = im => ({x: 0, y: 0, w: im.w, h: im.h});
+  const sc = [
+    {img: L, cam: full(L), cam2: {x: 0, y: 0, w: L.w, h: L.h * .92}, tit: [['¿Sigues apostando por'], ['corazonada?', 1]], voz: '¿Sigues apostando por corazonada?'},
+    {img: L, cam: L.foco ? {x: L.foco[0] + L.foco[2] * .07, y: Math.max(0, L.foco[1] - 20), w: L.foco[2] * .86, h: L.foco[2] * .86 * L.h / L.w} : {x: 0, y: L.h * .08, w: L.w, h: L.h * .9}, foco: L.foco, tit: [['Mira lo que encontró'], ['AlexBet.', 1]], voz: 'Mira lo que encontró álex bet.'},
+    d.quien ? {img: D, foco: R.hero, tit: [[d.quien, 1], [d.opp ? 'vs ' + d.opp + ':' : ':']], voz: `${d.quien}${d.opp ? ', ante ' + d.opp : ''}${d.liga ? ', por la ' + d.liga : ''}.`}
+      : {img: D, foco: R.hero, tit: [[d.h, 1], ['vs ' + d.a + ':']], voz: `${d.h} contra ${d.a}${d.liga ? ', por la ' + d.liga : ''}.`},
+    {img: D, foco: R.line, tit: [['más de'], [`${d.ln} ${d.uni}.`, 1]], badge: ['+' + d.ln, d.uni.toUpperCase()], voz: `Más de ${d.ln} ${d.uni}${d.mkt ? ' ' + d.mkt : ''}.`},
+    {img: D, foco: R.bars, extra: R.hit, tit: [[`${d.hitN} de los últimos ${d.hitD}:`], ['verde.', 1]], badge: [`${d.hitN} DE ${d.hitD}`, 'ÚLTIMOS ' + d.hitD], voz: `Superó la línea en ${d.hitN} de los últimos ${d.hitD}.`},
+    d.l5 && R.l5 ? {img: D, foco: R.l5, tit: [['Últimos 5:'], [d.l5 + '.', 1]], badge: [d.l5, 'ÚLTIMOS 5'], voz: `Últimos cinco: ${d.l5}.`} : null,
+    {img: D, foco: R.avg, tit: [['Promedio:'], [`${d.avg} ${d.uni}.`, 1]], badge: [d.avg, 'PROMEDIO'], voz: `Promedio de ${d.avg} ${d.uni} por partido.`},
+    {img: D, foco: R.prob, tit: [['El modelo lo confirma:'], [d.prob + '.', 1]], badge: [d.prob, 'PROBABILIDAD'], voz: `Y el modelo lo confirma: ${d.prob}.`},
+    {fin: 1, voz: 'No es suerte. Son datos. Míralo gratis en álex bet pro, punto web, punto app.'}
+  ].filter(Boolean);
+  // cámara: un recuadro con la forma de la pantalla del celular, centrado en lo que se muestra
+  sc.forEach(s => { if (!s.foco) return; const im = s.img, asp = im.w / im.h, f = s.foco;
+    // cosas anchas (cabecera, línea, barras): zoom suave recortando los lados · cosas chicas (un número): zoom mayor con contexto alrededor
+    let w = f[2] > 200 ? f[2] * .9 : Math.min(im.w, Math.max(f[2] * 2, 230)); let h = w / asp; if (f[3] * 1.25 > h) { h = Math.min(im.h, f[3] * 1.25); w = h * asp; }
+    const cx = f[0] + f[2] / 2, cy = f[1] + f[3] / 2 + (s.extra ? -40 : 0);
+    s.cam = {x: Math.max(0, Math.min(im.w - w, cx - w / 2)), y: Math.max(0, Math.min(im.h - h, cy - h / 2)), w, h}; });
+  msg('Generando la voz…', 0);
+  const auds = await ctx.voz.decirVarios(sc.map(s => hablar(s.voz)), (ctx.vel || 1) / (ctx.tono || 1), (i, n) => msg(`Generando la voz ${i} de ${n}…`, Math.round((i - 1) / n * 100)));
+  let t0 = 0; sc.forEach((s, i) => { s.au = auds[i]; s.dur = Math.max(s.fin ? 4.2 : 2.2, s.au.pcm.length / s.au.sr / (ctx.tono || 1) + (s.fin ? 1.4 : .45)); s.t0 = t0; t0 += s.dur; }); const total = t0;
+  const ac = ctx.ac || new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state !== 'running') { await Promise.race([ac.resume().catch(() => {}), new Promise(r => setTimeout(r, 1500))]); }
+  if (ac.state !== 'running' && ctx.pedirToque) await ctx.pedirToque(ac);
+  if (ac.state !== 'running') throw new Error('el navegador no dejó iniciar el audio. Toca otra vez');
+  const dest = ac.createMediaStreamDestination();
+  const cv = ctx.canvas || document.createElement('canvas'); cv.width = VW; cv.height = VH; const c = cv.getContext('2d');
+  const stream = cv.captureStream(30); stream.addTrack(dest.stream.getAudioTracks()[0]);
+  const tipos = ['video/mp4;codecs=avc1.42E028,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  const mime = tipos.find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const rec = new MediaRecorder(stream, mime ? {mimeType: mime, videoBitsPerSecond: 6e6, audioBitsPerSecond: 128e3} : {videoBitsPerSecond: 6e6});
+  const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); }; const done = new Promise(r => rec.onstop = r);
+  const lerp = (a, b, k) => a + (b - a) * k, lc = (A0, B0, k) => ({x: lerp(A0.x, B0.x, k), y: lerp(A0.y, B0.y, k), w: lerp(A0.w, B0.w, k), h: lerp(A0.h, B0.h, k)});
+  const draw = tt => {
+    let i = sc.findIndex(x => tt >= x.t0 && tt < x.t0 + x.dur); if (i < 0) i = tt <= 0 ? 0 : sc.length - 1; const s = sc[i], lt = tt - s.t0;
+    fondo(c, tt);
+    if (s.fin) { // cierre
+      const k = seg(lt, 0, .6); c.globalAlpha = k; marca(c, ctx.logo, 300, 560, 120); c.globalAlpha = 1;
+      titular(c, [['No es suerte.']], 880, seg(lt, .2, .6)); c.globalAlpha = seg(lt, .4, .6); titular(c, [['Son datos.', 1]], 970, seg(lt, .4, .6)); c.globalAlpha = 1;
+      const kb = seg(lt, .9, .5); c.globalAlpha = kb; rr(c, 250, 1090, 580, 120, 60); c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 40; c.fill(); c.shadowBlur = 0;
+      c.fillStyle = '#061006'; c.font = '900 46px Inter'; c.textAlign = 'center'; c.fillText('Mira el análisis →', 540, 1166);
+      c.font = '700 40px Orbitron'; c.fillStyle = A; c.fillText('alexbetpro.web.app', 540, 1290); c.font = '600 26px Inter'; c.fillStyle = DIM;
+      c.fillText('+18 · Análisis estadístico, no garantiza resultados.', 540, 1700); c.fillText('Juega con responsabilidad.', 540, 1740); c.textAlign = 'left'; c.globalAlpha = 1; return; }
+    const prev = sc[i - 1] && !sc[i - 1].fin && sc[i - 1].img === s.img ? sc[i - 1] : null, kc = prev ? seg(lt, 0, .7) : 1;
+    let cam = prev ? lc(prev.cam2 || prev.cam, s.cam, kc) : s.cam; if (s.cam2) cam = lc(s.cam, s.cam2, Math.min(1, lt / s.dur));
+    // celular
+    const im = s.img, sh = PH.h, sw = sh * im.w / im.h, sx = (VW - sw) / 2, sy = PH.y;
+    c.save(); c.shadowColor = 'rgba(198,255,0,.35)'; c.shadowBlur = 70; rr(c, sx - 16, sy - 16, sw + 32, sh + 32, 70); c.fillStyle = '#0b0f0e'; c.fill(); c.restore();
+    rr(c, sx - 16, sy - 16, sw + 32, sh + 32, 70); c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 3; c.stroke();
+    c.save(); rr(c, sx, sy, sw, sh, 56); c.clip();
+    const fx = im.img.width / im.w; c.drawImage(im.img, cam.x * fx, cam.y * fx, cam.w * fx, cam.h * fx, sx, sy, sw, sh);
+    // recuadro sobre lo que se está mostrando
+    if (s.foco && kc > .8) { const f = s.foco, z = sw / cam.w, X = sx + (f[0] - cam.x) * z - 8, Y = sy + (f[1] - cam.y) * z - 8, W = f[2] * z + 16, H2 = f[3] * z + 16, pu = .65 + .35 * Math.sin(lt * 6);
+      c.shadowColor = A; c.shadowBlur = 30; rr(c, X, Y, W, H2, 18); c.strokeStyle = `rgba(198,255,0,${pu})`; c.lineWidth = 6; c.stroke(); c.shadowBlur = 0; }
+    c.restore();
+    c.fillStyle = '#040807'; rr(c, VW / 2 - 70, sy + 18, 140, 36, 18); c.fill(); // isla
+    // titular arriba
+    c.globalAlpha = seg(lt, 0, .45); titular(c, s.tit, 190, seg(lt, 0, .45)); c.globalAlpha = 1;
+    if (s.badge) { const kb = seg(lt, .35, .45), f = s.foco, z = sw / s.cam.w, by = Math.max(sy + 120, Math.min(sy + sh - 120, sy + (f[1] + f[3] / 2 - s.cam.y) * z)), left = i % 2 === 0;
+      etiqueta(c, s.badge[0], s.badge[1], left ? sx + 30 : sx + sw - 30, by, kb); }
+    pieV(c);
+  };
+  draw(0); rec.start(1000);
+  const start = ac.currentTime + .25;
+  sc.forEach(s => { const b = ac.createBuffer(1, s.au.pcm.length, s.au.sr); b.copyToChannel(s.au.pcm, 0); const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = ctx.tono || 1; src.connect(dest); src.start(start + s.t0 + .2); });
+  msg('Grabando el video…');
+  await new Promise(res => { const tick = () => { const tt = ac.currentTime - start; draw(Math.max(0, tt)); if (tt >= total + .2) return res(); (ctx.raf || requestAnimationFrame)(tick); }; tick(); });
+  rec.stop(); await done; if (!ctx.ac) ac.close().catch(() => {});
+  const type = (mime || 'video/webm').split(';')[0], blob = new Blob(chunks, {type});
+  return {blob, url: URL.createObjectURL(blob), ext: type === 'video/mp4' ? 'mp4' : 'webm', dur: total, guion: sc.map(s => s.voz)};
+}

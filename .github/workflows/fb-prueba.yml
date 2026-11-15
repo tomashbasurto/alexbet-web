@@ -1,0 +1,32 @@
+name: Prueba de video analisis
+on:
+  workflow_dispatch:
+    inputs:
+      sel:
+        description: 'llave de la jugada (vacío = la mejor del día)'
+        default: ''
+permissions:
+  contents: read
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: |
+          npm i --no-save --no-package-lock playwright@1.47.2
+          npx playwright install --with-deps chromium
+          which ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+      - run: node facebook.js ana --prueba --sin-fb
+        env:
+          FB_ANA: ${{ inputs.sel }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: analisis
+          path: fb-out/
+          if-no-files-found: ignore
+          retention-days: 3
