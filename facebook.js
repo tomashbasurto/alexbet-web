@@ -145,6 +145,8 @@ async function analisis() {
     let cap; try { cap = await capturar(o); } catch (e) { console.log('no pude tomar las capturas:', e.message); continue; }
     const [hn, hd] = String(cap.v.hit || '').split('/').map(Number); if (!hn || !hd || !cap.v.prob) { console.log('la pantalla no mostró los datos:', JSON.stringify(cap.v)); continue; }
     if (!cap.r.hero) cap.r.hero = [15, 104, 360, 156];
+    if (cap.r.l5 && cap.r.l5[1] + cap.r.l5[3] > 920) cap.r.l5 = null; // quedó debajo de la barra de abajo: no se muestra
+    if (parseInt(cap.v.l5) < 80) cap.v.l5 = ''; // "últimos 5" solo si es fuerte
     const mk = String(o.mk).toLowerCase(), opp = o.kind === 'player' ? (o.team === o.h ? o.a : o.h) : o.who && o.who !== 'Partido' ? (o.who === o.h ? o.a : o.h) : '';
     const d = {h: o.h, a: o.a, liga: o.lname || '', ln: String(o.ln), uni: mk, mkt: !o.who || o.who === 'Partido' ? (o.kind === 'player' ? '' : 'en el partido') : '',
       quien: o.kind === 'player' ? o.pname : o.who && o.who !== 'Partido' ? o.who : '', opp, hitN: hn, hitD: hd, l5: cap.v.l5 || '', avg: cap.v.avg, prob: cap.v.prob};
