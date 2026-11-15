@@ -4,6 +4,7 @@ on:
     - cron: '17 */3 * * *'
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - 'fetch-data.js'
       - 'copas-manual.json'

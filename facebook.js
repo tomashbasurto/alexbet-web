@@ -159,6 +159,27 @@ async function analisis() {
   return null;
 }
 
+// ---------- v50.1 · guardar el video armado para descargarlo desde el panel (rama "videos" del repo, se guardan los últimos 8) ----------
+async function guardarVideo(f, txt) {
+  const T = process.env.GH_TOKEN, REPO = process.env.GITHUB_REPOSITORY; if (!T || !REPO) return null;
+  const H = {authorization: 'Bearer ' + T, accept: 'application/vnd.github+json', 'content-type': 'application/json'}, A = `https://api.github.com/repos/${REPO}`;
+  try {
+    let r = await fetch(`${A}/git/ref/heads/videos`, {headers: H});
+    if (r.status === 404) { // rama nueva y vacía (sin el código de la app, así no arranca ningún otro proceso)
+      const tr = await (await fetch(`${A}/git/trees`, {method: 'POST', headers: H, body: JSON.stringify({tree: [{path: 'LEEME.md', mode: '100644', type: 'blob', content: 'Videos armados por el panel de AlexBet (se guardan los últimos 8).'}]})})).json();
+      const cm = await (await fetch(`${A}/git/commits`, {method: 'POST', headers: H, body: JSON.stringify({message: 'videos', tree: tr.sha, parents: []})})).json();
+      await fetch(`${A}/git/refs`, {method: 'POST', headers: H, body: JSON.stringify({ref: 'refs/heads/videos', sha: cm.sha})}); }
+    const name = `alexbet-${new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 16).replace(/[-:T]/g, '')}${path.extname(f)}`;
+    r = await fetch(`${A}/contents/v/${name}`, {method: 'PUT', headers: H, body: JSON.stringify({message: 'video ' + name, branch: 'videos', content: fs.readFileSync(f).toString('base64')})});
+    if (!r.ok) { console.log('no pude guardar el video:', r.status, (await r.text()).slice(0, 200)); return null; }
+    const L = await (await fetch(`${A}/contents/v?ref=videos`, {headers: H})).json();
+    if (Array.isArray(L)) for (const x of L.sort((a, b) => b.name.localeCompare(a.name)).slice(8)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
+    const vid = {url: `https://raw.githubusercontent.com/${REPO}/videos/v/${name}`, name, t: Date.now(), txt};
+    await estadoSet({vid, armando: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
+  } catch (e) { console.log('no pude guardar el video:', e.message); return null; }
+}
+const SOLO = process.env.FB_SOLO === '1';
+
 // ---------- publicar ----------
 async function foto(p, file, txt) {
   const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(file)]), path.basename(file)); fd.append('message', txt); fd.append('access_token', p.access_token);
@@ -202,7 +223,7 @@ async function plan() {
         const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
         Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
         if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
-          await estadoSet({ya: '', yaT: 0, hecho}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; continue; }
+          await estadoSet({ya: '', yaT: 0, hecho, armando: m, armandoT: Date.now()}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; process.env.FB_SOLO = /:sel$/.test(m) && st.soloDesc ? '1' : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; process.env.FB_SOLO = ''; continue; }
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
           if (hecho[k] || (dias && !dias.includes(now.dow)) || now.hm < h || now.hm > hasta) continue;
@@ -231,6 +252,8 @@ async function plan() {
     const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(res.file)}\n${res.txt}`); return; }
     let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
+    await guardarVideo(f, res.txt);
+    if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); return; }
     const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); return;
   }
   const out = await panel(async page => {
@@ -271,6 +294,8 @@ async function plan() {
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
     if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); }
     else { let f = o.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
+      if (/:sel$/.test(MODE)) await guardarVideo(f, o.txt);
+      if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); continue; }
       const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); }
   }
 })().catch(async e => { console.error('No se pudo:', e.message); if (!DRY && MODE !== 'poll') await anotar({ok: false, txt: 'Error: ' + String(e.message).slice(0, 140)}); process.exit(1); });

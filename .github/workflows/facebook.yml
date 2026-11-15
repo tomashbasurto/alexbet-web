@@ -14,7 +14,7 @@ on:
         description: 'si: arma todo pero no publica (no aplica a plan)'
         default: 'no'
 permissions:
-  contents: read
+  contents: write
   actions: write
 concurrency:
   group: facebook
@@ -46,6 +46,7 @@ jobs:
           FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GH_TOKEN: ${{ github.token }}
       - name: Lanzar el siguiente turno
         if: always() && steps.m.outputs.modo == 'plan'
         run: |

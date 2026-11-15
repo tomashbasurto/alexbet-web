@@ -4,6 +4,7 @@ on:
     - cron: '*/10 * * * *'
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
       - 'alerts.js'
       - 'push-send.js'
