@@ -1,2 +1,5 @@
-https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/summary?event=401861177
-https://site.web.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/summary?event=401861177
+https://a.espncdn.com/i/teamlogos/countries/500/bel.png
+https://a.espncdn.com/i/teamlogos/countries/500/eng.png
+https://a.espncdn.com/i/teamlogos/countries/500/fra.png
+https://a.espncdn.com/i/teamlogos/countries/500/ita.png
+https://a.espncdn.com/i/teamlogos/countries/500/tur.png
