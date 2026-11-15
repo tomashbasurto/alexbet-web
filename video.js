@@ -477,3 +477,106 @@ export async function crearAnalisis(ctx) {
   const type = (mime || 'video/webm').split(';')[0], blob = new Blob(chunks, {type});
   return {blob, url: URL.createObjectURL(blob), ext: type === 'video/mp4' ? 'mp4' : 'webm', dur: total, guion: sc.map(s => s.voz)};
 }
+
+// ---------- v51 · Video radar: estilo comercial (sin voz, con música), 2 jugadores + el radar del día + Premium ----------
+function musica(ac, dest, t0, dur) { // 120 bpm: bombo, platillo, bajo y acordes, todo generado aquí (sin archivos ni derechos de autor)
+  const out = ac.createGain(); out.gain.value = .55; out.connect(dest);
+  const nb = ac.createBuffer(1, ac.sampleRate * .5, ac.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const beat = .5, bars = Math.ceil(dur / (beat * 4));
+  const kick = t => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + .18); g.gain.setValueAtTime(1, t); g.gain.exponentialRampToValueAtTime(.001, t + .4); o.connect(g); g.connect(out); o.start(t); o.stop(t + .42); };
+  const hat = (t, v) => { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; f.type = 'highpass'; f.frequency.value = 7000; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + .06); s.connect(f); f.connect(g); g.connect(out); s.start(t); s.stop(t + .07); };
+  const clap = t => { const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; f.type = 'bandpass'; f.frequency.value = 1500; g.gain.setValueAtTime(.5, t); g.gain.exponentialRampToValueAtTime(.001, t + .18); s.connect(f); f.connect(g); g.connect(out); s.start(t); s.stop(t + .2); };
+  const nota = (t, f0, d, tipo, v, fc) => { const o = ac.createOscillator(), fl = ac.createBiquadFilter(), g = ac.createGain(); o.type = tipo; o.frequency.value = f0; fl.type = 'lowpass'; fl.frequency.value = fc; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .02); g.gain.setTargetAtTime(0, t + d * .7, .08); o.connect(fl); fl.connect(g); g.connect(out); o.start(t); o.stop(t + d + .4); };
+  const prog = [[55, [220, 261.6, 329.6]], [43.65, [174.6, 220, 261.6]], [65.4, [196, 261.6, 329.6]], [49, [196, 246.9, 293.7]]]; // Am F C G
+  for (let b = 0; b < bars; b++) { const tb = t0 + b * beat * 4, [bass, ch] = prog[b % 4];
+    for (let k = 0; k < 4; k++) { const t = tb + k * beat; if (t > t0 + dur) break; kick(t); if (k % 2) clap(t); hat(t + beat / 2, .25); hat(t, .12);
+      nota(t, bass, beat * .9, 'sawtooth', .22, 380); nota(t + beat * .5, bass * 2, beat * .4, 'sawtooth', .1, 600); }
+    if (tb < t0 + dur) ch.forEach(f => nota(tb, f, beat * 4, 'triangle', .05, 2000)); }
+  out.gain.setValueAtTime(.55, t0 + dur - 1.2); out.gain.linearRampToValueAtTime(0, t0 + dur);
+}
+function telefono(c, im, cam, foco, lt, kc, alpha) {
+  const sh = PH.h, sw = sh * im.w / im.h, sx = (VW - sw) / 2, sy = PH.y;
+  c.save(); c.globalAlpha = alpha == null ? 1 : alpha;
+  c.save(); c.shadowColor = 'rgba(198,255,0,.35)'; c.shadowBlur = 70; rr(c, sx - 16, sy - 16, sw + 32, sh + 32, 70); c.fillStyle = '#0b0f0e'; c.fill(); c.restore();
+  rr(c, sx - 16, sy - 16, sw + 32, sh + 32, 70); c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 3; c.stroke();
+  c.save(); rr(c, sx, sy, sw, sh, 56); c.clip(); const fx = im.img.width / im.w; c.drawImage(im.img, cam.x * fx, cam.y * fx, cam.w * fx, cam.h * fx, sx, sy, sw, sh);
+  if (foco && kc > .8) { const z = sw / cam.w, X = sx + (foco[0] - cam.x) * z - 8, Y = sy + (foco[1] - cam.y) * z - 8, pu = .65 + .35 * Math.sin(lt * 6); c.shadowColor = A; c.shadowBlur = 30; rr(c, X, Y, foco[2] * z + 16, foco[3] * z + 16, 18); c.strokeStyle = `rgba(198,255,0,${pu})`; c.lineWidth = 6; c.stroke(); c.shadowBlur = 0; }
+  c.restore(); c.fillStyle = '#040807'; rr(c, VW / 2 - 70, sy + 18, 140, 36, 18); c.fill(); c.restore();
+  return {sx, sy, sw, sh, z: sw / cam.w};
+}
+function sticker(c, big, small, x, y, k, rot) {
+  if (k <= 0) return; c.save(); c.translate(x, y); c.rotate(rot || -.12); const s = k < 1 ? .5 + .6 * k - .1 * Math.max(0, k - .8) * 5 : 1; c.scale(s, s);
+  c.font = '900 80px Orbitron'; const w = Math.max(c.measureText(big).width, 200) + 70;
+  rr(c, -w / 2, -80, w, 160, 30); c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.6)'; c.shadowBlur = 40; c.fill(); c.shadowBlur = 0;
+  c.fillStyle = '#061006'; c.textAlign = 'center'; c.fillText(big, 0, 18); c.font = '900 26px Inter'; c.fillText(small, 0, 56); c.restore();
+}
+function chipTop(c, t, k) { c.save(); c.globalAlpha = k; c.font = '900 28px Inter'; const w = c.measureText(t).width + 48; rr(c, (VW - w) / 2, 120, w, 52, 10); c.fillStyle = A; c.fill(); c.fillStyle = '#061006'; c.textAlign = 'center'; c.fillText(t, VW / 2, 157); c.restore(); }
+function grande(c, l1, l2, y, k, size) { // titular grande en cursiva, la 2da línea en verde
+  c.save(); c.globalAlpha = k; c.textAlign = 'center'; c.translate(0, (1 - k) * 40);
+  [[l1, INK], [l2, A]].forEach(([t, col], i) => { if (!t) return; let s = size || 104; c.font = `italic 900 ${s}px Inter`; while (c.measureText(t).width > VW - 100 && s > 50) { s -= 4; c.font = `italic 900 ${s}px Inter`; }
+    c.fillStyle = col; if (col === A) { c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 30; } c.fillText(t, VW / 2, y + i * (s + 14)); c.shadowBlur = 0; }); c.restore();
+}
+export async function crearRadar(ctx) {
+  const msg = ctx.onMsg || (() => {}), J = ctx.J;
+  await Promise.all([document.fonts.load('italic 900 104px Inter'), document.fonts.load('900 80px Orbitron'), document.fonts.load('900 28px Inter')]).catch(() => {});
+  const ap = n => String(n).split(' ').slice(-1)[0];
+  const camF = (im, f, k) => { const asp = im.w / im.h; let w = f[2] > 200 ? f[2] * (k || .95) : Math.min(im.w, Math.max(f[2] * 2, 230)); let h = w / asp; if (f[3] * 1.25 > h) { h = Math.min(im.h, f[3] * 1.25); w = h * asp; }
+    return {x: Math.max(0, Math.min(im.w - w, f[0] + f[2] / 2 - w / 2)), y: Math.max(0, Math.min(im.h - h, f[1] + f[3] / 2 - h / 2)), w, h}; };
+  const full = im => ({x: 0, y: 0, w: im.w, h: im.h});
+  const j1 = J[0], j2 = J[1], hit = v => String(v || '').split('/');
+  const sc = [
+    {k: 'hook', d: 3.2}, {k: 'logo', d: 1.8},
+    {k: 'nombre', j: j1, d: 2.2},
+    {k: 'tel', im: j1.B, cam0: full(j1.B), foco: j1.B.r.line, chip: `${j1.o.pname} · ${j1.o.mk}`.toUpperCase(), t1: `¿${ap(j1.o.pname)} pasa`, t2: `de ${j1.o.ln}?`, d: 3},
+    {k: 'tel', im: j1.B, foco: j1.B.r.bars, chip: `ÚLTIMOS ${hit(j1.B.v.hit)[1]} PARTIDOS`, t1: `${hit(j1.B.v.hit)[0]} de ${hit(j1.B.v.hit)[1]}`, t2: 'en verde', stk: [j1.B.v.hit, 'EN VERDE ✓'], d: 3.2},
+    {k: 'nombre', j: j2, d: 2.2},
+    {k: 'ajusta', d: 4.4},
+    {k: 'tel', im: j2.B, foco: j2.B.r.bars, chip: `ÚLTIMOS ${hit(j2.B.v.hit)[1]} PARTIDOS`, t1: `De ${j2.A.v.prob}`, t2: `a ${j2.B.v.prob}`, stk: [j2.B.v.hit, `EN ${j2.o.ln}`], d: 3},
+    {k: 'tel', im: ctx.radar, cam0: full(ctx.radar), chip: `HOY · ${ctx.nRadar || ''} JUGADORES`.replace(' ·  ', ' · '), t1: 'El radar', t2: 'de hoy', stk: ['¿Y LOS', 'DEMÁS?'], d: 3.4},
+    {k: 'tel', im: ctx.prem, cam0: full(ctx.prem), chip: 'ALEXBET PREMIUM', t1: 'Desbloquea', t2: 'todo', d: 3},
+    {k: 'fin', d: 4.6}];
+  let t0 = 0; sc.forEach(s => { s.t0 = t0; t0 += s.d; if (s.im && !s.cam) s.cam = s.foco ? camF(s.im, s.foco) : full(s.im); }); const total = t0;
+  const ac = ctx.ac || new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state !== 'running') { await Promise.race([ac.resume().catch(() => {}), new Promise(r => setTimeout(r, 1500))]); }
+  const dest = ac.createMediaStreamDestination(), cv = ctx.canvas || document.createElement('canvas'); cv.width = VW; cv.height = VH; const c = cv.getContext('2d');
+  const stream = cv.captureStream(30); stream.addTrack(dest.stream.getAudioTracks()[0]);
+  const mime = ['video/mp4;codecs=avc1.42E028,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+  const rec = new MediaRecorder(stream, mime ? {mimeType: mime, videoBitsPerSecond: 6e6} : {}); const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); }; const done = new Promise(r => rec.onstop = r);
+  const lerp = (a, b, k) => a + (b - a) * k, lc = (A0, B0, k) => ({x: lerp(A0.x, B0.x, k), y: lerp(A0.y, B0.y, k), w: lerp(A0.w, B0.w, k), h: lerp(A0.h, B0.h, k)});
+  const draw = tt => {
+    let i = sc.findIndex(x => tt >= x.t0 && tt < x.t0 + x.d); if (i < 0) i = tt <= 0 ? 0 : sc.length - 1; const s = sc[i], lt = tt - s.t0, pulse = Math.max(0, 1 - ((tt % .5) / .5)) * .06;
+    fondo(c, tt); c.save(); c.globalAlpha = pulse; c.fillStyle = A; c.fillRect(0, 0, VW, VH); c.restore();
+    if (s.k === 'hook') { grande(c, '¿TODAVÍA ELIGES', 'A CIEGAS?', 820, seg(lt, 0, .5), 112); c.globalAlpha = seg(lt, 1.4, .5); c.font = '600 40px Inter'; c.fillStyle = INK; c.textAlign = 'center'; c.fillText('Mira los números antes de cada partido.', VW / 2, 1110); c.textAlign = 'left'; c.globalAlpha = 1; }
+    else if (s.k === 'logo') { const k = seg(lt, 0, .6); c.save(); c.strokeStyle = A; c.lineWidth = 26; c.globalAlpha = .9; c.beginPath(); c.arc(VW / 2, 860, 200 + 260 * k, 0, Math.PI * 2); c.stroke(); c.restore();
+      if (ctx.logo) { c.save(); c.globalAlpha = k; rr(c, VW / 2 - 130, 700, 260, 260, 60); c.clip(); c.drawImage(ctx.logo, VW / 2 - 130, 700, 260, 260); c.restore(); }
+      c.globalAlpha = k; c.font = '900 92px Orbitron'; c.textAlign = 'center'; c.fillStyle = INK; const w = c.measureText('ALEXBET').width; c.textAlign = 'left'; c.fillText('ALEX', VW / 2 - w / 2, 1100); c.fillStyle = A; c.fillText('BET', VW / 2 - w / 2 + c.measureText('ALEX').width, 1100); c.globalAlpha = 1; }
+    else if (s.k === 'nombre') { const j = s.j, k = seg(lt, 0, .5), parts = String(j.o.pname).toUpperCase().split(' '), n1 = parts.slice(0, -1).join(' '), n2 = parts.slice(-1)[0];
+      c.save(); c.textAlign = 'center'; c.globalAlpha = k; c.font = 'italic 900 150px Inter'; c.lineWidth = 4; c.strokeStyle = A; if (n1) c.strokeText(n1, VW / 2, 470);
+      let s2 = 200; c.font = `italic 900 ${s2}px Inter`; while (c.measureText(n2).width > VW - 60) { s2 -= 8; c.font = `italic 900 ${s2}px Inter`; } c.fillStyle = INK; c.fillText(n2, VW / 2, 660); c.restore();
+      if (j.img) { const h = 900, w = h * j.img.width / j.img.height; c.save(); c.globalAlpha = k; c.drawImage(j.img, VW / 2 - w / 2, 1640 - h + (1 - k) * 80, w, h); c.restore(); }
+      c.save(); c.globalAlpha = seg(lt, .5, .4); c.font = '800 34px Inter'; c.textAlign = 'center'; c.fillStyle = INK; c.fillText(`${(j.o.team || '').toUpperCase()} · HOY VS ${(j.o.team === j.o.h ? j.o.a : j.o.h).toUpperCase()}`, VW / 2, 1720); c.restore(); }
+    else if (s.k === 'ajusta') { // primero la línea alta (menos %), un toque en "−" y aparece la línea de la app (más %)
+      const A0 = j2.A, B0 = j2.B, camA = camF(A0, [A0.r.line[0], A0.r.line[1], A0.r.line[2], A0.r.prob[1] + A0.r.prob[3] - A0.r.line[1]], 1), kx = seg(lt, 2.0, .35);
+      chipTop(c, `${j2.o.pname} · ${j2.o.mk}`.toUpperCase(), 1); grande(c, 'Ajusta', 'la línea', 290, seg(lt, 0, .4), 96);
+      const T = telefono(c, A0, camA, null, lt, 1); telefono(c, B0, camA, null, lt, 1, kx);
+      const st = A0.r.line, tx = T.sx + (st[0] + st[2] - 100 - camA.x) * T.z, ty = T.sy + (st[1] + st[3] / 2 - camA.y) * T.z, tp = seg(lt, 1.4, .3) * (1 - seg(lt, 2.2, .3)); // el dedo
+      if (tp > 0) { c.save(); c.globalAlpha = tp; c.fillStyle = 'rgba(255,255,255,.85)'; c.beginPath(); c.arc(tx, ty, 38, 0, Math.PI * 2); c.fill(); c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = 6; c.beginPath(); c.arc(tx, ty, 38 + 30 * seg(lt, 1.8, .4), 0, Math.PI * 2); c.stroke(); c.restore(); }
+      etiqueta(c, kx < .5 ? `+${j2.lnA}` : `+${j2.o.ln}`, kx < .5 ? `${j2.A.v.prob} · LÍNEA ALTA` : `${j2.B.v.prob} · LÍNEA DE HOY`, VW / 2, T.sy + T.sh - 140, seg(lt, .6, .4)); }
+    else if (s.k === 'tel') { const prev = sc[i - 1] && sc[i - 1].im === s.im ? sc[i - 1] : null, kc = prev ? seg(lt, 0, .6) : seg(lt, 0, .8); let cam = prev ? lc(prev.cam, s.cam, kc) : (s.cam0 && s.foco ? lc(s.cam0, s.cam, seg(lt, .8, .8)) : s.cam);
+      if (!s.foco && !prev) cam = lc(s.cam, {x: s.cam.x + s.cam.w * .04, y: s.cam.y, w: s.cam.w * .92, h: s.cam.h * .92}, Math.min(1, lt / s.d));
+      chipTop(c, s.chip, seg(lt, 0, .3)); grande(c, s.t1, s.t2, 290, seg(lt, 0, .4), 96);
+      const T = telefono(c, s.im, cam, s.foco, lt, kc);
+      if (s.stk) sticker(c, s.stk[0], s.stk[1], T.sx + T.sw - 20, T.sy + T.sh * .42, seg(lt, .7, .35), -.14); }
+    else { grande(c, 'DONDE HAY DATOS,', 'HAY VENTAJA.', 760, seg(lt, 0, .5), 100); c.save(); c.globalAlpha = seg(lt, .6, .5); c.textAlign = 'center'; c.font = '600 36px Inter'; c.fillStyle = INK;
+      c.fillText('Cada jugador, partido a partido,', VW / 2, 1000); c.fillText('en una sola pantalla.', VW / 2, 1048);
+      rr(c, 190, 1110, 700, 120, 60); c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 40; c.fill(); c.shadowBlur = 0; c.fillStyle = '#061006'; c.font = 'italic 900 52px Inter'; c.fillText('¡PRUÉBALA AHORA!', VW / 2, 1188);
+      c.font = '700 44px Orbitron'; c.fillStyle = A; c.fillText('alexbetpro.web.app', VW / 2, 1310); c.font = '600 26px Inter'; c.fillStyle = DIM; c.fillText('+18 · Análisis estadístico, no garantiza resultados. Juega con responsabilidad.', VW / 2, 1760); c.restore(); }
+    const f = Math.min(1, lt / .18); if (f < 1 && i > 0) { c.save(); c.globalAlpha = (1 - f) * .8; c.fillStyle = '#ffffff'; c.fillRect(0, 0, VW, VH); c.restore(); } // destello al cambiar
+  };
+  draw(0); rec.start(1000); const start = ac.currentTime + .25; musica(ac, dest, start, total);
+  msg('Grabando el video…');
+  await new Promise(res => { const tick = () => { const tt = ac.currentTime - start; draw(Math.max(0, tt)); if (tt >= total + .2) return res(); (ctx.raf || requestAnimationFrame)(tick); }; tick(); });
+  rec.stop(); await done; if (!ctx.ac) ac.close().catch(() => {});
+  const type = (mime || 'video/webm').split(';')[0], blob = new Blob(chunks, {type});
+  return {blob, url: URL.createObjectURL(blob), ext: type === 'video/mp4' ? 'mp4' : 'webm', dur: total};
+}

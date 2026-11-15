@@ -85,7 +85,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=8';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, crearRadar, guardadoErr } from './video.js?v=9';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -798,6 +798,13 @@ if(new URLSearchParams(location.search).has('bot')){
       const voz = await vozLista(), logo = await loadImg('icon-512.png'), load = b => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = 'data:image/png;base64,' + b; });
       const r = await crearAnalisis({voz, vel: 1, tono: 1, logo, lista: {img: await load(a.lista), w: 390, h: 1000, foco: a.lf}, det: {img: await load(a.det), w: 390, h: 1000, r: a.r}, d: a.d, canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
       const el = document.createElement('a'); el.href = r.url; el.download = `alexbet-analisis-${DAY}.${r.ext}`; document.body.appendChild(el); el.click();
+    },
+    // v51 · video radar (capturas de facebook.js)
+    async radar(a){
+      const load = b => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = 'data:image/png;base64,' + b; }), sc = async x => x ? Object.assign({img: await load(x.det), w: 390, h: 1000, r: x.r, v: x.v}) : null;
+      const J = []; for(const j of a.J) J.push({o: j.o, lnA: j.lnA, A: await sc(j.A), B: await sc(j.B), img: j.foto ? await load(j.foto).catch(() => null) : null});
+      const r = await crearRadar({J, radar: {img: await load(a.radar), w: 390, h: 1000}, prem: {img: await load(a.prem), w: 390, h: 1000}, nRadar: a.nRadar, logo: await loadImg('icon-512.png'), canvas: document.createElement('canvas'), onMsg: t => console.log('BOT ' + t)});
+      const el = document.createElement('a'); el.href = r.url; el.download = `alexbet-radar-${DAY}.${r.ext}`; document.body.appendChild(el); el.click();
     },
     async semana(){ const r = await semana(); return r.n >= 10 ? [`${r.ok} de ${r.n} (${r.pct}%)`] : []; },
     async imagenes(){ MODE = MB; await generar(SELB, TODOS, GL().find(g => g.k === 'top')); return OUT.length; },

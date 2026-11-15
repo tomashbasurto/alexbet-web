@@ -96,7 +96,8 @@ function candidatos() {
   return I.filter(o => ts(o) > now + 60 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && (o.kind !== 'player' || o.sp === 'futbol' || o.role === 'top') && !/falta/i.test(o.mk))
     .sort((a, b) => prio(b) - prio(a) || b.hit / b.n - a.hit / a.n || b.p - a.p).slice(0, 4);
 }
-async function capturar(o) {
+// abre la app (servida desde este repo) en un celular sin pantalla, con una cuenta de prueba
+async function abrirApp() {
   const {chromium} = require('playwright');
   const browser = await chromium.launch(), ctx = await browser.newContext({viewport: {width: 390, height: 1000}, deviceScaleFactor: 3, serviceWorkers: 'block', timezoneId: 'America/Guayaquil'});
   const page = await ctx.newPage(); page.on('pageerror', e => console.log('error en la app:', e.message));
@@ -112,31 +113,37 @@ async function capturar(o) {
     for (const pre of ['https://alexbetpro.web.app/', 'tomashbasurto.github.io/alexbet-web/', 'raw.githubusercontent.com/tomashbasurto/alexbet-web/main/']) if (u.includes(pre)) {
       const f = path.join(ROOT, decodeURIComponent(u.split(pre)[1].split('?')[0] || 'index.html')); return fs.existsSync(f) ? r.fulfill({path: f, headers: {'access-control-allow-origin': '*'}}) : r.fulfill({status: 404}); }
     return r.continue(); });
+  await page.goto('https://alexbetpro.web.app/index.html'); await page.waitForTimeout(6000);
+  await page.addStyleTag({content: '#abBar{visibility:hidden!important} #alToast,#wlBox{display:none!important}'});
+  return {browser, page};
+}
+// pantalla de la estadística de una jugada (igual que tocarla en Oportunidades): captura + recuadros + números que muestra
+async function detalle(page, o) {
+  await page.evaluate(o => { setView('matches'); OP_LIST.length = 0; OP_LIST.push(o); opGo(0); }, o);
+  const box = o.kind === 'player' ? '#pjBox' : '#pbBox';
+  await page.waitForFunction(b => { const e = document.querySelector(b + ' .pb-tiles'); return e && e.offsetHeight > 0; }, box, {timeout: 60000});
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => { const y = document.querySelector('#matchList').getBoundingClientRect().top + scrollY; scrollTo(0, Math.max(0, y - 70)); }); await page.waitForTimeout(800);
+  const info = await page.evaluate(([b, h, a]) => {
+    const R = e => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); }, B = document.querySelector(b);
+    const hero = [...document.querySelectorAll('#matchList *')].filter(e => { const r = e.getBoundingClientRect(), t = e.innerText || ''; return r.height > 110 && r.height < 320 && t.includes(h) && t.includes(a) && !B.contains(e); }).sort((x, y) => x.getBoundingClientRect().height - y.getBoundingClientRect().height)[0];
+    const t = B.querySelectorAll('.pb-tiles > div'), l5 = [...B.querySelectorAll('.pb-per button')].find(x => /^L5/.test(x.innerText.trim()));
+    return {r: {hero: R(hero), line: R(B.querySelector('.pb-line2')), prob: R(t[0]), avg: R(t[1]), hit: R(t[2]), bars: R(B.querySelector('.pb-bars')), l5: R(l5), box: R(B)},
+      v: {prob: t[0] && t[0].querySelector('b').innerText.trim(), avg: t[1] && t[1].querySelector('b').innerText.trim(), hit: t[2] && t[2].querySelector('b').innerText.trim(), l5: l5 && (l5.querySelector('b') || {}).innerText}};
+  }, [box, o.h, o.a]);
+  return {det: (await page.screenshot({type: 'png'})).toString('base64'), r: info.r, v: info.v};
+}
+async function capturar(o) {
+  const {browser, page} = await abrirApp();
   try {
-    await page.goto('https://alexbetpro.web.app/index.html'); await page.waitForTimeout(6000);
-    await page.addStyleTag({content: '#abBar{visibility:hidden!important} #alToast,#wlBox{display:none!important}'});
-    const sp = o.sp;
-    if (sp !== 'futbol') { await page.evaluate(s => setSport(s), sp); await page.waitForTimeout(6000); }
+    if (o.sp !== 'futbol') { await page.evaluate(s => setSport(s), o.sp); await page.waitForTimeout(6000); }
     // lista de sugerencias del deporte
     await page.evaluate(() => { activeLeague = 'all'; setView('picks'); pkSecSet('mejores'); }); await page.waitForTimeout(3500);
     await page.evaluate(() => scrollTo(0, 0));
     const lista = await page.screenshot({type: 'png'});
     const lf = await page.evaluate(() => { const c = [...document.querySelectorAll('.prob-card')].find(e => /Mejores opciones/.test(e.innerText)); if (!c) return null; const r = c.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); });
-    // detalle del partido en la pestaña de la estadística (igual que tocar la oportunidad en la app)
-    await page.evaluate(o => { setView('matches'); OP_LIST.length = 0; OP_LIST.push(o); opGo(0); }, o);
-    const box = o.kind === 'player' ? '#pjBox' : '#pbBox';
-    await page.waitForFunction(b => { const e = document.querySelector(b + ' .pb-tiles'); return e && e.offsetHeight > 0; }, box, {timeout: 60000});
-    await page.waitForTimeout(2500);
-    await page.evaluate(() => { const y = document.querySelector('#matchList').getBoundingClientRect().top + scrollY; scrollTo(0, Math.max(0, y - 70)); }); await page.waitForTimeout(800);
-    const info = await page.evaluate(([b, h, a]) => {
-      const R = e => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); }, B = document.querySelector(b);
-      const hero = [...document.querySelectorAll('#matchList *')].filter(e => { const r = e.getBoundingClientRect(), t = e.innerText || ''; return r.height > 110 && r.height < 320 && t.includes(h) && t.includes(a) && !B.contains(e); }).sort((x, y) => x.getBoundingClientRect().height - y.getBoundingClientRect().height)[0];
-      const t = B.querySelectorAll('.pb-tiles > div'), l5 = [...B.querySelectorAll('.pb-per button')].find(x => /^L5/.test(x.innerText.trim()));
-      return {r: {hero: R(hero), line: R(B.querySelector('.pb-line2')), prob: R(t[0]), avg: R(t[1]), hit: R(t[2]), bars: R(B.querySelector('.pb-bars')), l5: R(l5)},
-        v: {prob: t[0] && t[0].querySelector('b').innerText.trim(), avg: t[1] && t[1].querySelector('b').innerText.trim(), hit: t[2] && t[2].querySelector('b').innerText.trim(), l5: l5 && (l5.querySelector('b') || {}).innerText}};
-    }, [box, o.h, o.a]);
-    const det = await page.screenshot({type: 'png'});
-    return {lista: lista.toString('base64'), lf, det: det.toString('base64'), r: info.r, v: info.v};
+    const D = await detalle(page, o);
+    return {lista: lista.toString('base64'), lf, det: D.det, r: D.r, v: D.v};
   } finally { await browser.close(); }
 }
 async function analisis() {
@@ -161,6 +168,54 @@ async function analisis() {
     return {file, txt};
   }
   return null;
+}
+
+// ---------- v51 · Video radar: 2 jugadores (con foto y la línea ajustada), el radar del día y Premium; con música, sin voz ----------
+function jugadoresRadar() {
+  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => o.kind === 'player' && (o.vals || []).length >= 6);
+  const ESC = JSON.parse(fs.readFileSync(path.join(ROOT, 'escudos', 'escudos.json'), 'utf8'));
+  const foto = o => { const f = ESC['j:' + String(o.pid).split('|')[0]]; return f && f !== '-' && fs.existsSync(path.join(ROOT, 'escudos', f)) ? path.join(ROOT, 'escudos', f) : null; };
+  const sel = (process.env.FB_RADAR ? JSON.parse(process.env.FB_RADAR) : []).map(k => I.find(o => opKey(o) === k)).filter(Boolean);
+  const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
+  let C = sel.length ? sel : I.filter(o => ts(o) > now + 45 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && foto(o) && (o.sp !== 'nba' || o.role === 'top') && !/falta|tarjeta/i.test(o.mk))
+    .sort((a, b) => (b.sp === 'nba') - (a.sp === 'nba') || b.hit / b.n - a.hit / a.n || b.p - a.p);
+  const out = []; for (const o of C) { if (out.length >= 2) break; if (out.some(x => x.pname === o.pname || (x.h === o.h && x.a === o.a))) continue; if (out.length && out[0].sp !== o.sp && !sel.length) continue; out.push(o); }
+  return out.map(o => Object.assign({}, o, {foto: foto(o)}));
+}
+async function capturarRadar(P) {
+  const {browser, page} = await abrirApp();
+  try {
+    const sp = P[0].sp; if (sp !== 'futbol') { await page.evaluate(s => setSport(s), sp); await page.waitForTimeout(6000); }
+    const J = [];
+    for (const [i, o] of P.entries()) {
+      // jugador 2: primero una línea más alta (menos %) y después la de la app, para mostrar "ajusta la línea"
+      const paso = o.ln >= 10 ? Math.max(2, Math.round(o.ln * .15)) : 1, A = i === 1 ? await detalle(page, Object.assign({}, o, {ln: o.ln + paso})) : null;
+      if (i === 1 && o.sp !== sp) { await page.evaluate(s => setSport(s), o.sp); await page.waitForTimeout(6000); }
+      const B = await detalle(page, o);
+      J.push({o: {pname: o.pname, team: o.team, h: o.h, a: o.a, mk: o.mk, ln: o.ln, lname: o.lname, sp: o.sp, when: o.when}, A, B, lnA: A ? o.ln + paso : null, foto: o.foto ? fs.readFileSync(o.foto).toString('base64') : null});
+    }
+    // el radar: oportunidades de jugadores del día
+    await page.evaluate(() => { activeLeague = 'all'; setView('picks'); pkSecSet('oport'); }); await page.waitForTimeout(2500);
+    await page.evaluate(() => { if (typeof opKind === 'function') opKind('player'); }); await page.waitForTimeout(2500); await page.evaluate(() => scrollTo(0, 0));
+    const radar = (await page.screenshot({type: 'png'})).toString('base64');
+    const nRadar = await page.evaluate(() => { const b = [...document.querySelectorAll('.op-kind button')].find(x => /Jugadores/.test(x.innerText)); return b ? parseInt((b.querySelector('.op-n') || {}).innerText) || 0 : 0; });
+    // la pantalla de Premium
+    await page.evaluate(() => { try { abPay(); } catch (e) {} }); await page.waitForTimeout(2000);
+    const prem = (await page.screenshot({type: 'png'})).toString('base64');
+    return {J, radar, prem, nRadar};
+  } finally { await browser.close(); }
+}
+async function radarVideo() {
+  const P = jugadoresRadar(); if (P.length < 2) { console.log('Radar: no hay 2 jugadores que sirvan hoy'); return null; }
+  console.log('Radar con:', P.map(o => `${o.pname} · más de ${o.ln} ${o.mk}`).join(' | '));
+  await estadoSet({paso: '1/3 · Abriendo la app y tomando las pantallas…'}).catch(() => {});
+  const cap = await capturarRadar(P);
+  await estadoSet({paso: '2/3 · Armando el video (35 s)…'}).catch(() => {});
+  const file = await panel(async page => bajar(page, a => window.__bot.radar(a), cap));
+  await estadoSet({paso: '3/3 · Subiendo el video…'}).catch(() => {});
+  const ic = P[0].sp === 'futbol' ? '⚽' : '🏀', L = cap.J.map(j => `${ic} ${j.o.pname} (${j.o.h} vs ${j.o.a}): más de ${j.o.ln} ${String(j.o.mk).toLowerCase()} · ${j.B.v.hit} · ${j.B.v.prob}`).join('\n');
+  const txt = `📡 EL RADAR DE HOY\n\n${L}\n\n¿Todavía eliges a ciegas? Donde hay datos, hay ventaja.\nEste y todos los jugadores del día, en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#${P[0].sp === 'futbol' ? 'futbol' : 'NBA'} #pronosticos #apuestasdeportivas`;
+  return {file, txt};
 }
 
 // ---------- v50.1 · guardar el video armado para descargarlo desde el panel (rama "videos" del repo, se guardan los últimos 8) ----------
@@ -232,8 +287,8 @@ async function plan() {
       if (st) {
         const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
         Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
-        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
-          await estadoSet({ya: '', yaT: 0, hecho, armando: m, armandoT: Date.now()}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; process.env.FB_SOLO = /:sel$/.test(m) && st.soloDesc ? '1' : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; process.env.FB_SOLO = ''; continue; }
+        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
+          await estadoSet({ya: '', yaT: 0, hecho, armando: m, armandoT: Date.now()}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; process.env.FB_RADAR = m === 'radar:sel' ? JSON.stringify(st.radarSel || []) : ''; process.env.FB_SOLO = (/:sel$/.test(m) || m === 'radar') && st.soloDesc ? '1' : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; process.env.FB_RADAR = ''; process.env.FB_SOLO = ''; continue; }
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
           if (hecho[k] || (dias && !dias.includes(now.dow)) || now.hm < h || now.hm > hasta) continue;
@@ -251,13 +306,21 @@ async function plan() {
   // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
   if (MODE === 'poll') {
     const st = await estado() || {}; let m = 'none';
-    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
+    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'modo=' + m + '\n'); else console.log('modo=' + m);
     return;
   }
   if (MODE !== 'check' && process.env.FB_PROGRAMADO === '1' && !DRY) { const st = await estado(); if (st && st.pausa) { console.log('En pausa desde el panel: no se publica.'); await anotar({ok: false, txt: 'En pausa'}); return; } }
   const p = process.argv.includes('--sin-fb') ? null : await pagina();
   if (MODE === 'check') return;
+  if (MODE.startsWith('radar')) { // v51 · video radar
+    const res = await radarVideo(); if (!res) { if (!DRY) await anotar({ok: false, txt: 'Sin jugadores para el radar'}); return; }
+    let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
+    if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(f)}\n${res.txt}`); return; }
+    await guardarVideo(f, res.txt, 'Radar');
+    if (SOLO) { await anotar({ok: true, txt: 'Video radar listo para compartir (no se publicó)'}); return; }
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); return;
+  }
   if (MODE.startsWith('ana')) { // v50 · video análisis de una jugada, con capturas de la app
     const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(res.file)}\n${res.txt}`); return; }
