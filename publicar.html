@@ -345,7 +345,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.1</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -666,6 +666,7 @@ function fbBox(){
 function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz armado en el servidor)
   const st = FBS.st || {}, v = st['vid' + kind] || (kind === 'Reel' && st.vid ? Object.assign({}, st.vid, {}) : null), re = kind === 'Ana' ? /^ana:sel$/ : kind === 'Radar' ? /^radar/ : /^reel:sel$/, arm = re.test(st.ya || '') || (re.test(st.armando || '') && +st.armandoT > Date.now() - 20 * 60e3 && !(v && v.t > +st.armandoT));
   let h = arm ? `<div class="note" style="margin:10px 0 0">⏳ ${st.ya ? 'Pedido recibido: empieza en menos de 1 minuto…' : esc(st.paso || 'Armando el video en el servidor…')}<br><small>Tarda unos 2 a 4 minutos. Esta parte se actualiza sola.</small></div>` : '';
+  const L0 = (st.log || [])[0]; if(!arm && L0 && !L0.ok && re.test(L0.modo || '') && L0.t > ((v && v.t) || 0) && L0.t > Date.now() - 6 * 3600e3) h += `<div class="msg err" style="margin-top:10px">⚠️ No se pudo armar el último pedido: ${esc(L0.txt || '')}. Prueba de nuevo o con otra jugada.</div>`;
   if(v && v.url && v.t > Date.now() - 48 * 3600e3){ const t = new Date(v.t + ECU).toISOString();
     h += `<div class="vid-srv"><div class="note" style="margin:10px 0 6px">Último video armado · ${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)}</div>${(() => { const m = String(v.url).match(/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/([0-9a-f]{40})\/(.+)$/); return m ? `<video class="vplay" src="https://cdn.jsdelivr.net/gh/${m[1]}@${m[2]}/${m[3]}" controls playsinline preload="metadata" ${v.img ? `data-thumb="${esc(v.img)}"` : ''}></video>` : (v.img ? `<img class="vthumb" data-isrc="${esc(v.img)}" alt="">` : ''); })()}<div class="note" style="margin:0 0 8px">🎬 ${esc((v.txt || '').split('\n').filter(Boolean).slice(1, 3).join(' · ') || v.name || '')}</div>
       <div class="btns"><button class="btn" data-vsh="${kind}">📲 Compartir</button><button class="btn ghost" data-vdl="${kind}">⬇️ Descargar</button></div>

@@ -49,7 +49,7 @@ const fsEnc = v => v == null ? {nullValue: null} : typeof v === 'boolean' ? {boo
 async function estado() { const H = await fsInit(); if (!H) return null; const r = await fetch(FS_DOC + '?mask.fieldPaths=fb', {headers: H}); if (!r.ok) { console.log('estado: HTTP ' + r.status); if (r.status === 401) FS_T = 0; return null; } const f = ((await r.json()).fields || {}).fb; return f ? fsVal(f) || {} : {}; }
 async function estadoSet(obj) { const H = await fsInit(); if (!H) return; const q = Object.keys(obj).map(k => 'updateMask.fieldPaths=fb.' + k).join('&');
   const r = await fetch(FS_DOC + '?' + q, {method: 'PATCH', headers: H, body: JSON.stringify({fields: {fb: fsEnc(obj)}})}); if (!r.ok) console.log('estado: no se pudo guardar (HTTP ' + r.status + ')'); }
-async function anotar(e) { try { const st = await estado(); if (!st) return; const log = [Object.assign({t: Date.now(), modo: MODE}, e)].concat(st.log || []).slice(0, 40); await estadoSet({log}); } catch (x) {} }
+async function anotar(e) { try { const st = await estado(); if (!st) return; const log = [Object.assign({t: Date.now(), modo: MODE}, e)].concat(st.log || []).slice(0, 40); await estadoSet({log, armando: '', paso: ''}); } catch (x) {} } // al terminar (bien o mal) el panel deja de mostrar "armando"
 
 // ---------- armar imágenes / video con el panel ----------
 async function panel(fn) {
@@ -179,7 +179,7 @@ function jugadoresRadar() {
   const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
   let C = sel.length ? sel : I.filter(o => ts(o) > now + 45 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && foto(o) && (o.sp !== 'nba' || o.role === 'top') && !/falta|tarjeta/i.test(o.mk))
     .sort((a, b) => (b.sp === 'nba') - (a.sp === 'nba') || b.hit / b.n - a.hit / a.n || b.p - a.p);
-  const out = []; for (const o of C) { if (out.length >= 2) break; if (out.some(x => x.pname === o.pname || (x.h === o.h && x.a === o.a))) continue; if (out.length && out[0].sp !== o.sp && !sel.length) continue; out.push(o); }
+  const out = []; for (const o of C) { if (out.length >= 2) break; if (out.some(x => x.pname === o.pname || (!sel.length && x.h === o.h && x.a === o.a))) continue; /* los elegidos en el panel pueden ser del mismo partido */ if (out.length && out[0].sp !== o.sp && !sel.length) continue; out.push(o); }
   return out.map(o => Object.assign({}, o, {foto: foto(o)}));
 }
 async function capturarRadar(P) {
@@ -206,7 +206,7 @@ async function capturarRadar(P) {
   } finally { await browser.close(); }
 }
 async function radarVideo() {
-  const P = jugadoresRadar(); if (P.length < 2) { console.log('Radar: no hay 2 jugadores que sirvan hoy'); return null; }
+  const P = jugadoresRadar(); if (P.length < 2) { console.log('Radar: no hay 2 jugadores que sirvan', process.env.FB_RADAR || ''); return null; }
   console.log('Radar con:', P.map(o => `${o.pname} · más de ${o.ln} ${o.mk}`).join(' | '));
   await estadoSet({paso: '1/3 · Abriendo la app y tomando las pantallas…'}).catch(() => {});
   const cap = await capturarRadar(P);
