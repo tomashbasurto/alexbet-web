@@ -201,8 +201,8 @@ async function plan() {
       if (st) {
         const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
         Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
-        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem|ana(:sel)?)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
-          await estadoSet({ya: '', yaT: 0, hecho}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; correr(m, false); process.env.FB_ANA = ''; continue; }
+        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
+          await estadoSet({ya: '', yaT: 0, hecho}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; continue; }
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
           if (hecho[k] || (dias && !dias.includes(now.dow)) || now.hm < h || now.hm > hasta) continue;
@@ -220,7 +220,7 @@ async function plan() {
   // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
   if (MODE === 'poll') {
     const st = await estado() || {}; let m = 'none';
-    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba)?|sem|ana(:sel)?)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
+    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'modo=' + m + '\n'); else console.log('modo=' + m);
     return;
   }
@@ -240,9 +240,10 @@ async function plan() {
       return [{file: await bajar(page, k => window.__bot.bajar(k), 0), txt: await page.evaluate(() => window.__bot.texto(0))}];
     }
     if (MODE.startsWith('reel')) {
+      if (process.env.FB_REEL) await page.evaluate(k => { window.__reelSel = k; }, JSON.parse(process.env.FB_REEL));
       const info = await page.evaluate(o => window.__bot.elegir('reel', o), MODE.split(':')[1] || null);
       console.log('Reel con:', info.join(' | '));
-      if (info.length < 2) return []; // sin partidos suficientes ese día: no se publica
+      if (info.length < (MODE === 'reel:sel' ? 1 : 2)) return []; // sin partidos suficientes ese día: no se publica
       const f = await bajar(page, () => window.__bot.video());
       return [{file: f, txt: await page.evaluate(() => window.__bot.texto())}];
     }

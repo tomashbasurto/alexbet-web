@@ -82,7 +82,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=5';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, guardadoErr } from './video.js?v=6';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -311,6 +311,7 @@ function pintar(){
         <label><span>Tono</span><select id="vTono">${[[1,'Normal'],[0.92,'Grave'],[0.86,'Muy grave']].map(([v,t]) => `<option value="${v}" ${VZ.tono==v?'selected':''}>${t}</option>`).join('')}</select></label>
         <label><span>Velocidad</span><select id="vVel">${[[0.95,'Calmada'],[1,'Normal'],[1.1,'Un poco más rápida'],[1.2,'Rápida']].map(([v,t]) => `<option value="${v}" ${VZ.vel==v?'selected':''}>${t}</option>`).join('')}</select></label></div>
       <div class="btns"><button class="btn ghost" id="vTry">▶ Probar voz</button><button class="btn" id="vGen" ${nSel?'':'disabled style="opacity:.5"'}>Crear video</button></div>
+      ${nSel ? '<button class="btn ghost" id="vSrv" style="width:100%;margin-top:8px">☁️ Armar en el servidor y publicar en Facebook</button><div class="note" style="margin:4px 0 0">Si en el celular falla (pantalla apagada, ahorro de batería), el servidor arma el mismo video con las elegidas y lo publica en unos 5 minutos.</div>' : ''}
       <div class="msg" id="vMsg"></div><div id="vOut"></div></div>` : ''}
     <div class="prev" id="prev"></div>
     <button class="btn ghost" id="out">Cerrar sesión</button>`;
@@ -345,6 +346,7 @@ function pintar(){
     $('vTono').onchange = e => { VZ.tono = +e.target.value; };
     $('vTry').onclick = () => probarVoz();
     $('vGen').onclick = () => hacerVideo(chosen.slice(0, 4));
+    if($('vSrv')) $('vSrv').onclick = () => { const L = chosen.slice(0, 4); if(confirm(`¿Armar el video con ${L.length} elegida${L.length>1?'s':''} y publicarlo en Facebook?`)) fbSet({ya: 'reel:sel', yaT: Date.now(), reelSel: L.map(p => p.ok || p.id)}); };
     pintarVideo();
   }
   pintarOut();
@@ -592,7 +594,7 @@ async function semana(){
 // v49 · Facebook automático: lo que se publicó, lo que viene, pausa y "publicar ya" (campo fb de la cuenta del administrador en Firestore)
 const FBS = {st: null, err: '', busy: false, open: false};
 const FB_PROG = [['08:00', 'resdep', 'Resultados de ayer (una imagen por deporte)'], ['10:00', 'pro:8', 'Pronósticos (2 imágenes)'], ['10:30', 'reel', 'Reel con voz'], ['13:00', 'ana', 'Video análisis (la mejor jugada del día)'], ['16:00', 'reel:nba', 'Reel de NBA'], ['18:00', 'sem', 'Resumen de la semana (solo domingos)']];
-const FB_N = {resdep: 'Resultados de ayer', res: 'Resultados de ayer', 'pro:8': 'Pronósticos', pro: 'Pronósticos', reel: 'Reel con voz', 'reel:nba': 'Reel de NBA', sem: 'Resumen semanal', ana: 'Video análisis', 'ana:sel': 'Video análisis (jugada elegida)'};
+const FB_N = {resdep: 'Resultados de ayer', res: 'Resultados de ayer', 'pro:8': 'Pronósticos', pro: 'Pronósticos', reel: 'Reel con voz', 'reel:nba': 'Reel de NBA', sem: 'Resumen semanal', 'reel:sel': 'Reel (elegidas en el panel)', ana: 'Video análisis', 'ana:sel': 'Video análisis (jugada elegida)'};
 let FSM = null;
 async function fbFS(){ if(FSM) return FSM; const M = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'); FSM = {M, db: M.getFirestore(app)}; return FSM; }
 async function fbLoad(){ if(new URLSearchParams(location.search).has('bot')) return; try{ const {M, db} = await fbFS(); const ref = M.doc(db, 'users', auth.currentUser.uid); let d = await M.getDoc(ref);
@@ -721,6 +723,9 @@ if(new URLSearchParams(location.search).has('bot')){
           return t > 1 && p.prob < 65 ? 1 : t; }; // con menos de 65% no sube de prioridad
         const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => prio(b) - prio(a) || (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
         if(m === 'pro'){ const n = +opt || 4; SELB = variado(pool.filter(p => p.kind === 'team'), n, Math.max(2, Math.ceil(n / 3))).sort((a,b) => b.prob - a.prob); }
+        else if(opt === 'sel'){ // las que eligió Alexander en el panel (llaves de oportunidades o ids de sugerencias)
+          const K = (window.__reelSel || []), all = proPool(); SELB = K.map(k => all.find(p => (p.ok || p.id) === k)).filter(Boolean).slice(0, 4);
+        }
         else if(opt === 'nba'){ // Reel solo de NBA: 2 partidos y 2 jugadores titulares
           const nb = pool.filter(p => p.sp === 'nba'), t = variado(nb.filter(p => p.kind === 'team'), 2, 2), j = variado(nb.filter(p => p.kind === 'player' && p.role === 'top').sort((a,b) => b.prob - a.prob), 4 - t.length, 4);
           SELB = t.concat(j); if(SELB.length < 4) SELB = SELB.concat(variado(nb.filter(p => !SELB.includes(p)), 4 - SELB.length, 4)); LIGA = 'NBA';

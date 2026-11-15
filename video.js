@@ -376,7 +376,8 @@ export async function crearVideo(sel, ctx) {
   await new Promise((res, rej) => {
     let last = -1, quieto = 0;
     const tick = () => { const tt = ac.currentTime - start; draw(Math.max(0, tt)); if (tt >= total + .2) return res();
-      if (ac.currentTime === last) { if (++quieto > 240) return rej(new Error('el audio se detuvo (¿se apagó la pantalla o cambiaste de app?)')); } else { quieto = 0; last = ac.currentTime; }
+      // iPhone a veces pausa el audio un momento (aviso, ahorro de batería): se intenta reanudar y se espera hasta ~12 s antes de dar error
+      if (ac.currentTime === last) { if (++quieto % 30 === 0) ac.resume().catch(() => {}); if (quieto > 720) return rej(new Error('el audio se detuvo (¿se apagó la pantalla, cambiaste de app o está activo el ahorro de batería?). Prueba "Armar en el servidor"')); } else { quieto = 0; last = ac.currentTime; }
       (ctx.raf || requestAnimationFrame)(tick); };
     tick();
   }).catch(e => { try { rec.stop(); } catch (x) {} throw e; });
