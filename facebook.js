@@ -251,11 +251,15 @@ async function guardarVideo(f, txt, kind) {
 const SOLO = process.env.FB_SOLO === '1';
 
 // ---------- publicar ----------
+const WA = 'https://whatsapp.com/channel/0029VbEE3dUInlqGu4PmJF3o'; // canal de WhatsApp: va en todo lo que se publica
+const conWA = t => { t = String(t || ''); if (t.includes('whatsapp.com/channel')) return t; const l = '📲 Pronóstico diario en WhatsApp: ' + WA, i = t.search(/\n\n\+18/); return i >= 0 ? t.slice(0, i) + '\n\n' + l + t.slice(i) : t + '\n\n' + l; };
 async function foto(p, file, txt) {
+  txt = conWA(txt);
   const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(file)]), path.basename(file)); fd.append('message', txt); fd.append('access_token', p.access_token);
   return api(`${G}/${p.id}/photos`, {method: 'POST', body: fd});
 }
 async function album(p, files, txt) {
+  txt = conWA(txt);
   const ids = [];
   for (const f of files) {
     const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(f)]), path.basename(f)); fd.append('published', 'false'); fd.append('access_token', p.access_token);
@@ -266,6 +270,7 @@ async function album(p, files, txt) {
   return api(`${G}/${p.id}/feed`, {method: 'POST', body: fd});
 }
 async function reel(p, file, txt) {
+  txt = conWA(txt);
   const st = await api(`${G}/${p.id}/video_reels`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({upload_phase: 'start', access_token: p.access_token})});
   const buf = fs.readFileSync(file);
   const up = await fetch(st.upload_url || `https://rupload.facebook.com/video-upload/v21.0/${st.video_id}`, {method: 'POST', headers: {Authorization: 'OAuth ' + p.access_token, offset: '0', file_size: String(buf.length)}, body: buf});
