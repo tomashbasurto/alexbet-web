@@ -99,7 +99,22 @@ async function leerCuenta(u, nombre) {
     });
     snap = await F.getDoc(ref);
   }
+  // v49.2 · país del usuario (por la zona horaria del celular) para separarlos en el panel; se guarda solo si cambió
+  try { const p = paisCel(); if (p && (snap.data() || {}).pais !== p) F.updateDoc(ref, {pais: p}).catch(() => {}); } catch (e) {}
   return {ref, d: leerDoc(snap.data(), u)};
+}
+// zona horaria → país (código de 2 letras); si no está en la lista, la región del idioma del celular (es-MX → MX)
+const TZ_PAIS = {Guayaquil: 'EC', Galapagos: 'EC', Bogota: 'CO', Lima: 'PE', Caracas: 'VE', La_Paz: 'BO', Santiago: 'CL', Punta_Arenas: 'CL', Asuncion: 'PY', Montevideo: 'UY',
+  Buenos_Aires: 'AR', Cordoba: 'AR', Mendoza: 'AR', Salta: 'AR', Jujuy: 'AR', Tucuman: 'AR', Catamarca: 'AR', La_Rioja: 'AR', San_Juan: 'AR', San_Luis: 'AR', Rio_Gallegos: 'AR', Ushuaia: 'AR',
+  Mexico_City: 'MX', Monterrey: 'MX', Merida: 'MX', Cancun: 'MX', Tijuana: 'MX', Chihuahua: 'MX', Mazatlan: 'MX', Hermosillo: 'MX', Bahia_Banderas: 'MX', Matamoros: 'MX', Ojinaga: 'MX',
+  Panama: 'PA', Costa_Rica: 'CR', Guatemala: 'GT', El_Salvador: 'SV', Tegucigalpa: 'HN', Managua: 'NI', Santo_Domingo: 'DO', Puerto_Rico: 'PR', Havana: 'CU',
+  Sao_Paulo: 'BR', Fortaleza: 'BR', Manaus: 'BR', Recife: 'BR', Belem: 'BR', Bahia: 'BR', Cuiaba: 'BR', Porto_Velho: 'BR', Rio_Branco: 'BR', Campo_Grande: 'BR', Maceio: 'BR', Araguaina: 'BR', Boa_Vista: 'BR', Santarem: 'BR', Noronha: 'BR',
+  Madrid: 'ES', Canary: 'ES', Ceuta: 'ES', New_York: 'US', Chicago: 'US', Denver: 'US', Los_Angeles: 'US', Phoenix: 'US', Anchorage: 'US', Detroit: 'US', Honolulu: 'US', Toronto: 'CA', Vancouver: 'CA',
+  London: 'GB', Rome: 'IT', Paris: 'FR', Berlin: 'DE', Lisbon: 'PT', Amsterdam: 'NL', Brussels: 'BE', Zurich: 'CH'};
+function paisCel() {
+  let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+  const p = TZ_PAIS[tz.split('/').pop()]; if (p) return p;
+  const m = String(navigator.language || '').match(/-([A-Z]{2})$/i); return m ? m[1].toUpperCase() : '';
 }
 function leerDoc(x, u) {
   x = x || {};
