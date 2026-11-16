@@ -296,6 +296,17 @@ function escenaPick(c, S, t, D) {
   pieV(c);
 }
 
+// canal de WhatsApp: una pastilla verde al cierre de cada video
+function waBadge(c, y, k) {
+  if (k <= 0) return; c.save(); c.globalAlpha *= k; c.textAlign = 'center';
+  const W = 760, x = (VW - W) / 2, H = 132; rr(c, x, y, W, H, 66); c.fillStyle = '#25d366'; c.shadowColor = 'rgba(37,211,102,.45)'; c.shadowBlur = 36; c.fill(); c.shadowBlur = 0;
+  const cx = x + 74, cy = y + H / 2; c.beginPath(); c.arc(cx, cy, 40, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill(); // ícono: globo de chat con teléfono
+  c.beginPath(); c.moveTo(cx - 30, cy + 26); c.lineTo(cx - 40, cy + 42); c.lineTo(cx - 14, cy + 34); c.closePath(); c.fill();
+  c.beginPath(); c.arc(cx, cy, 28, 0, Math.PI * 2); c.fillStyle = '#25d366'; c.fill(); c.font = '900 34px Inter'; c.fillStyle = '#fff'; c.fillText('✆', cx, cy + 12);
+  c.fillStyle = '#fff'; c.font = '900 46px Inter'; c.fillText('Síguenos en WhatsApp', x + W / 2 + 44, y + 62); c.font = '700 30px Inter'; c.fillStyle = '#eafff1'; c.fillText('Canal · AlexBet Pronósticos', x + W / 2 + 44, y + 104);
+  c.restore();
+}
+
 function escenaCierre(c, S, t, D) {
   const a = seg(t, 0, .6), b = seg(t, .5, .7), d = seg(t, 1.1, .7);
   c.globalAlpha = a; const s = 200; if (D.logo) { c.save(); rr(c, VW / 2 - s / 2, 260, s, s, 48); c.clip(); c.drawImage(D.logo, VW / 2 - s / 2, 260, s, s); c.restore(); }
@@ -307,7 +318,7 @@ function escenaCierre(c, S, t, D) {
   }
   c.globalAlpha = d; rr(c, 120, 1180, VW - 240, 150, 75); c.fillStyle = A; c.fill();
   c.font = '900 56px Orbitron'; c.fillStyle = '#061006'; c.fillText('alexbetpro.web.app', VW / 2, 1275);
-  c.font = '700 40px Inter'; c.fillStyle = INK; c.fillText('Síguenos para las de mañana', VW / 2, 1440);
+  c.globalAlpha = 1; waBadge(c, 1365, d); c.globalAlpha = d; c.textAlign = 'center';
   rr(c, VW / 2 - 70, 1540, 140, 80, 18); c.strokeStyle = INK; c.lineWidth = 5; c.stroke(); c.font = '900 44px Orbitron'; c.fillStyle = INK; c.fillText('+18', VW / 2, 1596);
   c.font = '500 32px Inter'; c.fillStyle = DIM; c.fillText('Son probabilidades, no garantías. Juega con responsabilidad.', VW / 2, 1690);
   c.textAlign = 'left'; c.globalAlpha = 1;
@@ -448,6 +459,7 @@ export async function crearAnalisis(ctx) {
       const kb = seg(lt, .9, .5); c.globalAlpha = kb; rr(c, 250, 1090, 580, 120, 60); c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 40; c.fill(); c.shadowBlur = 0;
       c.fillStyle = '#061006'; c.font = '900 44px Inter'; c.textAlign = 'center'; c.fillText('Versión Premium →', 540, 1150); c.font = '700 24px Inter'; c.fillText('este y otros análisis', 540, 1188);
       c.font = '700 40px Orbitron'; c.fillStyle = A; c.fillText('alexbetpro.web.app', 540, 1290); c.font = '600 26px Inter'; c.fillStyle = DIM;
+      c.globalAlpha = 1; waBadge(c, 1400, seg(lt, 1.3, .5)); c.globalAlpha = kb; c.textAlign = 'center'; c.font = '600 26px Inter'; c.fillStyle = DIM;
       c.fillText('+18 · Análisis estadístico, no garantiza resultados.', 540, 1700); c.fillText('Juega con responsabilidad.', 540, 1740); c.textAlign = 'left'; c.globalAlpha = 1; return; }
     const prev = sc[i - 1] && !sc[i - 1].fin && sc[i - 1].img === s.img ? sc[i - 1] : null, kc = prev ? seg(lt, 0, .7) : 1;
     let cam = prev ? lc(prev.cam2 || prev.cam, s.cam, kc) : s.cam; if (s.cam2) cam = lc(s.cam, s.cam2, Math.min(1, lt / s.dur));
@@ -581,7 +593,7 @@ export async function crearRadar(ctx) {
     else { grande(c, 'DONDE HAY DATOS,', 'HAY VENTAJA.', 760, seg(lt, 0, .5), 100); c.save(); c.globalAlpha = seg(lt, .6, .5); c.textAlign = 'center'; c.font = '600 36px Inter'; c.fillStyle = INK;
       c.fillText('Cada jugador, partido a partido,', VW / 2, 1000); c.fillText('en una sola pantalla.', VW / 2, 1048);
       rr(c, 190, 1110, 700, 120, 60); c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.5)'; c.shadowBlur = 40; c.fill(); c.shadowBlur = 0; c.fillStyle = '#061006'; c.font = 'italic 900 52px Inter'; c.fillText('¡PRUÉBALA AHORA!', VW / 2, 1188);
-      c.font = '700 44px Orbitron'; c.fillStyle = A; c.fillText('alexbetpro.web.app', VW / 2, 1310); c.font = '600 26px Inter'; c.fillStyle = DIM; c.fillText('+18 · Análisis estadístico, no garantiza resultados. Juega con responsabilidad.', VW / 2, 1760); c.restore(); }
+      c.font = '700 44px Orbitron'; c.fillStyle = A; c.fillText('alexbetpro.web.app', VW / 2, 1310); c.font = '600 26px Inter'; c.fillStyle = DIM; c.fillText('+18 · Análisis estadístico, no garantiza resultados. Juega con responsabilidad.', VW / 2, 1760); c.restore(); waBadge(c, 1430, seg(lt, 1, .5)); }
     const f = Math.min(1, lt / .18); if (f < 1 && i > 0) { c.save(); c.globalAlpha = (1 - f) * .8; c.fillStyle = '#ffffff'; c.fillRect(0, 0, VW, VH); c.restore(); } // destello al cambiar
   };
   draw(0); rec.start(1000); const start = ac.currentTime + .25; musica(ac, dest, start, total);

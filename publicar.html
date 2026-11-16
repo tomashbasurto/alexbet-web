@@ -85,7 +85,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, crearRadar, guardadoErr } from './video.js?v=10';
+import { Voz, VOCES, vozGuardada, hablar, crearVideo, crearAnalisis, crearRadar, guardadoErr } from './video.js?v=11';
 
 const ADMIN = 'tomashbasurto@gmail.com';
 const MIRROR = 'https://tomashbasurto.github.io/alexbet-web/';
@@ -345,7 +345,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.3</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.4</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -444,13 +444,20 @@ async function cabecera(c, t1, t2, sub){
   c.fillStyle = A; c.fillText(t2, 60, 308);
 }
 function pie(c){
-  rr(c, 60, H-150, 470, 104, 22); c.fillStyle = A; c.fill();
-  c.fillStyle = '#061006'; c.font = '900 31px Orbitron'; c.fillText('alexbetpro.web.app', 88, H-96);
-  c.font = '600 18px Inter'; c.fillStyle = '#21330a'; c.fillText('Prueba gratis 15 días · análisis de cada partido', 88, H-66);
+  rr(c, 60, H-150, 418, 104, 22); c.fillStyle = A; c.fill();
+  c.fillStyle = '#061006'; c.font = '900 29px Orbitron'; c.fillText('alexbetpro.web.app', 82, H-96);
+  c.font = '600 18px Inter'; c.fillStyle = '#21330a'; c.fillText('Prueba gratis 15 días', 82, H-66);
+  // canal de WhatsApp
+  rr(c, 492, H-150, 248, 104, 22); c.fillStyle = '#25d366'; c.fill();
+  const wx = 532, wy = H-98; c.fillStyle = '#fff'; c.beginPath(); c.arc(wx, wy, 24, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.moveTo(wx-18, wy+15); c.lineTo(wx-25, wy+26); c.lineTo(wx-8, wy+21); c.closePath(); c.fill();
+  c.beginPath(); c.arc(wx, wy, 17, 0, Math.PI*2); c.fillStyle = '#25d366'; c.fill(); c.fillStyle = '#fff'; c.font = '900 21px Inter'; c.textAlign = 'center'; c.fillText('✆', wx, wy+7); c.textAlign = 'left';
+  c.fillStyle = '#fff'; c.font = '800 19px Inter'; c.fillText('Síguenos en', 570, H-110); c.font = '900 27px Inter'; c.fillText('WhatsApp', 570, H-80);
+  c.font = '600 15px Inter'; c.fillStyle = '#eafff1'; c.fillText('AlexBet Pronósticos', 570, H-58);
   c.textAlign = 'right';
   c.strokeStyle = INK; c.lineWidth = 2.5; rr(c, W-60-74, H-150, 74, 44, 10); c.stroke();
   c.fillStyle = INK; c.font = '900 25px Orbitron'; c.textAlign = 'center'; c.fillText('+18', W-60-37, H-118); c.textAlign = 'right';
-  c.font = '500 18px Inter'; c.fillStyle = DIM; c.fillText('Son probabilidades, no garantías.', W-60, H-74); c.fillText('Juega con responsabilidad.', W-60, H-48);
+  c.font = '500 16px Inter'; c.fillStyle = DIM; c.fillText('Son probabilidades,', W-60, H-82); c.fillText('no garantías.', W-60, H-62); c.fillText('Juega con responsabilidad.', W-60, H-42);
   c.textAlign = 'left';
 }
 async function fila(c, p, y, h, res){
