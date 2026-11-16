@@ -318,6 +318,11 @@ async function plan() {
   if (MODE !== 'check' && process.env.FB_PROGRAMADO === '1' && !DRY) { const st = await estado(); if (st && st.pausa) { console.log('En pausa desde el panel: no se publica.'); await anotar({ok: false, txt: 'En pausa'}); return; } }
   const p = process.argv.includes('--sin-fb') ? null : await pagina();
   if (MODE === 'check') return;
+  if (MODE === 'promo') { // una imagen y su texto preparados a mano (carpeta fb-promo)
+    const f = path.join(ROOT, 'fb-promo', 'promo.png'), txt = fs.readFileSync(path.join(ROOT, 'fb-promo', 'promo.txt'), 'utf8').trim();
+    if (DRY || !p) { console.log('[prueba] no se publica:', txt.split('\n')[0]); return; }
+    const r = await foto(p, f, txt); console.log('Publicada la promo:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); return;
+  }
   if (MODE.startsWith('radar')) { // v51 · video radar
     const res = await radarVideo(); if (!res) { if (!DRY) await anotar({ok: false, txt: 'Sin jugadores para el radar'}); return; }
     let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
