@@ -13,6 +13,7 @@ const PAGO = {
     {banco: 'Banco Pacífico', tipo: 'Ahorros', num: '1065365682', bg: '#dbeafe', fg: '#1e40af'}
   ],
   titular: 'Alexander Javier Basurto Aguirre',
+  paypal: 'MPJXL4J5WU5UG',  // ID de comerciante de PayPal (pagos con cuenta PayPal o tarjeta, desde cualquier país)
   payphone: '',            // link o número de PayPhone
   transferencia: ''        // banco, tipo y número de cuenta, nombre y cédula
 };
@@ -38,8 +39,11 @@ const CACHE_KEY = 'ab_cuenta';
 const AB = window.AB;
 let fb = null;          // módulos de Firebase cargados
 let modo = 'signup';    // pestaña del formulario
-const METODOS = () => [['Deuna', PAGO.deuna], ['PayPhone', PAGO.payphone], ['Transferencia', PAGO.transferencia]].filter(m => m[1]);
-let metodo = 'Deuna';
+const METODOS = () => [['Deuna', PAGO.deuna], ['PayPal', PAGO.paypal ? 'Paga con tu cuenta PayPal o con tarjeta de crédito o débito, desde cualquier país.' : ''], ['PayPhone', PAGO.payphone], ['Transferencia', PAGO.transferencia]].filter(m => m[1]);
+// fuera de Ecuador se abre directo en PayPal (Deuna y las transferencias son solo de Ecuador)
+const EN_ECU = -new Date().getTimezoneOffset() / 60 === -5;
+let metodo = EN_ECU ? 'Deuna' : 'PayPal';
+const paypalLink = p => 'https://www.paypal.com/cgi-bin/webscr?' + new URLSearchParams({cmd: '_xclick', business: PAGO.paypal, item_name: 'AlexBet ' + p.nombre, item_number: p.id, amount: p.precio.replace('$', '').replace(',', '.'), currency_code: 'USD', no_shipping: '1', custom: AB.uid || '', return: 'https://alexbetpro.web.app/?pago=paypal', cancel_return: 'https://alexbetpro.web.app/'}).toString();
 let planSel = 'premium';
 
 const $ = id => document.getElementById(id);
@@ -286,7 +290,7 @@ window.abPayOpen = (paso) => {
       <ul class="ab-ok">${PREM_INCLUYE.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
       <button type="button" class="btn primary" onclick="abPayOpen('pago')">Activar Premium</button>
     </div>
-    <div class="sub" style="text-align:center;margin-top:10px">Pagas con Deuna o transferencia</div>
+    <div class="sub" style="text-align:center;margin-top:10px">${EN_ECU ? 'Pagas con Deuna, transferencia o PayPal (también con tarjeta)' : 'Pagas con PayPal o con tarjeta de crédito o débito'}</div>
     <button type="button" class="btn ghost" onclick="abPayClose()">Cerrar</button>`;
     w.classList.add('show'); return;
   }
@@ -299,11 +303,13 @@ window.abPayOpen = (paso) => {
     ${metodo === 'Deuna' && PAGO.deunaQR ? `<div class="ab-qr"><img src="${PAGO.deunaQR}" alt="Código QR de Deuna para pagar AlexBet">
       ${PAGO.deunaLink ? `<a class="btn primary" href="${esc(PAGO.deunaLink)}" target="_blank" rel="noopener">Pagar con Deuna</a>` : ''}
       <div class="sub">Desde otro celular, escanea el QR con Deuna. Desde este celular, toca "Pagar con Deuna" o mantén presionado el QR para guardarlo.</div></div>` : ''}
-    ${PAGO.cuentas && PAGO.cuentas.length ? `<div class="sub" style="margin:10px 0 6px">O transfiere a una de estas cuentas:</div>
+    ${metodo === 'PayPal' ? `<a class="btn primary" href="${esc(paypalLink(plan))}" target="_blank" rel="noopener" style="background:#ffc439;color:#003087;text-align:center;text-decoration:none;display:block">Pagar ${esc(plan.precio)} con PayPal</a>
+      <div class="sub">Se abre PayPal: entra con tu cuenta o elige "Pagar con tarjeta de débito o crédito". Al terminar, vuelve aquí y avísanos.</div>` : ''}
+    ${metodo === 'Deuna' && PAGO.cuentas && PAGO.cuentas.length ? `<div class="sub" style="margin:10px 0 6px">O transfiere a una de estas cuentas:</div>
     <div class="ab-ctas">${PAGO.cuentas.map(c => `<div class="ab-cta"><div class="ab-bk" style="background:${c.bg};color:${c.fg}">${esc(c.banco)}</div><small>${esc(c.tipo)}</small><b>${esc(c.num)}</b><button type="button" onclick="abCopiar('${esc(c.num)}', this)">Copiar</button></div>`).join('')}</div>
     ${PAGO.titular ? `<div class="set-box" style="margin-top:6px">Titular: <b>${esc(PAGO.titular)}</b></div>` : ''}` : ''}
-    <label>2. Envía el comprobante</label>
-    <button type="button" class="btn primary" onclick="abComprobante()">Enviar comprobante por WhatsApp</button>
+    <label>2. ${metodo === 'PayPal' ? 'Avísanos que pagaste' : 'Envía el comprobante'}</label>
+    <button type="button" class="btn ${metodo === 'PayPal' ? 'ghost' : 'primary'}" onclick="abComprobante()">${metodo === 'PayPal' ? 'Ya pagué: avisar por WhatsApp' : 'Enviar comprobante por WhatsApp'}</button>
     <div class="sub" style="margin-top:8px">El mensaje sale con tu correo (${esc(AB.user ? AB.user.email : '')}) para activarte rápido. Premium se activa en esta cuenta, en el celular y en la web.</div>
     <button type="button" class="btn ghost" onclick="abPayClose()">Cerrar</button>`;
   w.classList.add('show');
@@ -321,7 +327,7 @@ window.abMetodo = m => { metodo = m; window.abPayOpen('pago'); };
 window.abComprobante = async () => {
   const p = PLANES.find(x => x.id === planSel) || PLANES[0];
   const mail = AB.user ? AB.user.email : '';
-  const txt = `Hola, pagué AlexBet ${p.nombre} (${p.precio}) por ${metodo}. Mi correo: ${mail}. Adjunto el comprobante.`;
+  const txt = `Hola, pagué AlexBet ${p.nombre} (${p.precio}) por ${metodo}. Mi correo: ${mail}.${metodo === 'PayPal' ? '' : ' Adjunto el comprobante.'}`;
   if (!PAGO.whatsapp) { alert('El número de WhatsApp aún no está configurado.'); return; }
   window.open(`https://wa.me/${PAGO.whatsapp}?text=${encodeURIComponent(txt)}`, '_blank');
   try {

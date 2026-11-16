@@ -73,7 +73,7 @@ function cbLegs(want) {
     try {
       (usData[sp].games || []).forEach(g => {
         if (g.state !== 'pre' || g.postponed || isoDateOnlyEcuador(g.d, 0) !== day) return;
-        usPicks(g, usPre(g)).slice(0, 2).forEach(k => push(sp, sp, g.h.name, g.a.name, g.d, toEcuador(g.d, 0).getTime() + 5 * 3600e3, g.id, k, US[sp].name));
+        usPicks(g, usPre(g)).slice(0, 2).forEach(k => push(sp, sp, g.h.name, g.a.name, g.d, toEcuador(g.d, 0).getTime() - TZMS, g.id, k, US[sp].name));
       });
     } catch (e) {}
   });

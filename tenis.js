@@ -423,7 +423,7 @@ function tnOpen(id, keep) {
     <div class="matchup-hero hero-plain"><div class="meta">${TN_TOURS[m.tour].name} · ${escA(m.ev).toUpperCase()}${m.round ? ' · ' + escA(m.round).toUpperCase() : ''}</div>
       <div class="row">
         <div class="team-big">${tnAv(A, true)}<div class="name">${escA(A.name)}${favStar(A.name)}</div></div>
-        <div class="center-vs"><div class="ko-big">${m.state === 'pre' ? tnTime(m, f) : `<span style="font-size:17px;white-space:nowrap">${sc.pairs || '-'}</span>`}<small>${f.date} Ecuador${m.state === 'post' ? ' · Final' : m.state === 'in' ? ' · En vivo' : ''}${m.court ? ' · ' + escA(m.court) : ''}</small></div></div>
+        <div class="center-vs"><div class="ko-big">${m.state === 'pre' ? tnTime(m, f) : `<span style="font-size:17px;white-space:nowrap">${sc.pairs || '-'}</span>`}<small>${f.date} ${TZN}${m.state === 'post' ? ' · Final' : m.state === 'in' ? ' · En vivo' : ''}${m.court ? ' · ' + escA(m.court) : ''}</small></div></div>
         <div class="team-big">${tnAv(B, true)}<div class="name">${escA(B.name)}${favStar(B.name)}</div></div>
       </div></div>
     <div class="prob-card"><h3><span class="dot"></span>Quién gana${L ? ' (con el marcador actual)' : ''}</h3>
@@ -436,7 +436,7 @@ function tnOpen(id, keep) {
       <div class="lv-stats" style="justify-content:center;">Estimación según el saque típico del circuito: tómalo como referencia.</div></div>
     ${tnH2HHTML(m, A, B)}
     <div class="prob-card"><h3><span class="dot"></span>Jugadores</h3>${info(A, M.A)}${info(B, M.B)}</div>
-    <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo: rating Elo general y por superficie (resultados de ESPN; si no hay, ranking ${TN_TOURS[m.tour].name}) más el cara a cara; sets y juegos simulados con el saque típico del circuito. No considera lesiones ni cuotas. No garantiza el resultado.</div>`;
+    <div class="foot-note">Hora mostrada: ${TZL}. Modelo: rating Elo general y por superficie (resultados de ESPN; si no hay, ranking ${TN_TOURS[m.tour].name}) más el cara a cara; sets y juegos simulados con el saque típico del circuito. No considera lesiones ni cuotas. No garantiza el resultado.</div>`;
   document.getElementById('detailContent').innerHTML = html;
   if (!keep) {
     document.getElementById('home').classList.add('hide');

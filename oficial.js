@@ -78,4 +78,4 @@ function ofOpen(sp) {
     <div class="al-st" style="margin-top:8px">Toca una combinada para ver sus selecciones. Se publican en el servidor antes de cada partido, con fecha y hora, y se revisan solas con los resultados reales de ESPN. Nadie las puede editar. *Ganancia aproximada apostando 1 unidad a la cuota de la casa estimada. ${pend ? 'Pendientes de hoy: ' + pend + '.' : ''}</div>
   </div></div>`;
 }
-function ofWhen(t) { if (!t) return '-'; const d = new Date(t - 5 * 3600e3); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; }
+function ofWhen(t) { if (!t) return '-'; const d = new Date(t + TZMS); return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; }

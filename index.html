@@ -1594,8 +1594,12 @@ function hashColor(name){
 }
 
 // Fixture times are stored as the LOCAL kickoff time in the host country.
-// Ecuador is fixed at UTC-5 (no DST), so we convert using each league's utcOffset.
-const ECUADOR_OFFSET = -5;
+// v49.1 · Las horas se muestran en la hora del celular (el país del usuario). En Ecuador queda igual (UTC-5).
+// TZH = horas respecto a UTC del celular (Ecuador -5, México -6, Argentina -3, España +1…); TZMS en milisegundos.
+const TZH = -new Date().getTimezoneOffset() / 60, TZMS = TZH * 3600e3;
+const TZN = TZH === -5 ? 'Ecuador' : 'local';               // etiqueta corta: "hora Ecuador" / "hora local"
+const TZL = TZH === -5 ? 'hora de Ecuador (UTC-5)' : `la hora de tu celular (UTC${TZH >= 0 ? '+' : ''}${TZH})`;
+const ECUADOR_OFFSET = TZH;
 function toEcuador(iso, leagueUtcOffset){
   const [datePart, timePart] = iso.split('T');
   const [Y,M,D] = datePart.split('-').map(Number);
@@ -1619,7 +1623,7 @@ function fmtDisplay(iso, leagueUtcOffset){
   const mm = String(d.getUTCMonth()+1).padStart(2,'0');
   const hh = String(d.getUTCHours()).padStart(2,'0');
   const mi = String(d.getUTCMinutes()).padStart(2,'0');
-  return `${dd}/${mm} · ${hh}:${mi} (Ecuador)`;
+  return `${dd}/${mm} · ${hh}:${mi} (${TZN})`;
 }
 
 // ---------- Calendar / date strip ----------
@@ -1833,16 +1837,16 @@ function vaPrime(){
 }
 // resultados de sugerencias ya jugadas (24 h)
 function pkMark(r){ return r===1 ? '✅' : r===0 ? '❌' : r==='v' ? '➖' : '⏳'; }
-function pkSelDay(){ const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), hoy = dk(Date.now()); return (activeDate && activeDate!=='all') ? activeDate : hoy; }
+function pkSelDay(){ const dk = t=>new Date(t+TZMS).toISOString().slice(0,10), hoy = dk(Date.now()); return (activeDate && activeDate!=='all') ? activeDate : hoy; }
 function pkDayHTML(flt){
-  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = pkSelDay(), esHoy = today===dk(Date.now());
+  const dk = t=>new Date(t+TZMS).toISOString().slice(0,10), today = pkSelDay(), esHoy = today===dk(Date.now());
   const P = Object.values(LS.get('ab_preds',{})).filter(p=>flt(p) && dk(p.ts)===today); if(!P.length) return '';
   const R = P.filter(p=>p.res===0||p.res===1), h = R.filter(p=>p.res===1).length, pend = P.filter(p=>p.res==null).length;
   const pc = R.length ? Math.round(h/R.length*100) : null;
   return `<div class="prob-card"><h3><span class="dot"></span>Acierto ${esHoy?'de hoy':'del '+today.slice(8,10)+'/'+today.slice(5,7)}</h3><div class="lv-stats"><span><b style="font-size:22px;color:${pc==null?'var(--ink-dim)':pc>=60?'var(--over)':'#ff6b6b'}">${pc==null?'-':pc+'%'}</b></span><span>${h} ✅ · ${R.length-h} ❌ · ${pend} ⏳</span></div>${pc==null?'<div class="al-st">Aún no hay resultados de las sugerencias de hoy.</div>':`<div class="bar-track"><div class="bar-fill ${pc>=60?'strong':''}" style="width:${pc}%"></div></div>`}</div>`;
 }
 function pkDoneHTML(flt){
-  const dk = t=>new Date(t-5*3600e3).toISOString().slice(0,10), today = pkSelDay(), esHoy = today===dk(Date.now());
+  const dk = t=>new Date(t+TZMS).toISOString().slice(0,10), today = pkSelDay(), esHoy = today===dk(Date.now());
   const now = Date.now(), P = Object.values(LS.get('ab_preds',{})).filter(p=> flt(p) && p.ts<now && dk(p.ts)===today);
   if(!P.length) return '';
   const g = {}; P.forEach(p=>{ const k = pkKey(p); (g[k] = g[k]||[]).push(p); });
@@ -2257,7 +2261,7 @@ async function liveFetch(){
           continue; }
         if(stt.state==='pre'){ const t0 = Date.parse(ev.date), dt = t0-Date.now();
           if(dt<90*60e3 && dt>-10*60e3){ const h0 = c.competitors.find(x=>x.homeAway==='home'), a0 = c.competitors.find(x=>x.homeAway==='away');
-            if(h0&&a0) soon.push({lid:sl.id, lname:sl.name, slug:cfg.espn, id:ev.id, h:h0.team.displayName||h0.team.name, a:a0.team.displayName||a0.team.name, when:new Date(t0).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',timeZone:'America/Guayaquil'})}); }
+            if(h0&&a0) soon.push({lid:sl.id, lname:sl.name, slug:cfg.espn, id:ev.id, h:h0.team.displayName||h0.team.name, a:a0.team.displayName||a0.team.name, when:new Date(t0).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}); }
           continue; }
         if(stt.state!=='in') continue;
         const h = c.competitors.find(x=>x.homeAway==='home'), a = c.competitors.find(x=>x.homeAway==='away'); if(!h||!a) continue;
@@ -3213,8 +3217,8 @@ function ulRender(){
   let b = `<h3><span class="dot"></span>Alineaciones</h3>`;
   if(!ul.ctx) b += `<div class="pl-none">ESPN no publica alineaciones para esta liga.</div>`;
   else if(ulHas(ul.data)){
-    const hh = new Date(ul.t).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',timeZone:'America/Guayaquil'});
-    b += mhLineupBlock(ul.data, ul.names, ul.team, false, 'ulTeam') + `<div class="lv-stats">Alineación publicada por ESPN · actualizada ${hh} (Ecuador).${ul.loading?' Actualizando…':''} <a href="#" onclick="ulFetch();return false;" style="color:var(--accent);">Actualizar</a></div>`;
+    const hh = new Date(ul.t).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'});
+    b += mhLineupBlock(ul.data, ul.names, ul.team, false, 'ulTeam') + `<div class="lv-stats">Alineación publicada por ESPN · actualizada ${hh} (${TZN}).${ul.loading?' Actualizando…':''} <a href="#" onclick="ulFetch();return false;" style="color:var(--accent);">Actualizar</a></div>`;
   } else if(ul.loading && !ul.data) b += `<div class="pl-none">Buscando la alineación…</div>`;
   else b += `<div class="empty-state" style="padding:14px 4px;">Alineación aún no publicada.<br><small style="color:var(--ink-dim)">ESPN suele publicarla cerca de una hora antes del partido. Aparecerá aquí sola (se revisa cada 5 min con esta pantalla abierta) y puedes activar el aviso en la pestaña Alertas.</small>${ul.err?`<br><small style="color:var(--ink-dim)">(${ul.err})</small>`:''}<br><br><button class="btn" onclick="ulFetch()">${ul.loading?'Buscando…':'Revisar ahora'}</button></div>`;
   el.innerHTML = b;
@@ -3263,7 +3267,7 @@ function usRenderMatches(){
       ? `Proyección: ${m.eh.toFixed(0)} - ${m.ea.toFixed(0)} · Total ${m.tot.toFixed(0)}`
       : `${US[sp].unit[0].toUpperCase()+US[sp].unit.slice(1)} esperados: ${m.eh.toFixed(1)} - ${m.ea.toFixed(1)} · Total ${m.tot.toFixed(1)}`;
     return `<div class="match-card" onclick="usOpen('${sp}','${g.id}')">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${tag?' · '+tag:''}</span><span>${f.date} · hora Ecuador${fmStar(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0))}</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${tag?' · '+tag:''}</span><span>${f.date} · hora ${TZN}${fmStar(g.h.name,g.a.name,isoDateOnlyEcuador(g.d,0))}</span></div>
       ${usTeamRow(g, mid)}
       <div class="mini1x2"><span style="width:${pH}%; background:var(--over);"></span><span style="width:${pA}%; background:var(--accent);"></span></div>
       <div class="mini1x2-labels"><span>${g.h.name} ${pH}%</span><span>${g.a.name} ${pA}%</span></div>
@@ -3291,13 +3295,13 @@ function usRenderPicks(){
   const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML(sp):'', cb:isT?(cbPrime(), cbHTML(sp) + cbMixHTML()):'', day:pkDayHTML(p=>p.sp===sp), top:'', items:'', done:doneS, op:(OP_LIST.length=0, opxHTML(sp, ''))};
   let html = '';
   if(top.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
-    const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k);
+    const k = x.picks[0], f = fmtParts(x.g.d,0), ri = pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()-TZMS, x.g.id, k);
     return `<div class="pick-row" onclick="usOpen('${sp}','${x.g.id}')">${pkDuo(x.g.h.name, x.g.a.name)}<div class="pick-main"><b>${k.label}</b><small>${x.g.h.name} vs ${x.g.a.name} · ${f.time}</small></div><div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}</div>`;
   }).join('') + `</div>`;
   P.top = html; html = '';
   html += items.map(x=>{
     const f = fmtParts(x.g.d,0);
-    const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()+5*3600e3, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
+    const body = x.picks.length ? x.picks.map(k=>`<div class="pk-line"><div class="t">${k.label}<small>${k.why}</small></div><div class="bar-track"><div class="bar-fill ${k.prob>=70?'strong':''}" style="width:${k.prob}%"></div></div><div class="v">${k.prob}%</div>${pkBtn(pkReg(sp, sp, x.g.h.name, x.g.a.name, x.g.d, toEcuador(x.g.d,0).getTime()-TZMS, x.g.id, k))}</div>`).join('') + `<div style="margin-top:2px;">${confBadge(x.picks[0])}</div>`
       : `<div class="pl-none" style="padding:8px 0 2px;">Ningún mercado pasa el filtro de confianza en este partido: mejor no jugarlo.</div>`;
     return `<div class="match-card" onclick="usOpen('${sp}','${x.g.id}')"><div class="match-meta"><span><i class="lg-dot" style="background:${US[sp].color}"></i>${US[sp].name}${usSeasonTag(x.g)?' · '+usSeasonTag(x.g):''}</span><span>${f.date} · ${f.time} Ecuador${fmStar(x.g.h.name,x.g.a.name,isoDateOnlyEcuador(x.g.d,0))}</span></div>
       <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${x.g.h.name} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${x.g.a.name}</div>${x.m.notes&&x.m.notes.length?`<div class="lv-stats" style="color:#f5b942;margin:-2px 0 6px">⚠ ${escA(x.m.notes.join(' · '))} (ya incluido en el pronóstico)</div>`:''}${mkSummary(sp,x.g.h.name,x.g.a.name)}${body}${plPickHTML(plPickLines(sp,x.g,x.m))}</div>`;
@@ -3373,7 +3377,7 @@ function usOpen(sp, id, keep){
     <div class="matchup-hero"><div class="meta">${US[sp].name.toUpperCase()}${tag?' · '+tag.toUpperCase():''}</div>
       <div class="row">
         <div class="team-big">${badgeHTML(g.h.name,true,g.h.abbr)}<div class="name">${g.h.name}${favStar(g.h.name)}</div></div>
-        <div class="center-vs"><div class="ko-big">${g.state==='pre'?f.time:g.h.score+' - '+g.a.score}<small>${f.date} Ecuador${g.state==='post'?' · Final':''}</small></div></div>
+        <div class="center-vs"><div class="ko-big">${g.state==='pre'?f.time:g.h.score+' - '+g.a.score}<small>${f.date} ${TZN}${g.state==='post'?' · Final':''}</small></div></div>
         <div class="team-big">${badgeHTML(g.a.name,true,g.a.abbr)}<div class="name">${g.a.name}${favStar(g.a.name)}</div></div>
       </div></div>
     ${dtTabsHTML('Lesionados')}
@@ -3393,7 +3397,7 @@ function usOpen(sp, id, keep){
     <div class="sec sec-f"><div class="prob-card" id="posBox" style="display:none"></div>
     ${rcSection(sp,g)}
     <div class="prob-card"><h3><span class="dot"></span>Forma de los equipos</h3>${teamInfo(g.h, m.H)}${teamInfo(g.a, m.A)}</div></div>
-    <div class="foot-note">Hora mostrada: Ecuador (UTC-5). Modelo basado en los promedios reales de la temporada de cada equipo (ESPN)${sp==='nba'?', con ventaja de local de 2.5 puntos (supuesto)':', con ligera ventaja de local (supuesto)'}. No considera lesiones${sp==='mlb'?' ni lanzadores':''}${g.stype===1?'. Pretemporada: los titulares suelen jugar poco, así que el pronóstico es menos fiable':''}. Es una estimación estadística, no garantiza el resultado.</div>`;
+    <div class="foot-note">Hora mostrada: ${TZL}. Modelo basado en los promedios reales de la temporada de cada equipo (ESPN)${sp==='nba'?', con ventaja de local de 2.5 puntos (supuesto)':', con ligera ventaja de local (supuesto)'}. No considera lesiones${sp==='mlb'?' ni lanzadores':''}${g.stype===1?'. Pretemporada: los titulares suelen jugar poco, así que el pronóstico es menos fiable':''}. Es una estimación estadística, no garantiza el resultado.</div>`;
   document.getElementById('detailContent').innerHTML = html; abOddsLast();
   dtSec(LS.get('ab_dtsec','p'), true); pbSetUS(sp, g);
   usxInit(sp, g);
@@ -3548,7 +3552,7 @@ function vaCard(r, showBest){
     <div class="va-c">${vaMov(x)}<small>mov.</small></div>${vaFlag(x)?`<div class="va-f">${vaFlag(x)}</div>`:''}</div>`).join('');
   const big = best && best.edge>=15 ? `<div class="lv-stats" style="color:#f5b942;">⚠ Diferencia muy grande: casi siempre significa que el modelo no ve lesiones, alineaciones o contexto que el mercado sí conoce.</div>` : '';
   const tm = r.totMove && Math.abs(r.totMove)>=0.5 ? `<div class="lv-stats">Línea de total: abrió en <b>${r.totOpen}</b> → ahora <b>${r.totL}</b> (${r.totMove>0?'sube':'baja'})</div>` : '';
-  return `<div class="match-card"><div class="match-meta"><span><i class="lg-dot" style="background:${r.color}"></i>${r.lname}</span><span>${f.date} · ${f.time} Ecuador</span></div>
+  return `<div class="match-card"><div class="match-meta"><span><i class="lg-dot" style="background:${r.color}"></i>${r.lname}</span><span>${f.date} · ${f.time} ${TZN}</span></div>
     <div style="font-size:14.5px;font-weight:700;margin-bottom:6px;">${r.h} <span style="color:var(--ink-dim);font-weight:500;">vs</span> ${r.a}</div>${rows}${tm}${big}
     ${!r.known?`<div class="lv-stats">Sin estadísticas de estos equipos: solo se muestran las cuotas del mercado, sin comparación.</div>`:''}</div>`;
 }
@@ -3670,7 +3674,7 @@ async function alLineups(cfg){
       if(!Array.isArray(R) || R.length<2) return;
       if(R.filter(r=>(r.roster||[]).filter(p=>p.starter).length>=9).length<2) return;
       const fm = R.map(r=>r.formation).filter(Boolean).join(' vs ');
-      out.push({id:'lu|'+m.id, type:'lineup', title:`Alineación confirmada (${m.lname})`, body:`${m.h} vs ${m.a} · ${m.when} (Ecuador)${fm?'\nFormaciones: '+fm:''}\nAbre el partido para ver la alineación.`});
+      out.push({id:'lu|'+m.id, type:'lineup', title:`Alineación confirmada (${m.lname})`, body:`${m.h} vs ${m.a} · ${m.when} (${TZN})${fm?'\nFormaciones: '+fm:''}\nAbre el partido para ver la alineación.`});
     }catch(e){}
   }));
   return out;
@@ -3852,7 +3856,7 @@ function favManage(){
 
 // ---------- Registro de sugerencias, jugadas y acierto del modelo ----------
 const PK = {reg:[], busy:false, msg:'', last:0, cur:null};
-function pkTs(when, off){ return toEcuador(when, off).getTime() + 5*3600e3; }
+function pkTs(when, off){ return toEcuador(when, off).getTime() - TZMS; }
 function pkMkt(label, h, a){
   let m;
   if((m = label.match(/^(Más|Menos) de ([\d.]+) (goles|tarjetas|córners|puntos|carreras)/))) return {t:'tot', k:{goles:'g',tarjetas:'c','córners':'k',puntos:'p',carreras:'p'}[m[3]], o:m[1]==='Más'?1:0, L:parseFloat(m[2])};
@@ -3916,7 +3920,7 @@ function pkLogAll(force){
     const lim = Date.now()+4*86400e3, now = Date.now(), P = LS.get('ab_preds', {}); let ch = false;
     LEAGUES.forEach(l=>l.fixtures.forEach(f=>{ if(!l.teams[f[0]]||!l.teams[f[1]]) return; const ts = pkTs(f[2], l.utcOffset); if(ts>lim || ts<now-30*60e3) return;
       const pk = matchPicks(l,f); if(pk && pk.picks.length && pkLog('futbol', l.id, f[0], f[1], f[2], ts, null, pk.picks, P)) ch = true; }));
-    ['nba','eul','mlb','ncaa','nhl'].forEach(sp=>(usData[sp].games||[]).forEach(g=>{ if(g.state!=='pre'||g.postponed) return; const ts = toEcuador(g.d,0).getTime()+5*3600e3; if(ts>lim) return;
+    ['nba','eul','mlb','ncaa','nhl'].forEach(sp=>(usData[sp].games||[]).forEach(g=>{ if(g.state!=='pre'||g.postponed) return; const ts = toEcuador(g.d,0).getTime()-TZMS; if(ts>lim) return;
       const pk = usPicks(g, usPre(g)); if(pk.length && pkLog(sp, sp, g.h.name, g.a.name, g.d, ts, g.id, pk, P)) ch = true; }));
     if(!ch) return;
     const ks = Object.keys(P); if(ks.length>1500){ ks.sort((x,y)=>P[x].ts-P[y].ts).slice(0, ks.length-1400).forEach(k=>delete P[k]); }
@@ -3982,7 +3986,7 @@ async function pkShare(){
   if(logo) g.drawImage(logo, 80, 80, 130, 130);
   g.fillStyle = '#fff'; g.font = '900 64px Orbitron, sans-serif'; g.fillText('ALEX', 240, 168); const wA = g.measureText('ALEX').width; g.fillStyle = '#c8ff00'; g.fillText('BET', 240 + wA, 168);
   const ic = e.sp==='futbol'?'⚽':e.sp==='tenis'?'🎾':e.sp==='nhl'?'🏒':e.sp==='mlb'?'⚾':'🏀';
-  const when = e.ts ? new Date(e.ts).toLocaleString('es-EC', {timeZone:'America/Guayaquil', weekday:'long', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+  const when = e.ts ? new Date(e.ts).toLocaleString('es-EC', {weekday:'long', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
   const wrap = (t, x, y, maxW, lh) => { const w = String(t).split(' '); let line = '', n = 0; for(const p of w){ const tt = line ? line + ' ' + p : p; if(g.measureText(tt).width > maxW && line){ g.fillText(line, x, y + n*lh); line = p; n++; } else line = tt; } g.fillText(line, x, y + n*lh); return n + 1; };
   g.fillStyle = '#9fb3ad'; g.font = '600 38px Inter, sans-serif'; g.fillText('SUGERENCIA DEL DÍA', 80, 300);
   g.fillStyle = '#fff'; g.font = '800 54px Inter, sans-serif'; const n1 = wrap(`${ic} ${e.h} vs ${e.a}`, 80, 380, W-160, 64);
@@ -4065,7 +4069,7 @@ function btMoneyHTML(){
   const net = b => b.status==='w' ? b.stake*(b.odds-1) : -b.stake;
   const SPN = {futbol:'⚽ Fútbol', nba:'🏀 NBA', ncaa:'🏀 NCAA', eul:'🏀 Euroliga', nhl:'🏒 NHL', mlb:'⚾ MLB', tenis:'🎾 Tenis'};
   const grp = f => { const m = {}; B.forEach(b=>{ const k = f(b); const g = m[k] = m[k] || {n:0, w:0, st:0, net:0}; g.n++; g.w += b.status==='w'?1:0; g.st += b.stake; g.net += net(b); }); return m; };
-  const wk = b => { const d = new Date((b.t||b.id) - 5*3600e3), dow = (d.getUTCDay()+6)%7; return new Date(d.getTime() - dow*864e5).toISOString().slice(0,10); };
+  const wk = b => { const d = new Date((b.t||b.id) + TZMS), dow = (d.getUTCDay()+6)%7; return new Date(d.getTime() - dow*864e5).toISOString().slice(0,10); };
   const MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'], wTxt = k => { const d = new Date(k+'T12:00:00Z'); return `Semana del ${d.getUTCDate()} ${MS[d.getUTCMonth()]}`; };
   const row = (t, g) => `<div class="lv-stats"><span>${t}<small style="display:block;color:var(--ink-dim)">${g.w} de ${g.n} ganadas · apostado $${g.st.toFixed(2)}</small></span><span><b style="color:${g.net>=0?'var(--over)':'#ff6b6b'}">${g.net>=0?'+':''}$${g.net.toFixed(2)}</b><small style="display:block;color:var(--ink-dim);text-align:right">${g.st?(g.net/g.st*100>=0?'+':'')+(g.net/g.st*100).toFixed(0)+'%':''}</small></span></div>`;
   const W = grp(wk), S = grp(b=>b.sp||'futbol');
@@ -4595,7 +4599,7 @@ function renderMatches(){
     const p = project(home, away);
     return `
     <div class="match-card" onclick="openMatch('${league.id}', ${idx})">
-      <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora Ecuador${fmStar(homeName,awayName,isoDateOnlyEcuador(when, league.utcOffset))}</span></div>
+      <div class="match-meta"><span><i class="lg-dot" style="background:${league.color}"></i>${league.name}</span><span>${fmtParts(when, league.utcOffset).date} · hora ${TZN}${fmStar(homeName,awayName,isoDateOnlyEcuador(when, league.utcOffset))}</span></div>
       <div class="teams-row">
         <div class="team">
           ${badgeHTML(homeName,false,'',league.id)}
@@ -4811,7 +4815,7 @@ function pbSeg(names, cur, fn, lid){
 }
 function pbTiles(pr, avg, avgLab, hits){ return `<div class="pb-tiles"><div><b style="color:${lvlC(pr)}">${pr}%</b><small>Probabilidad</small></div><div><b>${avg}</b><small>${avgLab}</small></div><div><b>${hits}</b><small>Superó la línea</small></div></div>`; }
 function pbLineRow(crest, txt, sub, ln, fn){ return `<div class="pb-line2">${crest}<span class="tx">Más de <b>${ln.toFixed(1)}</b> ${txt}<small>${sub}</small></span><span class="pb-step"><button type="button" aria-label="Bajar línea" onclick="${fn}('l',-1)">−</button><input type="text" inputmode="decimal" aria-label="Escribir línea" value="${ln}" onchange="${fn}('v',this.value)" onkeydown="if(event.key==='Enter')this.blur()"><button type="button" aria-label="Subir línea" onclick="${fn}('l',1)">+</button></span></div>`; }
-function pbLabs(shown){ return `<div class="pb-lab2">${shown.map(g=>{ const d = new Date(g.ts - 5*3600e3), yr = Date.now()-g.ts > 300*864e5 ? '/'+String(d.getUTCFullYear()).slice(2) : '';
+function pbLabs(shown){ return `<div class="pb-lab2">${shown.map(g=>{ const d = new Date(g.ts + TZMS), yr = Date.now()-g.ts > 300*864e5 ? '/'+String(d.getUTCFullYear()).slice(2) : '';
   return `<div title="${escA(g.opp||'')}">${g.opp ? crestHTML(g.opp, g.ctx && g.ctx.lid, 20) : '<span class="cr-sh" style="width:20px;height:22px;background:var(--line);font-size:7px">H2H</span>'}<small>${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')}${yr}</small></div>`; }).join('')}</div>`; }
 const PB_NOTE = `<div class="pb-note"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Toca una barra para ver ese partido · verde = superó la línea</span></div>`;
 function pjHead(sp, id){ const lg = {futbol:'soccer', nba:'nba', ncaa:'mens-college-basketball', mlb:'mlb', nhl:'nhl'}[sp]; const pid = String(id||'').split('|')[0]; return lg && /^\d+$/.test(pid) ? `https://a.espncdn.com/i/headshots/${lg}/players/full/${pid}.png` : ''; }
@@ -5136,7 +5140,7 @@ function openMatch(leagueId, idx){
           ${badgeHTML(homeName,true,'',league.id)}
           <div class="name">${homeName}${favStar(homeName)}</div>
         </div>
-        <div class="center-vs"><div class="ko-big">${fmtParts(when, league.utcOffset).time}<small>${fmtParts(when, league.utcOffset).date} Ecuador</small></div></div>
+        <div class="center-vs"><div class="ko-big">${fmtParts(when, league.utcOffset).time}<small>${fmtParts(when, league.utcOffset).date} ${TZN}</small></div></div>
         <div class="team-big">
           ${badgeHTML(awayName,true,'',league.id)}
           <div class="name">${awayName}${favStar(awayName)}</div>
@@ -5219,7 +5223,7 @@ function openMatch(leagueId, idx){
     </div>
 
     <div class="foot-note">
-      Hora mostrada: Ecuador (UTC-5). ${league.live
+      Hora mostrada: ${TZL}. ${league.live
         ? 'Modelo de Poisson sobre los últimos partidos reales de cada equipo. Tarjetas y córners: reales cuando hay datos suficientes; "(est.)" = estimación.<br>'+baseNote(homeName,home)+'<br>'+baseNote(awayName,away)
         : 'Datos de ejemplo guardados (estimaciones propias). Pulsa ⟳ arriba para usar datos reales.'}
       Es una estimación estadística, no garantiza el resultado.
@@ -5380,7 +5384,7 @@ const SRC = {
 };
 // v48 · nombres de selecciones en español (igual que en el servidor)
 const NAT_ES = {"Afghanistan": "Afganistán", "Albania": "Albania", "Algeria": "Argelia", "American Samoa": "Samoa Americana", "Andorra": "Andorra", "Angola": "Angola", "Anguilla": "Anguila", "Antigua and Barbuda": "Antigua y Barbuda", "Argentina": "Argentina", "Armenia": "Armenia", "Aruba": "Aruba", "Australia": "Australia", "Austria": "Austria", "Azerbaijan": "Azerbaiyán", "Bahamas": "Bahamas", "Bahrain": "Baréin", "Bangladesh": "Bangladés", "Barbados": "Barbados", "Belarus": "Bielorrusia", "Belgium": "Bélgica", "Belize": "Belice", "Benin": "Benín", "Bermuda": "Bermudas", "Bhutan": "Bután", "Bolivia": "Bolivia", "Bonaire": "Bonaire", "Bosnia-Herzegovina": "Bosnia y Herzegovina", "Botswana": "Botsuana", "Brazil": "Brasil", "British Virgin Islands": "Islas Vírgenes Británicas", "Brunei Darussalam": "Brunéi", "Bulgaria": "Bulgaria", "Burkina Faso": "Burkina Faso", "Burundi": "Burundi", "Cambodia": "Camboya", "Cameroon": "Camerún", "Canada": "Canadá", "Cape Verde": "Cabo Verde", "Cayman Islands": "Islas Caimán", "Central African Republic": "República Centroafricana", "Chad": "Chad", "Chile": "Chile", "China": "China", "Chinese Taipei": "China Taipéi", "Colombia": "Colombia", "Comoros": "Comoras", "Congo": "Congo", "Congo DR": "RD del Congo", "Cook Islands": "Islas Cook", "Costa Rica": "Costa Rica", "Croatia": "Croacia", "Cuba": "Cuba", "Curaçao": "Curazao", "Cyprus": "Chipre", "Czechia": "Chequia", "Denmark": "Dinamarca", "Djibouti": "Yibuti", "Dominica": "Dominica", "Dominican Republic": "República Dominicana", "Ecuador": "Ecuador", "Egypt": "Egipto", "El Salvador": "El Salvador", "England": "Inglaterra", "Equatorial Guinea": "Guinea Ecuatorial", "Eritrea": "Eritrea", "Estonia": "Estonia", "Eswatini": "Esuatini", "Ethiopia": "Etiopía", "Faroe Islands": "Islas Feroe", "Fiji": "Fiyi", "Finland": "Finlandia", "France": "Francia", "French Guiana": "Guayana Francesa", "Gabon": "Gabón", "Gambia": "Gambia", "Georgia": "Georgia", "Germany": "Alemania", "Ghana": "Ghana", "Gibraltar": "Gibraltar", "Greece": "Grecia", "Grenada": "Granada", "Guadeloupe": "Guadalupe", "Guam": "Guam", "Guatemala": "Guatemala", "Guinea": "Guinea", "Guinea-Bissau": "Guinea-Bisáu", "Guyana": "Guyana", "Haiti": "Haití", "Honduras": "Honduras", "Hong Kong": "Hong Kong", "Hungary": "Hungría", "Iceland": "Islandia", "India": "India", "Indonesia": "Indonesia", "Iran": "Irán", "Iraq": "Irak", "Israel": "Israel", "Italy": "Italia", "Ivory Coast": "Costa de Marfil", "Jamaica": "Jamaica", "Japan": "Japón", "Jordan": "Jordania", "Kazakhstan": "Kazajistán", "Kenya": "Kenia", "Kosovo": "Kosovo", "Kuwait": "Kuwait", "Kyrgyz Republic": "Kirguistán", "Latvia": "Letonia", "Lebanon": "Líbano", "Lesotho": "Lesoto", "Liberia": "Liberia", "Libya": "Libia", "Liechtenstein": "Liechtenstein", "Lithuania": "Lituania", "Luxembourg": "Luxemburgo", "Macau": "Macao", "Madagascar": "Madagascar", "Malawi": "Malaui", "Malaysia": "Malasia", "Maldives": "Maldivas", "Mali": "Malí", "Malta": "Malta", "Martinique": "Martinica", "Mauritania": "Mauritania", "Mauritius": "Mauricio", "Mexico": "México", "Moldova": "Moldavia", "Mongolia": "Mongolia", "Montenegro": "Montenegro", "Montserrat": "Montserrat", "Morocco": "Marruecos", "Mozambique": "Mozambique", "Myanmar": "Myanmar", "Namibia": "Namibia", "Nepal": "Nepal", "Netherlands": "Países Bajos", "New Caledonia": "Nueva Caledonia", "New Zealand": "Nueva Zelanda", "Nicaragua": "Nicaragua", "Niger": "Níger", "Nigeria": "Nigeria", "North Korea": "Corea del Norte", "North Macedonia": "Macedonia del Norte", "Northern Ireland": "Irlanda del Norte", "Norway": "Noruega", "Oman": "Omán", "Pakistan": "Pakistán", "Palestine": "Palestina", "Panama": "Panamá", "Papua New Guinea": "Papúa Nueva Guinea", "Paraguay": "Paraguay", "Peru": "Perú", "Philippines": "Filipinas", "Poland": "Polonia", "Portugal": "Portugal", "Puerto Rico": "Puerto Rico", "Qatar": "Catar", "Republic of Ireland": "Irlanda", "Romania": "Rumania", "Russia": "Rusia", "Rwanda": "Ruanda", "San Marino": "San Marino", "Sao Tome and Principe": "Santo Tomé y Príncipe", "Saudi Arabia": "Arabia Saudita", "Scotland": "Escocia", "Senegal": "Senegal", "Serbia": "Serbia", "Seychelles": "Seychelles", "Sierra Leone": "Sierra Leona", "Singapore": "Singapur", "Sint Maarten": "Sint Maarten", "Slovakia": "Eslovaquia", "Slovenia": "Eslovenia", "Solomon Islands": "Islas Salomón", "Somalia": "Somalia", "South Africa": "Sudáfrica", "South Korea": "Corea del Sur", "South Sudan": "Sudán del Sur", "Spain": "España", "Sri Lanka": "Sri Lanka", "St. Kitts and Nevis": "San Cristóbal y Nieves", "St. Lucia": "Santa Lucía", "St. Martin": "San Martín", "St. Vincent and the Grenadines": "San Vicente y las Granadinas", "Sudan": "Sudán", "Suriname": "Surinam", "Sweden": "Suecia", "Switzerland": "Suiza", "Syria": "Siria", "Tahiti": "Tahití", "Tajikistan": "Tayikistán", "Tanzania": "Tanzania", "Thailand": "Tailandia", "Togo": "Togo", "Trinidad and Tobago": "Trinidad y Tobago", "Tunisia": "Túnez", "Turkmenistan": "Turkmenistán", "Turks and Caicos Islands": "Islas Turcas y Caicos", "Türkiye": "Turquía", "US Virgin Islands": "Islas Vírgenes de EE. UU.", "Uganda": "Uganda", "Ukraine": "Ucrania", "United Arab Emirates": "Emiratos Árabes Unidos", "United States": "Estados Unidos", "Uruguay": "Uruguay", "Uzbekistan": "Uzbekistán", "Vanuatu": "Vanuatu", "Venezuela": "Venezuela", "Vietnam": "Vietnam", "Wales": "Gales", "Yemen": "Yemen", "Zambia": "Zambia", "Zanzibar": "Zanzíbar", "Zimbabwe": "Zimbabue", "Turkey": "Turquía", "Korea Republic": "Corea del Sur", "Czech Republic": "Chequia", "Côte d'Ivoire": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "USA": "Estados Unidos", "Ireland": "Irlanda", "IR Iran": "Irán", "Cabo Verde": "Cabo Verde", "DR Congo": "RD del Congo", "Bosnia and Herzegovina": "Bosnia y Herzegovina", "Brunei": "Brunéi", "Kyrgyzstan": "Kirguistán", "Saint Lucia": "Santa Lucía", "Saint Kitts and Nevis": "San Cristóbal y Nieves", "Saint Vincent and the Grenadines": "San Vicente y las Granadinas", "Macedonia": "Macedonia del Norte", "Swaziland": "Esuatini", "Taiwan": "China Taipéi", "New Caledonia ": "Nueva Caledonia"};
-const APP_VERSION = 'v49 · compartir, alertas en uno, combinadas en tarjetas y bienvenida';
+const APP_VERSION = 'v49.1 · horas en la hora de tu país y pago con PayPal';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
@@ -5909,8 +5913,8 @@ function renderStatus(){
     el.innerHTML = `<span class="warn">○ Datos de ejemplo guardados.</span> Pulsa ⟳ para cargar partidos reales.`;
   }
   if(note) note.innerHTML = (cur && cur.live)
-    ? 'Horarios en hora de Ecuador (UTC-5). Partidos y resultados: football-data.org y ESPN. Tarjetas y córners: datos reales de football-data.co.uk y ESPN cuando existen; si no, estimados (est.). Modelo de Poisson con los últimos 10 partidos (goles) y 8 (tarjetas y córners).'
-    : 'Horarios en hora de Ecuador (UTC-5). Estos son datos de ejemplo guardados en la app, no se actualizan solos hasta que descargues los reales con ⟳.';
+    ? 'Horarios en ' + TZL + '. Partidos y resultados: football-data.org y ESPN. Tarjetas y córners: datos reales de football-data.co.uk y ESPN cuando existen; si no, estimados (est.). Modelo de Poisson con los últimos 10 partidos (goles) y 8 (tarjetas y córners).'
+    : 'Horarios en ' + TZL + '. Estos son datos de ejemplo guardados en la app, no se actualizan solos hasta que descargues los reales con ⟳.';
 }
 
 function renderSettings(){
