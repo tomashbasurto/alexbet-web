@@ -39,9 +39,10 @@ const CACHE_KEY = 'ab_cuenta';
 const AB = window.AB;
 let fb = null;          // módulos de Firebase cargados
 let modo = 'signup';    // pestaña del formulario
-const METODOS = () => [['Deuna', PAGO.deuna], ['PayPal', PAGO.paypal ? 'Paga con tu cuenta PayPal o con tarjeta de crédito o débito, desde cualquier país.' : ''], ['PayPhone', PAGO.payphone], ['Transferencia', PAGO.transferencia]].filter(m => m[1]);
-// fuera de Ecuador se abre directo en PayPal (Deuna y las transferencias son solo de Ecuador)
-const EN_ECU = -new Date().getTimezoneOffset() / 60 === -5;
+// Deuna y las transferencias son solo de Ecuador: fuera de Ecuador solo se muestra PayPal (cuenta o tarjeta)
+// (Ecuador se reconoce por la zona horaria del celular; Colombia y Perú tienen la misma hora pero otra zona)
+const EN_ECU = (() => { try { return /^(America\/Guayaquil|Pacific\/Galapagos)$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone || ''); } catch (e) { return -new Date().getTimezoneOffset() / 60 === -5; } })();
+const METODOS = () => [['Deuna', EN_ECU && PAGO.deuna], ['PayPal', PAGO.paypal ? 'Paga con tu cuenta PayPal o con tarjeta de crédito o débito, desde cualquier país.' : ''], ['PayPhone', EN_ECU && PAGO.payphone], ['Transferencia', EN_ECU && PAGO.transferencia]].filter(m => m[1]);
 let metodo = EN_ECU ? 'Deuna' : 'PayPal';
 const paypalLink = p => 'https://www.paypal.com/cgi-bin/webscr?' + new URLSearchParams({cmd: '_xclick', business: PAGO.paypal, item_name: 'AlexBet ' + p.nombre, item_number: p.id, amount: p.precio.replace('$', '').replace(',', '.'), currency_code: 'USD', no_shipping: '1', custom: AB.uid || '', return: 'https://alexbetpro.web.app/?pago=paypal', cancel_return: 'https://alexbetpro.web.app/'}).toString();
 let planSel = 'premium';
