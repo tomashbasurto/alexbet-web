@@ -2,6 +2,10 @@ name: Revisar Instagram
 # Revisa los permisos de la llave de Facebook y si la página tiene Instagram vinculado (no publica nada)
 on:
   workflow_dispatch:
+    inputs:
+      publicar:
+        description: 'vacío = solo revisar; Ana, Radar o Reel = publica ese video guardado en Instagram'
+        default: ''
 permissions:
   contents: write
 jobs:
@@ -20,4 +24,5 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           GH_TOKEN: ${{ github.token }}
-          IG_TEST: '1'
+          IG_TEST: ${{ inputs.publicar == '' && '1' || '' }}
+          IG_PUB: ${{ inputs.publicar }}
