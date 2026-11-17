@@ -93,7 +93,7 @@ function candidatos() {
   if (sel) { const x = I.find(o => opKey(o) === sel); if (!x) console.log('No encontré la jugada elegida en el panel:', sel); return x ? [x] : []; }
   const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
   const prio = o => /Ecuador/i.test(o.h + ' ' + o.a) || ['ecuador','copaecu','supecu'].includes(o.lid) ? 3 : (o.sp === 'futbol' && TOPL.includes(o.lid)) || o.sp === 'nba' ? 2 : o.sp === 'ncaa' ? 0 : 1;
-  return I.filter(o => ts(o) > now + 60 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && (o.kind !== 'player' || o.sp === 'futbol' || o.role === 'top') && !/falta/i.test(o.mk))
+  return I.filter(o => (!o.day || o.day === O.day) && ts(o) > now + 60 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && (o.kind !== 'player' || o.sp === 'futbol' || o.role === 'top') && !/falta/i.test(o.mk))
     .sort((a, b) => prio(b) - prio(a) || b.hit / b.n - a.hit / a.n || b.p - a.p).slice(0, 4);
 }
 // abre la app (servida desde este repo) en un celular sin pantalla, con una cuenta de prueba
@@ -179,7 +179,7 @@ function jugadoresRadar() { // 2 jugadas: las que eligió Alexander (jugadores o
   const sel = (process.env.FB_RADAR ? JSON.parse(process.env.FB_RADAR) : []).map(k => { if (String(k)[0] === '{') { try { return JSON.parse(k); } catch (e) { return null; } } return I.find(o => opKey(o) === k); }).filter(Boolean);
   if (process.env.FB_RADAR) { if (sel.length < 2) console.log('Radar: no encontré las jugadas elegidas', process.env.FB_RADAR); return sel.slice(0, 2).map(o => Object.assign({}, o, {foto: foto(o), foto2: o.kind !== 'player' && (!o.who || o.who === 'Partido') ? img(o.a) : null})); }
   const ts = o => Date.parse(String(o.when).slice(0, 16) + ':00Z'), now = Date.now();
-  const C = I.filter(o => o.kind === 'player' && ts(o) > now + 45 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && foto(o) && (o.sp !== 'nba' || o.role === 'top') && !/falta|tarjeta/i.test(o.mk))
+  const C = I.filter(o => o.kind === 'player' && (!o.day || o.day === O.day) && ts(o) > now + 45 * 60e3 && o.p >= 70 && o.hit / o.n >= .8 && foto(o) && (o.sp !== 'nba' || o.role === 'top') && !/falta|tarjeta/i.test(o.mk))
     .sort((a, b) => (b.sp === 'nba') - (a.sp === 'nba') || b.hit / b.n - a.hit / a.n || b.p - a.p);
   const out = []; for (const o of C) { if (out.length >= 2) break; if (out.some(x => x.pname === o.pname || (x.h === o.h && x.a === o.a))) continue; if (out.length && out[0].sp !== o.sp) continue; out.push(o); }
   return out.map(o => Object.assign({}, o, {foto: foto(o)}));

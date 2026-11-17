@@ -37,7 +37,8 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
   // v49.3 · líneas reales de jugadores NBA (DraftKings vía ESPN), las mismas que copia espn-proxy.js cada 30 min
   let PROPSX = {}; try { PROPSX = JSON.parse(fs.readFileSync(path.join(ROOT, 'espn-props-nba.json'), 'utf8')).ev || {}; } catch (e) {}
   const res = await page.evaluate(async (PROPSX) => {
-    const day = ymd(todayDate), now = Date.now(), log = [];
+    // v49.4 · hoy y mañana (cada oportunidad lleva su día), para que la app también muestre las del día siguiente
+    const day = ymd(todayDate), now = Date.now(), log = [], tmw = new Date(todayDate); tmw.setDate(tmw.getDate() + 1); const DAYS = [day, ymd(tmw)];
     await Promise.allSettled([usLoad('nba', true), usLoad('eul', true), usLoad('ncaa', true), usLoad('mlb', true), usLoad('nhl', true)]);
     PB.S = null; await pbLoad();
     const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
@@ -143,12 +144,12 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
 
     // ---------- fútbol ----------
     const fx = [];
-    LEAGUES.forEach(l => (l.fixtures || []).forEach((f, idx) => { if (l.teams[f[0]] && l.teams[f[1]] && isoDateOnlyEcuador(f[2], l.utcOffset) === day) fx.push({l, f, idx}); }));
+    LEAGUES.forEach(l => (l.fixtures || []).forEach((f, idx) => { if (l.teams[f[0]] && l.teams[f[1]] && DAYS.includes(isoDateOnlyEcuador(f[2], l.utcOffset))) fx.push({l, f, idx}); }));
     log.push('fútbol hoy: ' + fx.length);
     for (const x of fx) {
       const [hn, an, when] = x.f, hid = pbTeamId(x.l.id, hn), aid = pbTeamId(x.l.id, an); if (!hid || !aid) continue;
       const ts = pkTs(when, x.l.utcOffset); if (ts < now) continue;
-      const base = {sp: 'futbol', lid: x.l.id, lname: x.l.name, color: x.l.color, h: hn, a: an, when, ts};
+      const base = {day: isoDateOnlyEcuador(when, x.l.utcOffset), sp: 'futbol', lid: x.l.id, lname: x.l.name, color: x.l.color, h: hn, a: an, when, ts};
       // equipos (misma lógica que la sección de la app)
       const H = pbGames(hid), A = pbGames(aid), tc = [];
       OP_M.forEach(Mk => {
@@ -171,14 +172,14 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
     }
     // ---------- NBA, NCAA, MLB, NHL ----------
     for (const sp of ['nba', 'eul', 'ncaa', 'mlb', 'nhl']) {
-      const games = (usData[sp].games || []).filter(g => g.state === 'pre' && !g.postponed && isoDateOnlyEcuador(g.d, 0) === day);
+      const games = (usData[sp].games || []).filter(g => g.state === 'pre' && !g.postponed && DAYS.includes(isoDateOnlyEcuador(g.d, 0)));
       log.push(sp + ' hoy: ' + games.length);
-      const list = sp === 'ncaa' ? games.slice(0, 25) : games;
+      const list = sp === 'ncaa' ? DAYS.flatMap(d => games.filter(g => isoDateOnlyEcuador(g.d, 0) === d).slice(0, 25)) : games;
       for (const g of list) {
         await Promise.allSettled([rcTeam(sp, g.h), rcTeam(sp, g.a)]);
         const C = id => (RC.sched[sp + '|' + String(id)] || {}).all || [];
         const Hs = C(g.h.id).slice().reverse(), As = C(g.a.id).slice().reverse(); if (Hs.length < 8 || As.length < 8) continue;
-        const base = {sp, lid: sp, lname: US[sp].name, color: US[sp].color, gid: g.id, h: g.h.name, a: g.a.name, when: g.d, ts: Date.parse(g.d + ':00Z')};
+        const base = {day: isoDateOnlyEcuador(g.d, 0), sp, lid: sp, lname: US[sp].name, color: US[sp].color, gid: g.id, h: g.h.name, a: g.a.name, when: g.d, ts: Date.parse(g.d + ':00Z')};
         const pts = usPts(sp), unit = US[sp].unit, tc = [];
         [[0, g.h.name, Hs, As], [1, g.a.name, As, Hs]].forEach(([t, nm, me, op]) => {
           const v = me.slice(0, 10).map(m => m.us), c = op.slice(0, 10).map(m => m.them), lam = (avg(v) + avg(c)) / 2;
@@ -203,5 +204,5 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
   res.log.forEach(l => console.log(l));
   const by = {}; res.items.forEach(x => { const k = x.sp + ' ' + x.kind; by[k] = (by[k] || 0) + 1; });
   console.log('Resúmenes leídos:', res.partidos, '· oportunidades:', res.items.length, JSON.stringify(by));
-  fs.writeFileSync(FILE, JSON.stringify({t: Date.now(), day: res.day, items: res.items}));
+  fs.writeFileSync(FILE, JSON.stringify({t: Date.now(), day: res.day, days: 2, items: res.items}));
 })().catch(e => { console.error(e); process.exit(1); });
