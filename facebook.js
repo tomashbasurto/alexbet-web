@@ -224,30 +224,47 @@ async function radarVideo() {
 }
 
 // ---------- v50.1 · guardar el video armado para descargarlo desde el panel (rama "videos" del repo, se guardan los últimos 8) ----------
-async function guardarVideo(f, txt, kind) {
+// v51.7 · sube un archivo (video o imagen) a la rama "videos" y da su enlace; se guardan los últimos 60
+async function subirArchivo(f) {
   const T = process.env.GH_TOKEN, REPO = process.env.GITHUB_REPOSITORY; if (!T || !REPO) return null;
   const H = {authorization: 'Bearer ' + T, accept: 'application/vnd.github+json', 'content-type': 'application/json'}, A = `https://api.github.com/repos/${REPO}`;
   try {
     let r = await fetch(`${A}/git/ref/heads/videos`, {headers: H});
     if (r.status === 404) { // rama nueva y vacía (sin el código de la app, así no arranca ningún otro proceso)
-      const tr = await (await fetch(`${A}/git/trees`, {method: 'POST', headers: H, body: JSON.stringify({tree: [{path: 'LEEME.md', mode: '100644', type: 'blob', content: 'Videos armados por el panel de AlexBet (se guardan los últimos 8).'}]})})).json();
+      const tr = await (await fetch(`${A}/git/trees`, {method: 'POST', headers: H, body: JSON.stringify({tree: [{path: 'LEEME.md', mode: '100644', type: 'blob', content: 'Videos e imágenes armados por el panel de AlexBet (se guardan los últimos 60).'}]})})).json();
       const cm = await (await fetch(`${A}/git/commits`, {method: 'POST', headers: H, body: JSON.stringify({message: 'videos', tree: tr.sha, parents: []})})).json();
       await fetch(`${A}/git/refs`, {method: 'POST', headers: H, body: JSON.stringify({ref: 'refs/heads/videos', sha: cm.sha})}); }
-    const name = `alexbet-${new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 16).replace(/[-:T]/g, '')}${path.extname(f)}`;
-    r = await fetch(`${A}/contents/v/${name}`, {method: 'PUT', headers: H, body: JSON.stringify({message: 'video ' + name, branch: 'videos', content: fs.readFileSync(f).toString('base64')})});
-    if (!r.ok) { console.log('no pude guardar el video:', r.status, (await r.text()).slice(0, 200)); return null; }
+    const name = `alexbet-${new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 16).replace(/[-:T]/g, '')}-${Math.random().toString(36).slice(2, 6)}${path.extname(f)}`;
+    r = await fetch(`${A}/contents/v/${name}`, {method: 'PUT', headers: H, body: JSON.stringify({message: 'archivo ' + name, branch: 'videos', content: fs.readFileSync(f).toString('base64')})});
+    if (!r.ok) { console.log('no pude guardar el archivo:', r.status, (await r.text()).slice(0, 200)); return null; }
     const L = await (await fetch(`${A}/contents/v?ref=videos`, {headers: H})).json();
-    if (Array.isArray(L)) for (const x of L.filter(x => x.name.startsWith('alexbet-')).sort((a, b) => b.name.localeCompare(a.name)).slice(16)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
+    if (Array.isArray(L)) for (const x of L.filter(x => x.name.startsWith('alexbet-')).sort((a, b) => b.name.localeCompare(a.name)).slice(60)) await fetch(`${A}/contents/v/${x.name}`, {method: 'DELETE', headers: H, body: JSON.stringify({message: 'borrar ' + x.name, branch: 'videos', sha: x.sha})});
     let sha = ((await r.json()).commit || {}).sha || 'videos', img = '';
-    try { // miniatura (un cuadro del segundo 4) para mostrarla en el panel
+    if (!/\.(png|jpe?g)$/i.test(f)) try { // miniatura (un cuadro del segundo 4) para mostrarla en el panel
       const jp = f.replace(/\.[a-z0-9]+$/, '.jpg'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-ss', '4', '-i', f, '-frames:v', '1', '-vf', 'scale=360:-1', '-q:v', '4', jp]);
       const ri = await fetch(`${A}/contents/v/${name.replace(/\.[a-z0-9]+$/, '.jpg')}`, {method: 'PUT', headers: H, body: JSON.stringify({message: 'miniatura', branch: 'videos', content: fs.readFileSync(jp).toString('base64')})});
       if (ri.ok) { sha = ((await ri.json()).commit || {}).sha || sha; img = `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name.replace(/\.[a-z0-9]+$/, '.jpg')}`; }
     } catch (e) { console.log('sin miniatura:', e.message); }
-    const vid = {url: `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name}`, img, name, t: Date.now(), txt}; // el panel lo baja y lo muestra como video (con el commit exacto no hay caché vieja)
-    await estadoSet({['vid' + kind]: vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
-  } catch (e) { console.log('no pude guardar el video:', e.message); return null; }
+    return {url: `https://raw.githubusercontent.com/${REPO}/${sha}/v/${name}`, img, name}; // con el commit exacto no hay caché vieja
+  } catch (e) { console.log('no pude guardar el archivo:', e.message); return null; }
 }
+// v50.1 · guardar el video armado para descargarlo desde el panel
+async function guardarVideo(f, txt, kind) {
+  const u = await subirArchivo(f); if (!u) return null;
+  const vid = Object.assign(u, {t: Date.now(), txt});
+  await estadoSet({['vid' + kind]: vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
+}
+// v51.7 · TikTok: lo que se publica en Facebook queda listo en el panel ("Para TikTok") para subirlo con un toque
+const tkTxt = t => { t = String(t || '').split('\n').filter(l => !/whatsapp\.com\/channel/i.test(l)).join('\n').replace(/#apuestasdeportivas/gi, '#deportes').replace(/\n{3,}/g, '\n\n').trim(); return /#estadisticas/i.test(t) ? t : t + ' #estadisticas'; };
+async function paraTikTok(files, txt, tipo) {
+  try {
+    const up = []; for (const f of files) { const u = typeof f === 'string' ? await subirArchivo(f) : f; if (u) up.push({url: u.url, img: u.img || '', name: u.name}); }
+    if (!up.length) return;
+    const st = await estado() || {}, tk = [{t: Date.now(), tipo, txt: tkTxt(txt), f: up}].concat(st.tk || []).filter(x => x.t > Date.now() - 3 * 864e5).slice(0, 12);
+    await estadoSet({tk}); console.log('Listo para TikTok:', tipo, up.length, 'archivo(s)');
+  } catch (e) { console.log('TikTok: no se pudo dejar listo:', e.message); }
+}
+const TIPO = m => ({resdep: 'Resultados de ayer', res: 'Resultados de ayer', pro: 'Pronósticos', reel: 'Reel', 'reel:nba': 'Reel NBA', 'reel:sel': 'Video con voz', ana: 'Video análisis', 'ana:sel': 'Video análisis', radar: 'Video radar', 'radar:sel': 'Video radar', sem: 'Resumen de la semana', promo: 'Promo'})[m] || ({pro: 'Pronósticos'})[String(m).split(':')[0]] || 'Publicación';
 const SOLO = process.env.FB_SOLO === '1';
 
 // ---------- publicar ----------
@@ -327,23 +344,23 @@ async function plan() {
     const f = path.join(ROOT, 'fb-promo', 'promo.png'), txt = (() => { const ls = fs.readdirSync(path.join(ROOT, 'fb-promo')).filter(x => /^promo\d+\.txt$/.test(x)).sort(), sem = Math.floor(Date.now() / (7 * 864e5)); /* un texto distinto cada semana */
       return fs.readFileSync(path.join(ROOT, 'fb-promo', ls.length ? ls[sem % ls.length] : 'promo.txt'), 'utf8').trim(); })();
     if (DRY || !p) { console.log('[prueba] no se publica:', txt.split('\n')[0]); return; }
-    const r = await foto(p, f, txt); console.log('Publicada la promo:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); return;
+    const r = await foto(p, f, txt); console.log('Publicada la promo:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); await paraTikTok([f], txt, TIPO(MODE)); return;
   }
   if (MODE.startsWith('radar')) { // v51 · video radar
     const res = await radarVideo(); if (!res) { if (!DRY) await anotar({ok: false, txt: 'Sin jugadores para el radar'}); return; }
     let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(f)}\n${res.txt}`); return; }
-    await guardarVideo(f, res.txt, 'Radar');
+    const vR = await guardarVideo(f, res.txt, 'Radar');
     if (SOLO) { await anotar({ok: true, txt: 'Video radar listo para compartir (no se publicó)'}); return; }
-    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); return;
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await paraTikTok([vR || f], res.txt, TIPO(MODE)); return;
   }
   if (MODE.startsWith('ana')) { // v50 · video análisis de una jugada, con capturas de la app
     const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(res.file)}\n${res.txt}`); return; }
     let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
-    await guardarVideo(f, res.txt, 'Ana');
+    const vA = await guardarVideo(f, res.txt, 'Ana');
     if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); return; }
-    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); return;
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await paraTikTok([vA || f], res.txt, TIPO(MODE)); return;
   }
   const out = await panel(async page => {
     if (MODE === 'sem') { // resumen de los 7 días hasta ayer (domingos)
@@ -378,16 +395,16 @@ async function plan() {
   if (!out.length) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Nada para publicar'}); return; }
   if (out.album) {
     if (DRY) { console.log(`[prueba] no se publica: álbum de ${out.length} imágenes\n${out.album}`); return; }
-    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); return;
+    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); await paraTikTok(out.map(o => o.file), out.album, TIPO(MODE)); return;
   }
   for (const o of out) {
     const kb = Math.round(fs.statSync(o.file).size / 1024);
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
-    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); }
+    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); await paraTikTok([o.file], o.txt, TIPO(MODE)); }
     else { let f = o.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
-      if (/:sel$/.test(MODE)) await guardarVideo(f, o.txt, 'Reel');
+      const vS = /:sel$/.test(MODE) ? await guardarVideo(f, o.txt, 'Reel') : null;
       if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); continue; }
-      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); }
+      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); await paraTikTok([vS || f], o.txt, TIPO(MODE)); }
   }
 })().catch(async e => { console.error('No se pudo:', e.message); if (!DRY && MODE !== 'poll') await anotar({ok: false, txt: 'Error: ' + String(e.message).slice(0, 140)}); process.exit(1); });
 function st0(r) { return (r && (r.post_id || r.video_id || r.id)) || ''; }

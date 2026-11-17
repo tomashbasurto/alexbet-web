@@ -77,6 +77,7 @@
   .rlink{ display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 12px; margin-bottom:12px; }
   .rlink > div{ flex:1; min-width:0; } .rlink b{ display:block; font-size:14px; } .rlink small{ display:block; font-size:11.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .rl-b{ flex:none; min-height:38px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--accent); font:700 13px Inter; text-decoration:none; display:inline-flex; align-items:center; cursor:pointer; }
+  .tk{ border-top:1px solid var(--line); padding:10px 0; } .tk:first-of-type{ border-top:0; } .tk-h{ display:flex; gap:10px; align-items:center; margin-bottom:8px; } .tk-i{ width:56px; height:72px; object-fit:cover; border-radius:8px; flex:none; background:var(--surface-2); } .tk-tx{ min-width:0; } .tk-tx b{ display:block; font-size:14px; } .tk-tx small{ display:block; font-size:12px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .vbox{ margin-top:12px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px; }
   .vbox canvas, .vbox video{ display:block; width:100%; max-width:340px; margin:10px auto 0; border-radius:14px; background:#000; }
   .vbox textarea{ width:100%; min-height:130px; margin-top:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font:13px/1.45 Inter; padding:10px; }
@@ -307,6 +308,7 @@ function pintar(){
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
     <div class="vbox" id="fbBox" style="margin:0 0 12px"></div>
+    ${tkHTML()}
     <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
     <div class="days">
       <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
@@ -373,7 +375,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.6</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.7</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -382,7 +384,7 @@ function pintar(){
   if($('radGo')) $('radGo').onclick = () => radPide(false);
   if($('radC')) $('radC').onclick = () => radPide(true);
   if($('anaC')) $('anaC').onclick = () => anaPide(true);
-  vidBind();
+  vidBind(); tkBind();
   if($('mas')) $('mas').onclick = () => { LIM += 40; pintar(); };
   $('qB').oninput = e => { QB = e.target.value; LIM = 40; clearTimeout(QBT); QBT = setTimeout(() => { const pos = e.target.selectionStart; pintar(); const q = $('qB'); q.focus(); try{ q.setSelectionRange(pos, pos); }catch(x){} }, 250); };
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
@@ -712,6 +714,32 @@ function vidHTML(kind){ // kind: 'Ana' (video análisis) o 'Reel' (video con voz
 // el video se baja una vez y se muestra desde el celular (así el iPhone lo reproduce, lo comparte y lo guarda)
 const VBL = {};
 async function vidBlob(url){ if(!VBL[url]) VBL[url] = fetch(url).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(b => new Blob([b], {type: 'video/mp4'})); return VBL[url]; }
+// v51.7 · Para TikTok: lo que salió en Facebook queda aquí, listo para subirlo con un toque (el texto se copia solo)
+const TKB = {}, tkOpen = {v: true};
+const tkBlob = u => TKB[u] || (TKB[u] = fetch(u).then(r => { if(!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); }).then(b => new Blob([b], {type: /\.png$/i.test(u) ? 'image/png' : /\.jpe?g$/i.test(u) ? 'image/jpeg' : 'video/mp4'})));
+const tkPend = () => { const st = FBS.st || {}, ok = new Set((st.tkHecho || []).map(String)); return (st.tk || []).filter(x => x && x.t > Date.now() - 3 * 864e5 && !ok.has(String(x.t))); };
+function tkHTML(){
+  const L = tkPend(); if(!L.length) return '';
+  return `<div class="vbox" id="tkBox" style="margin:0 0 12px"><div class="ch-h" style="cursor:pointer" id="tkT"><b>🎵 Para TikTok · ${L.length} ${L.length > 1 ? 'pendientes' : 'pendiente'}</b><span>${tkOpen.v ? '▲' : '▼'}</span></div>
+    ${tkOpen.v ? `<div class="note" style="margin:0 0 8px">Lo mismo que salió en Facebook. Toca "Subir a TikTok": el texto se copia solo; en TikTok lo pegas en la descripción.</div>` + L.map(x => { const t = new Date(x.t + ECU).toISOString(), vid = !/\.(png|jpe?g)$/i.test(x.f[0].name || x.f[0].url), th = vid ? x.f[0].img : x.f[0].url;
+      return `<div class="tk"><div class="tk-h">${th ? `<img class="tk-i" data-isrc="${esc(th)}" alt="">` : ''}<div class="tk-tx"><b>${vid ? '🎬' : '🖼️'} ${esc(x.tipo || 'Publicación')}${x.f.length > 1 ? ` · ${x.f.length} imágenes` : ''}</b><small>${t.slice(8,10)}/${t.slice(5,7)} ${t.slice(11,16)} · ${esc(String(x.txt || '').split('\n').filter(Boolean)[0] || '')}</small></div></div>
+        <button class="btn" data-tks="${x.t}" style="width:100%">📲 Subir a TikTok</button>
+        <div class="btns" style="margin-top:8px"><button class="btn ghost" data-tkc="${x.t}">Copiar texto</button><button class="btn ghost" data-tkd="${x.t}">⬇️ Descargar</button></div>
+        <button class="btn ghost" data-tkh="${x.t}" style="width:100%;margin-top:8px">✓ Ya lo subí</button></div>`; }).join('') : ''}</div>`;
+}
+function tkBind(){
+  if($('tkT')) $('tkT').onclick = () => { tkOpen.v = !tkOpen.v; pintar(); };
+  const get = b => tkPend().find(x => String(x.t) === b.dataset.tks || String(x.t) === b.dataset.tkc || String(x.t) === b.dataset.tkd || String(x.t) === b.dataset.tkh);
+  if(tkOpen.v) tkPend().forEach(x => x.f.forEach(f => tkBlob(f.url).catch(() => {}))); // se bajan antes, así el botón comparte al instante
+  const files = async x => Promise.all(x.f.map(async (f, i) => new File([await tkBlob(f.url)], f.name || ('alexbet-' + i + (/\.png$/i.test(f.url) ? '.png' : '.mp4')), {type: (await tkBlob(f.url)).type})));
+  const copy = t => { try{ navigator.clipboard.writeText(t); }catch(e){} };
+  document.querySelectorAll('[data-tks]').forEach(b => b.onclick = async () => { const x = get(b); if(!x) return; copy(x.txt || ''); b.textContent = 'Preparando…';
+    try{ const F = await files(x); if(navigator.canShare && navigator.canShare({files: F})) await navigator.share({files: F, text: x.txt || ''}); else { b.textContent = 'Tu navegador no comparte archivos: usa Descargar'; return; } }catch(e){} b.textContent = '📲 Subir a TikTok'; });
+  document.querySelectorAll('[data-tkc]').forEach(b => b.onclick = () => { const x = get(b); if(!x) return; copy(x.txt || ''); b.textContent = 'Texto copiado ✓'; setTimeout(() => { b.textContent = 'Copiar texto'; }, 1800); });
+  document.querySelectorAll('[data-tkd]').forEach(b => b.onclick = async () => { const x = get(b); if(!x) return; b.textContent = 'Preparando…';
+    try{ for(const f of await files(x)){ const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); } }catch(e){} b.textContent = '⬇️ Descargar'; });
+  document.querySelectorAll('[data-tkh]').forEach(b => b.onclick = () => { const x = get(b); if(!x) return; const st = FBS.st || {}; fbSet({tkHecho: (st.tkHecho || []).concat(String(x.t)).slice(-30)}); });
+}
 function vidBind(){
   document.querySelectorAll('video.vplay').forEach(el => { if(el.dataset.thumb) fetch(el.dataset.thumb).then(r => r.blob()).then(b => { el.poster = URL.createObjectURL(new Blob([b], {type: 'image/jpeg'})); }).catch(() => {});
     el.onerror = () => { const t = el.dataset.thumb; el.outerHTML = t ? `<img class="vthumb" data-isrc="${t}" alt=""><div class="note" style="text-align:center">Para verlo, usa Compartir o Descargar.</div>` : ''; vidBind(); }; });
