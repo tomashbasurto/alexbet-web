@@ -2063,7 +2063,7 @@ function nbaPlHTML(pls){
   const tab = T.find(t=>t[0]===OPN), L = inG.filter(tab[2]);
   const chips = `<div class="tn-chips nb-g">${[['all','Todos',pls]].concat(games.map(g=>[String(g.gid), nbaNick(g.h)+'-'+nbaNick(g.a), pls.filter(o=>String(o.gid)===String(g.gid))])).map(([k,t,a])=>`<button type="button" class="${OPG===k?'on':''}" onclick="OPG='${k}';renderMatches()">${escA(t)} · ${a.length}</button>`).join('')}</div>`;
   const seg = `<div class="nb-tabs">${T.map(([k,t,f])=>`<button type="button" class="${OPN===k?'on':''}" onclick="OPN='${k}';renderMatches()">${t}<small>${cnt(f)}</small></button>`).join('')}</div>`;
-  const note = `<div class="al-st" style="margin:0 2px 8px">${{bk:'Líneas reales de DraftKings con su cuota. "Valor": el modelo da más probabilidad que la que paga la cuota.', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
+  const note = `<div class="al-st" style="margin:0 2px 8px">${{bk:'Líneas reales de DraftKings con su cuota. "Valor": el modelo da 10 puntos o más de lo que paga la cuota.', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
   const P = {}; L.forEach(o=>{ const k = o.gid+'|'+o.pid; (P[k] = P[k] || []).push(o); });
   const sc = a => Math.max(...a.map(o=>(o.vl?100:0)+o.p));
   const cards = Object.values(P).sort((a,b)=>sc(b)-sc(a)).slice(0,40).map(a=>nbaCard(a.sort((x,y)=>(y.bk?1:0)-(x.bk?1:0) || (y.vl?1:0)-(x.vl?1:0) || y.p-x.p))).join('');

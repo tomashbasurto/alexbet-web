@@ -121,7 +121,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
             [[po, ho, L[1], 0], [100 - po, hu, L[2], 1]].forEach(([p, hit, o, u]) => {
               if (p < 58 || p > 82 || hit < 6) return; added++;
               const c = {ln: L[0], p, hit, n: v10.length, avg: +lam.toFixed(2), mk, vals: bars, bk: 1};
-              if (u) c.u = 1; if (o > 1) { c.o = o; if (p / 100 > 1 / o + 0.03) c.vl = 1; }
+              if (u) c.u = 1; if (o > 1) { c.o = o; if (p / 100 >= 1 / o + 0.10) c.vl = 1; } // valor: el modelo da 10 puntos o más que lo que paga la cuota
               C.push(c);
             });
             if (added) return;
