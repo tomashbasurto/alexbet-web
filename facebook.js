@@ -367,6 +367,13 @@ async function plan() {
     try { const pr = await api(`${G}/me/permissions?access_token=${encodeURIComponent(process.env.FB_USER_TOKEN)}`); console.log('Permisos de la llave:', (pr.data || []).filter(x => x.status === 'granted').map(x => x.permission).join(', ')); } catch (e) { console.log('permisos:', e.message); }
     try { const ig = (await api(`${G}/${p.id}?fields=instagram_business_account{id,username,followers_count}&access_token=${encodeURIComponent(p.access_token)}`)).instagram_business_account; console.log(ig ? `Instagram vinculado: @${ig.username} (${ig.id}) · seguidores=${ig.followers_count}` : 'Instagram: la página no tiene cuenta profesional vinculada');
       if (ig) { const m = await api(`${G}/${ig.id}/media?fields=timestamp,media_type,caption&limit=5&access_token=${encodeURIComponent(p.access_token)}`); console.log('Últimas en Instagram:', (m.data || []).map(x => x.timestamp + ' ' + x.media_type + ' ' + String(x.caption || '').split('\n')[0].slice(0, 40)).join(' | ') || '(ninguna)'); } } catch (e) { console.log('Instagram:', e.message); }
+    if (/^img:/.test(process.env.IG_PUB || '')) { try { // publica en Instagram (solo ahí) una imagen del repo con su .txt
+      const f = path.join(ROOT, process.env.IG_PUB.slice(4)), txt = fs.readFileSync(f.replace(/\.png$/, '.txt'), 'utf8');
+      const igid = (await api(`${G}/${p.id}?fields=instagram_business_account&access_token=${encodeURIComponent(p.access_token)}`)).instagram_business_account.id, tk = encodeURIComponent(p.access_token);
+      const id = await igFoto(igid, tk, f, {caption: txt.trim()}); await igListo(igid, tk, id);
+      const r = await api(`${G}/${igid}/media_publish?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({creation_id: id})});
+      console.log('PUBLICADO en Instagram:', r.id, '·', txt.split('\n')[0]);
+    } catch (e) { console.log('PUBLICAR en Instagram falló:', e.message); } } else
     if (process.env.IG_PUB) try { // publica en Instagram (solo ahí) el último video guardado: ana, Radar o Reel
       const st = await estado() || {}, v = st['vid' + process.env.IG_PUB]; if (!v || !v.url) throw new Error('no hay video guardado de ' + process.env.IG_PUB);
       const igid = (await api(`${G}/${p.id}?fields=instagram_business_account&access_token=${encodeURIComponent(p.access_token)}`)).instagram_business_account.id, tk = encodeURIComponent(p.access_token);
