@@ -257,6 +257,7 @@ async function guardarVideo(f, txt, kind) {
 // v51.7 · TikTok: lo que se publica en Facebook queda listo en el panel ("Para TikTok") para subirlo con un toque
 const tkTxt = t => { t = String(t || '').split('\n').filter(l => !/whatsapp\.com\/channel/i.test(l)).join('\n').replace(/#apuestasdeportivas/gi, '#deportes').replace(/\n{3,}/g, '\n\n').trim(); return /#estadisticas/i.test(t) ? t : t + ' #estadisticas'; };
 async function paraTikTok(files, txt, tipo) {
+  return; // v51.8 · TikTok desactivado (bloquea el contenido de pronósticos)
   try {
     const up = []; for (const f of files) { const u = typeof f === 'string' ? await subirArchivo(f) : f; if (u) up.push({url: u.url, img: u.img || '', name: u.name}); }
     if (!up.length) return;

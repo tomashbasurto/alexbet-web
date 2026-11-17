@@ -308,7 +308,6 @@ function pintar(){
     <div class="rlink"><div><b>📊 Página de resultados</b><small>alexbetpro.web.app/resultados.html · pública</small></div>
       <a class="rl-b" href="resultados.html" target="_blank" rel="noopener">Abrir</a><button class="rl-b" id="rlCp">Copiar link</button></div>
     <div class="vbox" id="fbBox" style="margin:0 0 12px"></div>
-    ${tkHTML()}
     <div class="seg"><button data-m="pro" class="${MODE==='pro'?'on':''}">Pronósticos</button><button data-m="res" class="${MODE==='res'?'on':''}">Resultados</button></div>
     <div class="days">
       <button data-d="${sumDay(hoy(),-1)}" class="${DAY===sumDay(hoy(),-1)?'on':''}">Ayer</button>
@@ -375,7 +374,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.7</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.8</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -384,7 +383,7 @@ function pintar(){
   if($('radGo')) $('radGo').onclick = () => radPide(false);
   if($('radC')) $('radC').onclick = () => radPide(true);
   if($('anaC')) $('anaC').onclick = () => anaPide(true);
-  vidBind(); tkBind();
+  vidBind();
   if($('mas')) $('mas').onclick = () => { LIM += 40; pintar(); };
   $('qB').oninput = e => { QB = e.target.value; LIM = 40; clearTimeout(QBT); QBT = setTimeout(() => { const pos = e.target.selectionStart; pintar(); const q = $('qB'); q.focus(); try{ q.setSelectionRange(pos, pos); }catch(x){} }, 250); };
   document.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { MODE = b.dataset.m; if(MODE==='res' && DAY===hoy()) DAY = sumDay(hoy(),-1); if(MODE!=='res' && DAY<hoy()) DAY = hoy(); GRP = 'top'; OUT=[]; pintar(); });
