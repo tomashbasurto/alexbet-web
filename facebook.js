@@ -254,16 +254,38 @@ async function guardarVideo(f, txt, kind) {
   const vid = Object.assign(u, {t: Date.now(), txt});
   await estadoSet({['vid' + kind]: vid, armando: '', paso: ''}); console.log('Video guardado para descargar:', vid.url); return vid;
 }
-// v51.7 · TikTok: lo que se publica en Facebook queda listo en el panel ("Para TikTok") para subirlo con un toque
-const tkTxt = t => { t = String(t || '').split('\n').filter(l => !/whatsapp\.com\/channel/i.test(l)).join('\n').replace(/#apuestasdeportivas/gi, '#deportes').replace(/\n{3,}/g, '\n\n').trim(); return /#estadisticas/i.test(t) ? t : t + ' #estadisticas'; };
-async function paraTikTok(files, txt, tipo) {
-  return; // v51.8 · TikTok desactivado (bloquea el contenido de pronósticos)
+// v51.9 · Instagram: lo que sale en Facebook se publica también en la cuenta de Instagram vinculada a la página
+// (misma llave FB_USER_TOKEN, con los permisos instagram_basic e instagram_content_publish). Si falla, Facebook sigue igual.
+const igTxt = t => { t = String(t || '').split('\n').filter(l => !/whatsapp\.com\/channel/i.test(l)).join('\n').replace(/alexbetpro\.web\.app/g, 'alexbetpro.web.app (link en la bio)').replace(/\n{3,}/g, '\n\n').trim(); return t.slice(0, 2150); };
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+async function igListo(ig, tk, id) { for (let i = 0; i < 60; i++) { const s = await api(`${G}/${id}?fields=status_code,status&access_token=${tk}`); if (s.status_code === 'FINISHED') return; if (s.status_code === 'ERROR') throw new Error('Instagram no aceptó el archivo: ' + (s.status || '')); await esperar(5000); } throw new Error('Instagram tardó demasiado en procesar'); }
+async function igFoto(ig, tk, f, extra) { // Instagram solo toma JPG desde un enlace público
+  const jp = f.replace(/\.[a-z0-9]+$/i, '-ig.jpg'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-q:v', '2', jp]);
+  const u = await subirArchivo(jp); if (!u) throw new Error('no pude dejar la imagen en un enlace público');
+  return (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(Object.assign({image_url: u.url}, extra))})).id;
+}
+async function alInstagram(p, files, txt) {
+  if (DRY || !p) return;
+  const st = await estado().catch(() => null); if (st && st.igOff) { console.log('Instagram: apagado desde el panel'); return; }
   try {
-    const up = []; for (const f of files) { const u = typeof f === 'string' ? await subirArchivo(f) : f; if (u) up.push({url: u.url, img: u.img || '', name: u.name}); }
-    if (!up.length) return;
-    const st = await estado() || {}, tk = [{t: Date.now(), tipo, txt: tkTxt(txt), f: up}].concat(st.tk || []).filter(x => x.t > Date.now() - 3 * 864e5).slice(0, 12);
-    await estadoSet({tk}); console.log('Listo para TikTok:', tipo, up.length, 'archivo(s)');
-  } catch (e) { console.log('TikTok: no se pudo dejar listo:', e.message); }
+    const tk = encodeURIComponent(p.access_token), cap = igTxt(txt);
+    const ig = ((await api(`${G}/${p.id}?fields=instagram_business_account&access_token=${tk}`)).instagram_business_account || {}).id;
+    if (!ig) throw new Error('la página no tiene una cuenta de Instagram profesional vinculada');
+    let id;
+    if (files.length > 1) { // varias imágenes: carrusel (máximo 10)
+      const kids = []; for (const f of files.slice(0, 10)) kids.push(await igFoto(ig, tk, f, {is_carousel_item: true}));
+      for (const k of kids) await igListo(ig, tk, k);
+      id = (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({media_type: 'CAROUSEL', children: kids.join(','), caption: cap})})).id;
+    } else if (/\.(png|jpe?g)$/i.test(files[0])) id = await igFoto(ig, tk, files[0], {caption: cap});
+    else { // video: reel, se sube el archivo directo (sin enlace)
+      id = (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({media_type: 'REELS', upload_type: 'resumable', caption: cap, share_to_feed: true})})).id;
+      const buf = fs.readFileSync(files[0]), up = await fetch(`https://rupload.facebook.com/ig-api-upload/v21.0/${id}`, {method: 'POST', headers: {Authorization: 'OAuth ' + p.access_token, offset: '0', file_size: String(buf.length)}, body: buf});
+      if (!up.ok) throw new Error('subida del video: HTTP ' + up.status + ' ' + (await up.text()).slice(0, 150));
+    }
+    await igListo(ig, tk, id);
+    const r = await api(`${G}/${ig}/media_publish?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({creation_id: id})});
+    console.log('Publicado en Instagram:', r.id); await anotar({ok: true, id: r.id || '', txt: 'Instagram · ' + cap.split('\n')[0]});
+  } catch (e) { console.log('Instagram: no se pudo:', e.message); await anotar({ok: false, txt: 'Instagram · ' + String(e.message).slice(0, 140)}); }
 }
 const TIPO = m => ({resdep: 'Resultados de ayer', res: 'Resultados de ayer', pro: 'Pronósticos', reel: 'Reel', 'reel:nba': 'Reel NBA', 'reel:sel': 'Video con voz', ana: 'Video análisis', 'ana:sel': 'Video análisis', radar: 'Video radar', 'radar:sel': 'Video radar', sem: 'Resumen de la semana', promo: 'Promo'})[m] || ({pro: 'Pronósticos'})[String(m).split(':')[0]] || 'Publicación';
 const SOLO = process.env.FB_SOLO === '1';
@@ -340,12 +362,15 @@ async function plan() {
   }
   if (MODE !== 'check' && process.env.FB_PROGRAMADO === '1' && !DRY) { const st = await estado(); if (st && st.pausa) { console.log('En pausa desde el panel: no se publica.'); await anotar({ok: false, txt: 'En pausa'}); return; } }
   const p = process.argv.includes('--sin-fb') ? null : await pagina();
-  if (MODE === 'check') return;
+  if (MODE === 'check') { // v51.9 · revisa también Instagram
+    try { const pr = await api(`${G}/me/permissions?access_token=${encodeURIComponent(process.env.FB_USER_TOKEN)}`); console.log('Permisos de la llave:', (pr.data || []).filter(x => x.status === 'granted').map(x => x.permission).join(', ')); } catch (e) { console.log('permisos:', e.message); }
+    try { const ig = (await api(`${G}/${p.id}?fields=instagram_business_account{id,username,followers_count}&access_token=${encodeURIComponent(p.access_token)}`)).instagram_business_account; console.log(ig ? `Instagram vinculado: @${ig.username} (${ig.id}) · seguidores=${ig.followers_count}` : 'Instagram: la página no tiene cuenta profesional vinculada'); } catch (e) { console.log('Instagram:', e.message); }
+    return; }
   if (MODE === 'promo') { // una imagen y su texto preparados a mano (carpeta fb-promo)
     const f = path.join(ROOT, 'fb-promo', 'promo.png'), txt = (() => { const ls = fs.readdirSync(path.join(ROOT, 'fb-promo')).filter(x => /^promo\d+\.txt$/.test(x)).sort(), sem = Math.floor(Date.now() / (7 * 864e5)); /* un texto distinto cada semana */
       return fs.readFileSync(path.join(ROOT, 'fb-promo', ls.length ? ls[sem % ls.length] : 'promo.txt'), 'utf8').trim(); })();
     if (DRY || !p) { console.log('[prueba] no se publica:', txt.split('\n')[0]); return; }
-    const r = await foto(p, f, txt); console.log('Publicada la promo:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); await paraTikTok([f], txt, TIPO(MODE)); return;
+    const r = await foto(p, f, txt); console.log('Publicada la promo:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); await alInstagram(p, [f], txt); return;
   }
   if (MODE.startsWith('radar')) { // v51 · video radar
     const res = await radarVideo(); if (!res) { if (!DRY) await anotar({ok: false, txt: 'Sin jugadores para el radar'}); return; }
@@ -353,7 +378,7 @@ async function plan() {
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(f)}\n${res.txt}`); return; }
     const vR = await guardarVideo(f, res.txt, 'Radar');
     if (SOLO) { await anotar({ok: true, txt: 'Video radar listo para compartir (no se publicó)'}); return; }
-    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await paraTikTok([vR || f], res.txt, TIPO(MODE)); return;
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await alInstagram(p, [f], res.txt); return;
   }
   if (MODE.startsWith('ana')) { // v50 · video análisis de una jugada, con capturas de la app
     const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
@@ -361,7 +386,7 @@ async function plan() {
     let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
     const vA = await guardarVideo(f, res.txt, 'Ana');
     if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); return; }
-    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await paraTikTok([vA || f], res.txt, TIPO(MODE)); return;
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await alInstagram(p, [f], res.txt); return;
   }
   const out = await panel(async page => {
     if (MODE === 'sem') { // resumen de los 7 días hasta ayer (domingos)
@@ -396,16 +421,16 @@ async function plan() {
   if (!out.length) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Nada para publicar'}); return; }
   if (out.album) {
     if (DRY) { console.log(`[prueba] no se publica: álbum de ${out.length} imágenes\n${out.album}`); return; }
-    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); await paraTikTok(out.map(o => o.file), out.album, TIPO(MODE)); return;
+    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); await alInstagram(p, out.map(o => o.file), out.album); return;
   }
   for (const o of out) {
     const kb = Math.round(fs.statSync(o.file).size / 1024);
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
-    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); await paraTikTok([o.file], o.txt, TIPO(MODE)); }
+    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); await alInstagram(p, [o.file], o.txt); }
     else { let f = o.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
       const vS = /:sel$/.test(MODE) ? await guardarVideo(f, o.txt, 'Reel') : null;
       if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); continue; }
-      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); await paraTikTok([vS || f], o.txt, TIPO(MODE)); }
+      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); await alInstagram(p, [f], o.txt); }
   }
 })().catch(async e => { console.error('No se pudo:', e.message); if (!DRY && MODE !== 'poll') await anotar({ok: false, txt: 'Error: ' + String(e.message).slice(0, 140)}); process.exit(1); });
 function st0(r) { return (r && (r.post_id || r.video_id || r.id)) || ''; }
