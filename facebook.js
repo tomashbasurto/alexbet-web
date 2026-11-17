@@ -264,6 +264,11 @@ async function igFoto(ig, tk, f, extra) { // Instagram solo toma JPG desde un en
   const u = await subirArchivo(jp); if (!u) throw new Error('no pude dejar la imagen en un enlace público');
   return (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(Object.assign({image_url: u.url}, extra))})).id;
 }
+// v52.0 · video: Instagram lo baja desde un enlace público (la subida directa daba "Request processing failed")
+async function igVideo(ig, tk, f, cap) {
+  const u = await subirArchivo(f); if (!u) throw new Error('no pude dejar el video en un enlace público');
+  return (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({media_type: 'REELS', video_url: u.url, caption: cap, share_to_feed: true})})).id;
+}
 async function alInstagram(p, files, txt) {
   if (DRY || !p) return;
   const st = await estado().catch(() => null); if (st && st.igOff) { console.log('Instagram: apagado desde el panel'); return; }
@@ -277,11 +282,7 @@ async function alInstagram(p, files, txt) {
       for (const k of kids) await igListo(ig, tk, k);
       id = (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({media_type: 'CAROUSEL', children: kids.join(','), caption: cap})})).id;
     } else if (/\.(png|jpe?g)$/i.test(files[0])) id = await igFoto(ig, tk, files[0], {caption: cap});
-    else { // video: reel, se sube el archivo directo (sin enlace)
-      id = (await api(`${G}/${ig}/media?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({media_type: 'REELS', upload_type: 'resumable', caption: cap, share_to_feed: true})})).id;
-      const buf = fs.readFileSync(files[0]), up = await fetch(`https://rupload.facebook.com/ig-api-upload/v21.0/${id}`, {method: 'POST', headers: {Authorization: 'OAuth ' + p.access_token, offset: '0', file_size: String(buf.length)}, body: buf});
-      if (!up.ok) throw new Error('subida del video: HTTP ' + up.status + ' ' + (await up.text()).slice(0, 150));
-    }
+    else id = await igVideo(ig, tk, files[0], cap);
     await igListo(ig, tk, id);
     const r = await api(`${G}/${ig}/media_publish?access_token=${tk}`, {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({creation_id: id})});
     console.log('Publicado en Instagram:', r.id); await anotar({ok: true, id: r.id || '', txt: 'Instagram · ' + cap.split('\n')[0]});
@@ -366,6 +367,11 @@ async function plan() {
     try { const pr = await api(`${G}/me/permissions?access_token=${encodeURIComponent(process.env.FB_USER_TOKEN)}`); console.log('Permisos de la llave:', (pr.data || []).filter(x => x.status === 'granted').map(x => x.permission).join(', ')); } catch (e) { console.log('permisos:', e.message); }
     try { const ig = (await api(`${G}/${p.id}?fields=instagram_business_account{id,username,followers_count}&access_token=${encodeURIComponent(p.access_token)}`)).instagram_business_account; console.log(ig ? `Instagram vinculado: @${ig.username} (${ig.id}) · seguidores=${ig.followers_count}` : 'Instagram: la página no tiene cuenta profesional vinculada');
       if (ig) { const m = await api(`${G}/${ig.id}/media?fields=timestamp,media_type,caption&limit=5&access_token=${encodeURIComponent(p.access_token)}`); console.log('Últimas en Instagram:', (m.data || []).map(x => x.timestamp + ' ' + x.media_type + ' ' + String(x.caption || '').split('\n')[0].slice(0, 40)).join(' | ') || '(ninguna)'); } } catch (e) { console.log('Instagram:', e.message); }
+    if (process.env.IG_TEST === '1') try { // prueba: arma un reel en Instagram pero NO lo publica
+      const igid = (await api(`${G}/${p.id}?fields=instagram_business_account&access_token=${encodeURIComponent(p.access_token)}`)).instagram_business_account.id, tk = encodeURIComponent(p.access_token);
+      const f = path.join(require('os').tmpdir(), 'igtest.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=0x0b1a12:s=1080x1920:d=6', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', f]);
+      const id = await igVideo(igid, tk, f, 'prueba'); await igListo(igid, tk, id); console.log('PRUEBA Instagram: el video quedó listo para publicar (no se publicó) ✓');
+    } catch (e) { console.log('PRUEBA Instagram falló:', e.message); }
     try { const st = await estado(); console.log('Registro del panel:\n' + (st && st.log || []).slice(0, 10).map(x => JSON.stringify(x)).join('\n')); } catch (e) { console.log('registro:', e.message); }
     return; }
   if (MODE === 'promo') { // una imagen y su texto preparados a mano (carpeta fb-promo)
