@@ -131,9 +131,12 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
           const q = findU(vals, lam, sd); if (q && q.ln >= 1.5) C.push(Object.assign(q, {mk, vals: bars}));
         });
         // un lado por mercado; primero las que tienen cuota real, luego las de valor y la probabilidad
-        const sc = c => (c.bk ? 1000 : 0) + (c.vl ? 500 : 0) + c.p * 2 + c.hit, best = {};
+        // v49.5 · primero puntos, rebotes, asistencias, triples y combinados; robos, tapones y pérdidas como mucho 1 por jugador
+        const MINOR = ['Robos', 'Tapones', 'Pérdidas', 'Robos+Tapones'];
+        const sc = c => (c.bk ? 1000 : 0) + (c.vl ? 500 : 0) + (MINOR.includes(c.mk) ? 0 : 300) + c.p * 2 + c.hit, best = {};
         C.forEach(c => { if (!best[c.mk] || sc(c) > sc(best[c.mk])) best[c.mk] = c; });
-        return Object.values(best).sort((a, b) => sc(b) - sc(a)).slice(0, 3)
+        let nMin = 0;
+        return Object.values(best).sort((a, b) => sc(b) - sc(a)).filter(c => !MINOR.includes(c.mk) || nMin++ < 1).slice(0, 3)
           .map(c => Object.assign(c, {pid: P.key, pname: P.name, pos: P.pos || '', role, imp: +ptsAvg(P).toFixed(1)}));
       };
       const rot = pool.filter(P => minAvg(P) >= 12);
