@@ -87,7 +87,7 @@ async function bajar(page, js, arg) {
 const TOPL = ['lib','sud','recopa','wcqsa','copaam','mundial','wcqeu','euro','euroq','unl','cnl','wcqcc','gold','epl','laliga','seriea','bundes','ligue1','ucl','uel','arg','col','mex','bra','mls'];
 const opKey = o => [o.sp, o.h, o.a, o.kind, o.pname || o.who || '', o.mk, o.ln].join('|');
 function candidatos() {
-  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6);
+  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6 && !o.u); // v49.3 · los videos arman solo "Más de"
   const sel = process.env.FB_ANA || '';
   if (sel && sel[0] === '{') { try { return [JSON.parse(sel)]; } catch (e) { console.log('pedido inválido'); return []; } } // una sugerencia 'Más de' elegida en el panel
   if (sel) { const x = I.find(o => opKey(o) === sel); if (!x) console.log('No encontré la jugada elegida en el panel:', sel); return x ? [x] : []; }
@@ -172,7 +172,7 @@ async function analisis() {
 
 // ---------- v51 · Video radar: 2 jugadores (con foto y la línea ajustada), el radar del día y Premium; con música, sin voz ----------
 function jugadoresRadar() { // 2 jugadas: las que eligió Alexander (jugadores o equipos, de cualquier deporte) o los 2 mejores jugadores del día
-  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6);
+  const O = JSON.parse(fs.readFileSync(path.join(ROOT, 'oportunidades.json'), 'utf8')), I = (O.items || []).filter(o => (o.vals || []).length >= 6 && !o.u); // v49.3 · los videos arman solo "Más de"
   const ESC = JSON.parse(fs.readFileSync(path.join(ROOT, 'escudos', 'escudos.json'), 'utf8'));
   const img = k => { const f = ESC[k]; return f && f !== '-' && fs.existsSync(path.join(ROOT, 'escudos', f)) ? path.join(ROOT, 'escudos', f) : null; };
   const foto = o => o.kind === 'player' ? img('j:' + String(o.pid).split('|')[0]) : img(o.who && o.who !== 'Partido' ? o.who : o.h);

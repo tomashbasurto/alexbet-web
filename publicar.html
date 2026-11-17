@@ -52,6 +52,7 @@
   .row .tx b{ display:block; font-size:14px; line-height:1.3; overflow-wrap:anywhere; }
   .row .tx small{ display:block; font-size:12px; line-height:1.35; color:var(--dim); margin-top:2px; overflow-wrap:anywhere; }
   .row .p{ font:900 16px Orbitron; color:var(--accent); flex:none; }
+  .row .od{ flex:none; font:700 12px Orbitron; color:var(--ink, #eef5f2); display:flex; flex-direction:column; align-items:flex-end; gap:2px; } .row .od i{ font:700 10px Inter, sans-serif; font-style:normal; color:#ffc400; }
   .row .r{ flex:none; font-size:16px; }
   .note{ font-size:12.5px; color:var(--dim); line-height:1.5; margin:8px 2px; }
   .empty{ text-align:center; color:var(--dim); font-size:13px; padding:22px 10px; }
@@ -143,6 +144,7 @@ const VTIPOS = [['voz', '🎙️ Video con voz (hasta 4 jugadas)'], ['ana', '�
 let VT = (() => { try{ return localStorage.getItem('ab_vt') || 'voz'; }catch(e){ return 'voz'; } })();
 // v50.4 · qué se le manda al servidor para el video análisis: la llave de una oportunidad, o los datos de una sugerencia "Más de X" (goles, córners, tarjetas, puntos)
 function anaSpec(p){
+  if(p.under && p.ok) return null; // v49.3 · los videos del servidor solo arman "Más de"
   if(p.ok && (p.vals || []).length >= 6) return p.ok;
   const m = p.mkt || {}; if(m.t !== 'tot' || m.o !== 1 || !m.L) return null;
   const base = {sp: p.sp, lid: p.lid, h: p.h, a: p.a, kind: 'team', who: 'Partido', ln: m.L, t: 2, lname: p.where || '', when: new Date(p.ts).toISOString().slice(0, 16)};
@@ -167,8 +169,8 @@ async function cargar(){
     PICKS = (h.picks || []).slice(); ESC = e || {};
     OPS = (o.items || []).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
-      const label = `${who ? who + ' · ' : ''}Más de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
-      return {id:'op'+i, ok:opKey(x), sp:x.sp, lid:x.lid, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, role:x.role, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln};
+      const label = `${who ? who + ' · ' : ''}${x.u ? 'Menos' : 'Más'} de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
+      return {id:'op'+i, ok:opKey(x), sp:x.sp, lid:x.lid, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, role:x.role, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln, under:!!x.u, odd:x.o || null, bk:!!x.bk, vl:!!x.vl, gid:x.gid};
     });
     // las sugerencias de la app que coinciden con una racha muestran también sus barras
     PICKS.forEach(p => { const m = p.mkt || {}; if(m.t!=='tot' || m.o!==1) return; const mk = {g:'goles', c:'córners', k:'tarjetas'}[m.k] || (p.sp!=='futbol' && m.k==='p' ? 'puntos' : null); if(!mk) return;
@@ -222,7 +224,7 @@ function proPool(){
   const seen = new Set(P.map(p => { const m = p.mkt || {}; return m.t==='tot' && m.o===1 ? `${p.h}|${p.a}|${MKN[m.k]||''}|${m.L}` : ''; }).filter(Boolean));
   return P.concat(OPS.filter(o => !(o.kind==='team' && /en el partido$/.test(o.label) && seen.has(`${o.h}|${o.a}|${o.mk}|${o.ln}`))));
 }
-const dayPicks = () => (MODE==='res' ? PICKS : proPool().filter(p => p.kind === TYPE && (TYPE !== 'player' || ROLE === 'all' || p.role === ROLE))).filter(p => dayOf(p.ts) === DAY);
+const dayPicks = () => (MODE==='res' ? PICKS : proPool().filter(p => p.kind === TYPE && (TYPE !== 'player' || ROLE === 'all' || (ROLE === 'bk' ? p.bk : ROLE === 'u' ? p.under : p.role === ROLE)))).filter(p => dayOf(p.ts) === DAY);
 // mercados: fijos para equipos; para jugadores, uno por cada mercado que haya ese día (puntos, rebotes, faltas…)
 const TGROUPS = [
   {k:'top', t:'Top del día', ic:'⭐', f:p => true},
@@ -288,8 +290,8 @@ function pintar(){
       <input type="date" id="dd" value="${DAY}">
     </div>
     ${MODE!=='res' ? `<div class="seg"><button data-t="team" class="${TYPE==='team'?'on':''}">Equipos y partidos</button><button data-t="player" class="${TYPE==='player'?'on':''}">Jugadores</button></div>` : ''}
-    ${MODE!=='res' && TYPE==='player' ? (() => { const P = proPool().filter(p => p.kind === 'player' && dayOf(p.ts) === DAY), n = r => r === 'all' ? P.length : P.filter(p => p.role === r).length;
-      return `<div class="seg">${[['all','Todos'],['top','Titulares'],['alt','Suplentes']].map(([k,t]) => `<button data-r="${k}" class="${ROLE===k?'on':''}">${t} <small style="opacity:.7">${n(k)}</small></button>`).join('')}</div>`; })() : ''}
+    ${MODE!=='res' && TYPE==='player' ? (() => { const P = proPool().filter(p => p.kind === 'player' && dayOf(p.ts) === DAY), n = r => r === 'all' ? P.length : P.filter(p => r === 'bk' ? p.bk : r === 'u' ? p.under : p.role === r).length;
+      return `<div class="seg">${[['all','Todos'],['bk','Con cuota'],['top','Titulares'],['alt','Suplentes'],['u','Menos de']].filter(([k]) => k === 'all' || k === 'top' || k === 'alt' || n(k)).map(([k,t]) => `<button data-r="${k}" class="${ROLE===k?'on':''}">${t} <small style="opacity:.7">${n(k)}</small></button>`).join('')}</div>`; })() : ''}
     <div class="flt">
       <label><span>Deporte</span><select id="fSp"><option value="all">Todos (${all0.length})</option>${sps.map(k => `<option value="${k}" ${SPF===k?'selected':''}>${esc(SPN[k]||k)} (${all0.filter(p=>p.sp===k).length})</option>`).join('')}</select></label>
       <label><span>Liga</span><select id="fLg"><option value="all">Todas (${all1.length})</option>${lgs.map(k => `<option value="${esc(k)}" ${LGF===k?'selected':''}>${esc(k)} (${all1.filter(p=>lugar(p)===k).length})</option>`).join('')}</select></label>
@@ -307,8 +309,8 @@ function pintar(){
     <div class="list">${list.length ? list.slice(0, LIM).map(p => `
       <div class="row" data-id="${esc(p.id)}">
         <input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1">
-        <div class="tx"><b>${esc(p.label)}</b><small>${esc(p.h)} vs ${esc(p.a)} · ${esc(lugar(p))} · ${hora(p.ts)}</small></div>
-        ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}<span class="p">${p.prob}%</span>
+        <div class="tx"><b>${esc(p.label)}</b><small>${p.kind==='player' && p.role ? (p.role==='top' ? 'Titular · ' : 'Suplente · ') : ''}${esc(p.h)} vs ${esc(p.a)} · ${esc(lugar(p))} · ${hora(p.ts)}${p.hit!=null && p.n ? ` · ${p.hit}/${p.n}` : ''}</small></div>
+        ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}${p.odd ? `<span class="od">@${(+p.odd).toFixed(2)}${p.vl ? '<i>valor</i>' : ''}</span>` : ''}<span class="p">${p.prob}%</span>
       </div>`).join('') + (list.length > LIM ? `<button class="more" id="mas">Mostrar más (${list.length - LIM} más)</button>` : '') : `<div class="empty">${QB ? 'Nada coincide con la búsqueda.' : MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
     </div>
     ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Están todas: las sugerencias de la app y las rachas de Oportunidades (equipos y jugadores que superaron la línea en sus últimos partidos). Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
@@ -345,7 +347,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.4</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.5</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -802,12 +804,12 @@ if(new URLSearchParams(location.search).has('bot')){
           const K = (window.__reelSel || []), all = proPool(); SELB = K.map(k => all.find(p => (p.ok || p.id) === k)).filter(Boolean).slice(0, 4);
         }
         else if(opt === 'nba'){ // Reel solo de NBA: 2 partidos y 2 jugadores titulares
-          const nb = pool.filter(p => p.sp === 'nba'), t = variado(nb.filter(p => p.kind === 'team'), 2, 2), j = variado(nb.filter(p => p.kind === 'player' && p.role === 'top').sort((a,b) => b.prob - a.prob), 4 - t.length, 4);
-          SELB = t.concat(j); if(SELB.length < 4) SELB = SELB.concat(variado(nb.filter(p => !SELB.includes(p)), 4 - SELB.length, 4)); LIGA = 'NBA';
+          const nb = pool.filter(p => p.sp === 'nba'), t = variado(nb.filter(p => p.kind === 'team'), 2, 2), j = variado(nb.filter(p => p.kind === 'player' && p.role === 'top' && !p.under).sort((a,b) => b.prob - a.prob), 4 - t.length, 4);
+          SELB = t.concat(j); if(SELB.length < 4) SELB = SELB.concat(variado(nb.filter(p => !SELB.includes(p) && !p.under), 4 - SELB.length, 4)); LIGA = 'NBA';
         }
         else {
           // jugadores: primero los titulares de básquet (puntos, rebotes, asistencias, triples); si no hay, otros con línea de verdad (1.5 o más)
-          const pl = pool.filter(p => p.kind === 'player' && p.vals), plTop = pl.filter(p => p.role === 'top').sort((a,b) => b.prob - a.prob), plOtros = pl.filter(p => !p.role && p.ln >= 1.5 && !/falta|tarjeta/i.test(p.mk || ''));
+          const pl = pool.filter(p => p.kind === 'player' && p.vals), plTop = pl.filter(p => p.role === 'top' && !p.under).sort((a,b) => b.prob - a.prob), plOtros = pl.filter(p => !p.role && !p.under && p.ln >= 1.5 && !/falta|tarjeta/i.test(p.mk || ''));
           SELB = variado(pool.filter(p => p.kind === 'team' && p.vals), 2, 1).concat(variado(plTop.length ? plTop : plOtros, 2, 2));
           if(SELB.length < 4) SELB = SELB.concat(variado(pool.filter(p => !SELB.includes(p) && p.vals), 4 - SELB.length, 4));
         }

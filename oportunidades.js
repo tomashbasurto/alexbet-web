@@ -34,13 +34,26 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
   await page.goto('https://alexbetpro.web.app/index.html');
   await page.waitForFunction(() => typeof LEAGUES !== 'undefined' && LEAGUES.some(l => l.live && l.fixtures), null, {timeout: 120000}).catch(() => console.log('fútbol no cargó a tiempo'));
 
-  const res = await page.evaluate(async () => {
+  // v49.3 · líneas reales de jugadores NBA (DraftKings vía ESPN), las mismas que copia espn-proxy.js cada 30 min
+  let PROPSX = {}; try { PROPSX = JSON.parse(fs.readFileSync(path.join(ROOT, 'espn-props-nba.json'), 'utf8')).ev || {}; } catch (e) {}
+  const res = await page.evaluate(async (PROPSX) => {
     const day = ymd(todayDate), now = Date.now(), log = [];
     await Promise.allSettled([usLoad('nba', true), usLoad('eul', true), usLoad('ncaa', true), usLoad('mlb', true), usLoad('nhl', true)]);
     PB.S = null; await pbLoad();
     const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
     const sdOf = a => { const m = avg(a); return Math.sqrt(a.reduce((t, x) => t + (x - m) * (x - m), 0) / Math.max(1, a.length - 1)); };
     // línea más alta donde el modelo da 58–78% y lo que pasó coincide (≥6 de 10)
+    const pAt = (lam, sd, ln) => { const raw = sd ? 1 - pbNorm((ln - lam) / sd) : pbPois(lam, ln); return Math.round((0.5 + (Math.min(.99, Math.max(.01, raw)) - 0.5) * 0.9) * 100); };
+    // v49.3 · "Menos de": la línea más baja donde el modelo da 58–78% y lo que pasó coincide (≥6 de 10 por debajo)
+    const findU = (vals, lam, sd) => {
+      const top = lam + 3 * Math.max(sd || 0, Math.sqrt(lam || 1)) + 1;
+      for (let ln = 0.5; ln <= top; ln += 1) {
+        const p = 100 - pAt(lam, sd, ln); if (p < 58) continue; if (p > 78) return null;
+        const v10 = vals.slice(0, 10), hit = v10.filter(v => v < ln).length; if (hit < 6) return null;
+        return {ln, p, hit, n: v10.length, avg: +avg(v10).toFixed(2), u: 1};
+      }
+      return null;
+    };
     const find = (vals, lam, sd) => {
       for (let ln = Math.max(0.5, Math.floor(lam + 1) - 0.5); ln >= 0.5; ln -= 1) {
         const raw = sd ? 1 - pbNorm((ln - lam) / sd) : pbPois(lam, ln), p = Math.round((0.5 + (Math.min(.99, Math.max(.01, raw)) - 0.5) * 0.9) * 100);
@@ -56,7 +69,7 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
       for (let i = 0; i < todo.length; i += 6) await Promise.all(todo.slice(i, i + 6).map(async g => { try { PJC[g.id] = pjParse(g.sp, await webGet(g.url)); } catch (e) { PJC[g.id] = null; } }));
     }
     // jugadores de un equipo: últimos 10 partidos (del más reciente al más viejo) -> candidatos
-    function players(sp, G) {
+    function players(sp, G, ctx) {
       const M = {};
       G.forEach((g, gi) => { const E = PJC[g.id]; if (!E) return; (E[g.side] || []).forEach(p => {
         const k = p.id + '|' + p.k, x = M[k] || (M[k] = {key: k, name: p.name, pos: p.pos, kind: p.k, rows: [], st: 0}); x.rows[gi] = p.S; if (p.st) x.st++; }); });
@@ -82,9 +95,49 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
       // si ESPN no marca titulares en ese torneo, se toman como titulares los 5 que más anotan
       const top5 = new Set(pool.slice().sort((a, b) => ptsAvg(b) - ptsAvg(a)).slice(0, 5).map(P => P.key));
       const isSt = pool.some(P => P.st > 0) ? (P => P.st * 2 >= P.rows.filter(Boolean).length) : (P => top5.has(P.key));
+      if (sp === 'nba') return nbaPlayers(pool, isSt, ctx || {});
       const top = pool.filter(isSt).map(P => { const r = bestOf(P, MAIN.bask); return r && Object.assign(r, {role: 'top', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean)
         .sort((a, b) => b.imp - a.imp || byP(a, b)).slice(0, 3);
       const alt = pool.filter(P => !isSt(P)).map(P => { const r = bestOf(P); return r && Object.assign(r, {role: 'alt', imp: +ptsAvg(P).toFixed(1)}); }).filter(Boolean).sort(byP).slice(0, 3);
+      return top.concat(alt);
+    }
+    // v49.3 · NBA: toda la rotación (hasta 5 titulares y 5 suplentes por equipo), hasta 3 mercados por jugador,
+    // "Más de" y "Menos de", y las líneas reales de DraftKings con su cuota (valor = el modelo da más que la cuota)
+    const NBA_MK = ['Puntos', 'Rebotes', 'Asistencias', 'Triples', 'Pts+Reb+Ast', 'Pts+Reb', 'Pts+Ast', 'Reb+Ast', 'Robos', 'Tapones', 'Pérdidas', 'Robos+Tapones'];
+    function nbaPlayers(pool, isSt, ctx) {
+      const props = (PROPSX[ctx.gid] || {}), MAIN = {'Puntos': 9.5, 'Rebotes': 4.5, 'Asistencias': 3.5, 'Triples': 1.5, 'Pts+Reb+Ast': 17.5, 'Pts+Reb': 14.5, 'Pts+Ast': 14.5, 'Reb+Ast': 6.5};
+      const COMPS = {}; (PJ_M.bask || []).forEach(([mk, c]) => COMPS[mk] = c);
+      const minAvg = P => { const v = P.rows.filter(Boolean).map(S => pjVal(S, ['MIN'])).filter(x => x != null); return v.length ? avg(v) : 99; };
+      const ptsAvg = P => { const v = P.rows.filter(Boolean).map(S => pjVal(S, ['PTS'])).filter(x => x != null); return v.length ? avg(v) : 0; };
+      const one = (P, role) => {
+        const aid = P.key.split('|')[0], dk = props[aid] || {}, C = [];
+        NBA_MK.forEach(mk => {
+          const vals = P.rows.filter(Boolean).map(S => pjVal(S, COMPS[mk])).filter(v => v != null); if (vals.length < 7) return;
+          const v10 = vals.slice(0, 10), lam = avg(v10), sd = lam >= 8 ? Math.max(sdOf(vals.slice(0, 20)), Math.sqrt(lam)) : 0, bars = v10.slice().reverse();
+          const L = dk[mk];
+          if (L && L[0] != null) { // línea real de la casa: el lado que el modelo y lo que pasó apoyan
+            const po = pAt(lam, sd, L[0]), ho = v10.filter(v => v > L[0]).length, hu = v10.filter(v => v < L[0]).length;
+            let added = 0;
+            [[po, ho, L[1], 0], [100 - po, hu, L[2], 1]].forEach(([p, hit, o, u]) => {
+              if (p < 58 || p > 82 || hit < 6) return; added++;
+              const c = {ln: L[0], p, hit, n: v10.length, avg: +lam.toFixed(2), mk, vals: bars, bk: 1};
+              if (u) c.u = 1; if (o > 1) { c.o = o; if (p / 100 > 1 / o + 0.03) c.vl = 1; }
+              C.push(c);
+            });
+            if (added) return;
+          }
+          const r = find(vals, lam, sd); if (r && (role !== 'top' || !(mk in MAIN) || r.ln >= MAIN[mk])) C.push(Object.assign(r, {mk, vals: bars}));
+          const q = findU(vals, lam, sd); if (q && q.ln >= 1.5) C.push(Object.assign(q, {mk, vals: bars}));
+        });
+        // un lado por mercado; primero las que tienen cuota real, luego las de valor y la probabilidad
+        const sc = c => (c.bk ? 1000 : 0) + (c.vl ? 500 : 0) + c.p * 2 + c.hit, best = {};
+        C.forEach(c => { if (!best[c.mk] || sc(c) > sc(best[c.mk])) best[c.mk] = c; });
+        return Object.values(best).sort((a, b) => sc(b) - sc(a)).slice(0, 3)
+          .map(c => Object.assign(c, {pid: P.key, pname: P.name, pos: P.pos || '', role, imp: +ptsAvg(P).toFixed(1)}));
+      };
+      const rot = pool.filter(P => minAvg(P) >= 12);
+      const top = rot.filter(isSt).sort((a, b) => ptsAvg(b) - ptsAvg(a)).slice(0, 5).flatMap(P => one(P, 'top'));
+      const alt = rot.filter(P => !isSt(P)).sort((a, b) => minAvg(b) - minAvg(a)).slice(0, 5).flatMap(P => one(P, 'alt'));
       return top.concat(alt);
     }
 
@@ -140,12 +193,12 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
         for (const [t, side, list2] of [[0, g.h, Hs], [1, g.a, As]]) {
           const G = list2.slice(0, 10).map(m => ({id: m.id, sp, side: m.home ? 'h' : 'a', url: `${US_API}/site/v2/sports/${US[sp].path}/summary?event=${m.id}`}));
           await summaries(G);
-          players(sp, G).forEach(c => out.push(Object.assign({}, base, {kind: 'player', t, team: side.name}, c)));
+          players(sp, G, {gid: g.id}).forEach(c => out.push(Object.assign({}, base, {kind: 'player', t, team: side.name}, c)));
         }
       }
     }
     return {day, items: out, log, partidos: Object.keys(PJC).length};
-  });
+  }, PROPSX);
   await browser.close();
   res.log.forEach(l => console.log(l));
   const by = {}; res.items.forEach(x => { const k = x.sp + ' ' + x.kind; by[k] = (by[k] || 0) + 1; });

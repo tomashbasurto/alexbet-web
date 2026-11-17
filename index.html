@@ -716,6 +716,17 @@ main{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
 .op-bars2 i{ width:100%; border-radius:4px 4px 1px 1px; background:var(--miss); } .op-bars2 .ok i{ background:var(--over); }
 .op-bars2 u{ position:absolute; left:0; right:0; border-top:1.5px dashed rgba(238,244,242,.6); text-decoration:none; z-index:2; }
 .op-btns{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.nb-g{ overflow-x:auto; scrollbar-width:none; } .nb-g button{ flex:none; }
+.nb-tabs{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:0 0 8px; }
+.nb-tabs button{ min-height:40px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12px var(--font-body); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2; }
+.nb-tabs button small{ font-size:10.5px; opacity:.8; } .nb-tabs button.on{ border-color:var(--accent); color:var(--accent); }
+.nb-c{ cursor:default; gap:8px; } .nb-n{ flex:none; font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:var(--accent-dim); color:var(--accent); }
+.nb-t{ display:flex; flex-direction:column; }
+.nb-r{ display:grid; grid-template-columns:1fr 42px 46px 36px 30px; gap:6px; align-items:center; min-height:40px; border-top:1px solid var(--line); font-size:12.5px; cursor:pointer; }
+.nb-r b{ font:900 13px Orbitron, var(--font-head); text-align:right; } .nb-o, .nb-h{ text-align:right; color:var(--ink); font-family:Orbitron, var(--font-head); font-size:12px; }
+.nb-m{ min-width:0; font-weight:600; } .nb-hd{ min-height:24px; border-top:0; cursor:default; font-size:10.5px; color:var(--ink-dim); } .nb-hd span:not(:first-child){ text-align:right; }
+.nb-v{ font-style:normal; font-size:10px; font-weight:700; padding:1px 6px; border-radius:6px; background:rgba(255,196,0,.16); color:#ffc400; margin-left:2px; }
+.nb-add{ width:28px; height:28px; border-radius:8px; border:1px solid var(--accent-dim); background:var(--accent-dim); color:var(--accent); font:700 16px var(--font-body); cursor:pointer; justify-self:end; }
 .op-btns button{ min-height:40px; border-radius:10px; font:600 13px var(--font-body); cursor:pointer; }
 .op-add{ border:1px solid var(--accent-dim); background:var(--accent-dim); color:var(--accent); } .op-go{ border:1px solid var(--line-hi); background:var(--surface-2); color:var(--ink); }
 .lgp-sheet{ padding-top:14px; } .lgp-hd{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; } .lgp-hd .sub{ margin-bottom:10px; } .lgp-hd .sub b{ font-family:Orbitron, var(--font-head); color:var(--ink); }
@@ -2022,6 +2033,7 @@ function opxHTML(sp, localTeams){
     <div class="op-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Modelo entre 58% y 78% y se cumplió al menos 6 de 10</div>`;
   if(OPK==='player'){
     if(!pls.length) return bar + `<div class="empty-state" style="padding:18px">${L ? 'Hoy no hay jugadores donde el modelo y lo que pasó coincidan.' : 'Las oportunidades de jugadores se calculan en el servidor cada 3 horas. Vuelve en un rato.'}</div>`;
+    if(sp==='nba') return bar + nbaPlHTML(pls) + opFoot(true);
     const srt = a => a.sort((a,b)=>b.p-a.p || b.hit-a.hit), top = pls.filter(o=>o.role==='top'), alt = pls.filter(o=>o.role==='alt'), oth = pls.filter(o=>!o.role);
     if(!top.length && !alt.length) return bar + srt(oth).slice(0,30).map(o=>opCard(o)).join('') + opFoot(true);
     // v47.3 · básquet: Titulares (puntos, rebotes, asistencias, triples) y Suplentes (cualquier mercado) en pestañas
@@ -2038,6 +2050,38 @@ function opxHTML(sp, localTeams){
   return bar + (localTeams || `<div class="empty-state" style="padding:18px">Hoy no hay oportunidades de equipos donde el modelo y lo que pasó coincidan.</div>`);
 }
 let OPR = 'top';
+// v49.3 · NBA: tarjeta por jugador con hasta 3 mercados, filtro por partido y pestañas Con cuota / Titulares / Suplentes / Menos de
+let OPG = 'all', OPN = 'bk';
+const nbaNick = n => String(n||'').split(' ').pop();
+function nbaPlHTML(pls){
+  const games = [...new Map(pls.map(o=>[String(o.gid), o])).values()].sort((a,b)=>a.ts-b.ts);
+  if(OPG!=='all' && !games.some(g=>String(g.gid)===OPG)) OPG = 'all';
+  const inG = pls.filter(o=>OPG==='all' || String(o.gid)===OPG);
+  const T = [['bk','Con cuota',o=>o.bk],['top','Titulares',o=>o.role==='top'],['alt','Suplentes',o=>o.role==='alt'],['u','Menos de',o=>o.u]];
+  const cnt = f => new Set(inG.filter(f).map(o=>o.gid+'|'+o.pid)).size;
+  if(!T.some(t=>t[0]===OPN) || !cnt(T.find(t=>t[0]===OPN)[2])) OPN = (T.find(t=>cnt(t[2])) || T[1])[0];
+  const tab = T.find(t=>t[0]===OPN), L = inG.filter(tab[2]);
+  const chips = `<div class="tn-chips nb-g">${[['all','Todos',pls]].concat(games.map(g=>[String(g.gid), nbaNick(g.h)+'-'+nbaNick(g.a), pls.filter(o=>String(o.gid)===String(g.gid))])).map(([k,t,a])=>`<button type="button" class="${OPG===k?'on':''}" onclick="OPG='${k}';renderMatches()">${escA(t)} · ${a.length}</button>`).join('')}</div>`;
+  const seg = `<div class="nb-tabs">${T.map(([k,t,f])=>`<button type="button" class="${OPN===k?'on':''}" onclick="OPN='${k}';renderMatches()">${t}<small>${cnt(f)}</small></button>`).join('')}</div>`;
+  const note = `<div class="al-st" style="margin:0 2px 8px">${{bk:'Líneas reales de DraftKings con su cuota. "Valor": el modelo da más probabilidad que la que paga la cuota.', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
+  const P = {}; L.forEach(o=>{ const k = o.gid+'|'+o.pid; (P[k] = P[k] || []).push(o); });
+  const sc = a => Math.max(...a.map(o=>(o.vl?100:0)+o.p));
+  const cards = Object.values(P).sort((a,b)=>sc(b)-sc(a)).slice(0,40).map(a=>nbaCard(a.sort((x,y)=>(y.bk?1:0)-(x.bk?1:0) || (y.vl?1:0)-(x.vl?1:0) || y.p-x.p))).join('');
+  return chips + seg + note + (cards || `<div class="empty-state" style="padding:18px">Nada en esta pestaña para este partido.</div>`);
+}
+function nbaCard(a){
+  const o = a[0], f = fmtParts(o.when, 0), today = isoDateOnlyEcuador(o.when, 0)===ymd(todayDate), when = (today ? 'hoy ' : f.date+' ')+f.time;
+  const rival = o.t ? o.h : o.a, u = pjHead(o.sp, o.pid);
+  const rows = a.map(x=>{ const i = OP_LIST.push(x)-1, mk = String(x.mk).toLowerCase(), MD = x.u ? 'Menos de' : 'Más de';
+    const ri = pkReg(x.sp, x.sp, x.h, x.a, x.when, x.ts, x.gid || null, {label:`${plShort(x.pname)}: ${MD.toLowerCase()} ${(+x.ln).toFixed(1)} ${mk}`, cat:'tot', prob:x.p, conf: x.p>=75 ? 'alta' : x.p>=65 ? 'media' : 'baja'});
+    return `<div class="nb-r" onclick="opGo(${i})"><span class="nb-m">${MD} ${(+x.ln).toFixed(1)} ${escA(mk)}${x.vl?' <i class="nb-v">valor</i>':''}</span><span class="nb-o">${x.o ? (+x.o).toFixed(2) : '–'}</span><b style="color:${lvlC(x.p)}">${x.p}%</b><span class="nb-h">${x.hit}/${x.n}</span><button type="button" class="nb-add" aria-label="Agregar a Mis jugadas" onclick="event.stopPropagation();pkSheet(${ri})">+</button></div>`; }).join('');
+  return `<div class="op-c2 nb-c">
+    <div class="op-hd"><span class="op-ph"><span class="pj-ava">${u?`<img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(o.pname))}</i></span><span class="op-mini">${crestHTML(o.team, null, 18)}</span></span>
+      <div class="op-tt"><b>${escA(o.pname)}</b><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>${o.role==='top'?'Titular':'Suplente'} · ${escA(nbaNick(o.team))} · vs ${escA(nbaNick(rival))} · ${when}</small></div>
+      <span class="nb-n">${a.length} ${a.length>1?'mercados':'mercado'}</span></div>
+    <div class="nb-t"><div class="nb-r nb-hd"><span>Mercado</span><span>Cuota</span><span>Modelo</span><span>L10</span><span></span></div>${rows}</div>
+  </div>`;
+}
 function opFoot(pl){ return `<div class="foot-note">Datos reales de ESPN${pl?' · promedio del jugador en sus últimos 10':' · lo que hace cada equipo y lo que concede el rival (últimos 10)'}. No garantiza el resultado.</div>`; }
 function opCard(o){
   const i = OP_LIST.push(o)-1, off = o.sp==='futbol' ? (LEAGUES.find(l=>l.id===o.lid)||{utcOffset:0}).utcOffset : 0, f = fmtParts(o.when, off), vals = (o.vals||[]).slice(0,10), mx = Math.max(o.ln+1, ...vals);
@@ -2049,13 +2093,13 @@ function opCard(o){
   const u = pl ? pjHead(o.sp, o.pid) : '';
   const vis = pl ? `<span class="op-ph"><span class="pj-ava">${u?`<img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(o.pname))}</i></span><span class="op-mini">${crestHTML(o.team, lid, 18)}</span></span>`
     : tot ? `<span class="cr-two op-cr">${crestHTML(o.h, lid, 34)}${crestHTML(o.a, lid, 34)}</span>` : `<span class="op-cr">${crestHTML(o.who, lid, 36)}</span>`;
-  const mk = String(opMk(o)).toLowerCase(), label = tot ? `Más de ${(+o.ln).toFixed(1)} ${mk}` : `${pl ? plShort(o.pname) : o.who}: más de ${(+o.ln).toFixed(1)} ${mk}`;
+  const mk = String(opMk(o)).toLowerCase(), MD = o.u ? 'enos de' : 'ás de', label = tot ? `M${MD} ${(+o.ln).toFixed(1)} ${mk}` : `${pl ? plShort(o.pname) : o.who}: m${MD} ${(+o.ln).toFixed(1)} ${mk}`;
   const cat = tot ? ({goles:'goles', 'córners':'corn', tarjetas:'tarj'}[mk] || 'tot') : 'tot';
   const ri = pkReg(o.sp, o.sp==='futbol' ? o.lid : o.sp, o.h, o.a, o.when, o.ts || pkTs(o.when, off), o.gid || null, {label, cat, prob:o.p, conf: o.p>=75 ? 'alta' : o.p>=65 ? 'media' : 'baja'});
   return `<div class="op-c2" onclick="opGo(${i})">
     <div class="op-hd">${vis}<div class="op-tt"><b>${escA(title)}</b><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>${sub}</small></div><div class="op-pc"><b style="color:${lvlC(o.p)}">${o.p}%</b><small>modelo</small></div></div>
-    <div class="op-mrow"><span class="op-pill">Más de ${(+o.ln).toFixed(1)} ${escA(mk)}</span><span class="op-hit"><b>${o.hit}/${o.n}</b> se cumplió · prom <b>${(+o.avg).toFixed(1)}</b></span></div>
-    <div class="op-bars2">${vals.slice().reverse().map(v=>`<span class="${v>o.ln?'ok':''}"><em>${v}</em><i style="height:${Math.max(3, Math.round(v/mx*36))}px"></i></span>`).join('')}<u style="bottom:${Math.round(o.ln/mx*36)+14}px"></u></div>
+    <div class="op-mrow"><span class="op-pill">M${MD} ${(+o.ln).toFixed(1)} ${escA(mk)}</span><span class="op-hit"><b>${o.hit}/${o.n}</b> se cumplió · prom <b>${(+o.avg).toFixed(1)}</b></span></div>
+    <div class="op-bars2">${vals.slice().reverse().map(v=>`<span class="${(o.u ? v<o.ln : v>o.ln)?'ok':''}"><em>${v}</em><i style="height:${Math.max(3, Math.round(v/mx*36))}px"></i></span>`).join('')}<u style="bottom:${Math.round(o.ln/mx*36)+14}px"></u></div>
     <div class="op-btns"><button type="button" class="op-add" onclick="event.stopPropagation();pkSheet(${ri})">+ Mis jugadas</button><button type="button" class="op-go">Ver análisis ›</button></div>
   </div>`;
 }
@@ -5385,7 +5429,7 @@ const SRC = {
 };
 // v48 · nombres de selecciones en español (igual que en el servidor)
 const NAT_ES = {"Afghanistan": "Afganistán", "Albania": "Albania", "Algeria": "Argelia", "American Samoa": "Samoa Americana", "Andorra": "Andorra", "Angola": "Angola", "Anguilla": "Anguila", "Antigua and Barbuda": "Antigua y Barbuda", "Argentina": "Argentina", "Armenia": "Armenia", "Aruba": "Aruba", "Australia": "Australia", "Austria": "Austria", "Azerbaijan": "Azerbaiyán", "Bahamas": "Bahamas", "Bahrain": "Baréin", "Bangladesh": "Bangladés", "Barbados": "Barbados", "Belarus": "Bielorrusia", "Belgium": "Bélgica", "Belize": "Belice", "Benin": "Benín", "Bermuda": "Bermudas", "Bhutan": "Bután", "Bolivia": "Bolivia", "Bonaire": "Bonaire", "Bosnia-Herzegovina": "Bosnia y Herzegovina", "Botswana": "Botsuana", "Brazil": "Brasil", "British Virgin Islands": "Islas Vírgenes Británicas", "Brunei Darussalam": "Brunéi", "Bulgaria": "Bulgaria", "Burkina Faso": "Burkina Faso", "Burundi": "Burundi", "Cambodia": "Camboya", "Cameroon": "Camerún", "Canada": "Canadá", "Cape Verde": "Cabo Verde", "Cayman Islands": "Islas Caimán", "Central African Republic": "República Centroafricana", "Chad": "Chad", "Chile": "Chile", "China": "China", "Chinese Taipei": "China Taipéi", "Colombia": "Colombia", "Comoros": "Comoras", "Congo": "Congo", "Congo DR": "RD del Congo", "Cook Islands": "Islas Cook", "Costa Rica": "Costa Rica", "Croatia": "Croacia", "Cuba": "Cuba", "Curaçao": "Curazao", "Cyprus": "Chipre", "Czechia": "Chequia", "Denmark": "Dinamarca", "Djibouti": "Yibuti", "Dominica": "Dominica", "Dominican Republic": "República Dominicana", "Ecuador": "Ecuador", "Egypt": "Egipto", "El Salvador": "El Salvador", "England": "Inglaterra", "Equatorial Guinea": "Guinea Ecuatorial", "Eritrea": "Eritrea", "Estonia": "Estonia", "Eswatini": "Esuatini", "Ethiopia": "Etiopía", "Faroe Islands": "Islas Feroe", "Fiji": "Fiyi", "Finland": "Finlandia", "France": "Francia", "French Guiana": "Guayana Francesa", "Gabon": "Gabón", "Gambia": "Gambia", "Georgia": "Georgia", "Germany": "Alemania", "Ghana": "Ghana", "Gibraltar": "Gibraltar", "Greece": "Grecia", "Grenada": "Granada", "Guadeloupe": "Guadalupe", "Guam": "Guam", "Guatemala": "Guatemala", "Guinea": "Guinea", "Guinea-Bissau": "Guinea-Bisáu", "Guyana": "Guyana", "Haiti": "Haití", "Honduras": "Honduras", "Hong Kong": "Hong Kong", "Hungary": "Hungría", "Iceland": "Islandia", "India": "India", "Indonesia": "Indonesia", "Iran": "Irán", "Iraq": "Irak", "Israel": "Israel", "Italy": "Italia", "Ivory Coast": "Costa de Marfil", "Jamaica": "Jamaica", "Japan": "Japón", "Jordan": "Jordania", "Kazakhstan": "Kazajistán", "Kenya": "Kenia", "Kosovo": "Kosovo", "Kuwait": "Kuwait", "Kyrgyz Republic": "Kirguistán", "Latvia": "Letonia", "Lebanon": "Líbano", "Lesotho": "Lesoto", "Liberia": "Liberia", "Libya": "Libia", "Liechtenstein": "Liechtenstein", "Lithuania": "Lituania", "Luxembourg": "Luxemburgo", "Macau": "Macao", "Madagascar": "Madagascar", "Malawi": "Malaui", "Malaysia": "Malasia", "Maldives": "Maldivas", "Mali": "Malí", "Malta": "Malta", "Martinique": "Martinica", "Mauritania": "Mauritania", "Mauritius": "Mauricio", "Mexico": "México", "Moldova": "Moldavia", "Mongolia": "Mongolia", "Montenegro": "Montenegro", "Montserrat": "Montserrat", "Morocco": "Marruecos", "Mozambique": "Mozambique", "Myanmar": "Myanmar", "Namibia": "Namibia", "Nepal": "Nepal", "Netherlands": "Países Bajos", "New Caledonia": "Nueva Caledonia", "New Zealand": "Nueva Zelanda", "Nicaragua": "Nicaragua", "Niger": "Níger", "Nigeria": "Nigeria", "North Korea": "Corea del Norte", "North Macedonia": "Macedonia del Norte", "Northern Ireland": "Irlanda del Norte", "Norway": "Noruega", "Oman": "Omán", "Pakistan": "Pakistán", "Palestine": "Palestina", "Panama": "Panamá", "Papua New Guinea": "Papúa Nueva Guinea", "Paraguay": "Paraguay", "Peru": "Perú", "Philippines": "Filipinas", "Poland": "Polonia", "Portugal": "Portugal", "Puerto Rico": "Puerto Rico", "Qatar": "Catar", "Republic of Ireland": "Irlanda", "Romania": "Rumania", "Russia": "Rusia", "Rwanda": "Ruanda", "San Marino": "San Marino", "Sao Tome and Principe": "Santo Tomé y Príncipe", "Saudi Arabia": "Arabia Saudita", "Scotland": "Escocia", "Senegal": "Senegal", "Serbia": "Serbia", "Seychelles": "Seychelles", "Sierra Leone": "Sierra Leona", "Singapore": "Singapur", "Sint Maarten": "Sint Maarten", "Slovakia": "Eslovaquia", "Slovenia": "Eslovenia", "Solomon Islands": "Islas Salomón", "Somalia": "Somalia", "South Africa": "Sudáfrica", "South Korea": "Corea del Sur", "South Sudan": "Sudán del Sur", "Spain": "España", "Sri Lanka": "Sri Lanka", "St. Kitts and Nevis": "San Cristóbal y Nieves", "St. Lucia": "Santa Lucía", "St. Martin": "San Martín", "St. Vincent and the Grenadines": "San Vicente y las Granadinas", "Sudan": "Sudán", "Suriname": "Surinam", "Sweden": "Suecia", "Switzerland": "Suiza", "Syria": "Siria", "Tahiti": "Tahití", "Tajikistan": "Tayikistán", "Tanzania": "Tanzania", "Thailand": "Tailandia", "Togo": "Togo", "Trinidad and Tobago": "Trinidad y Tobago", "Tunisia": "Túnez", "Turkmenistan": "Turkmenistán", "Turks and Caicos Islands": "Islas Turcas y Caicos", "Türkiye": "Turquía", "US Virgin Islands": "Islas Vírgenes de EE. UU.", "Uganda": "Uganda", "Ukraine": "Ucrania", "United Arab Emirates": "Emiratos Árabes Unidos", "United States": "Estados Unidos", "Uruguay": "Uruguay", "Uzbekistan": "Uzbekistán", "Vanuatu": "Vanuatu", "Venezuela": "Venezuela", "Vietnam": "Vietnam", "Wales": "Gales", "Yemen": "Yemen", "Zambia": "Zambia", "Zanzibar": "Zanzíbar", "Zimbabwe": "Zimbabue", "Turkey": "Turquía", "Korea Republic": "Corea del Sur", "Czech Republic": "Chequia", "Côte d'Ivoire": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "USA": "Estados Unidos", "Ireland": "Irlanda", "IR Iran": "Irán", "Cabo Verde": "Cabo Verde", "DR Congo": "RD del Congo", "Bosnia and Herzegovina": "Bosnia y Herzegovina", "Brunei": "Brunéi", "Kyrgyzstan": "Kirguistán", "Saint Lucia": "Santa Lucía", "Saint Kitts and Nevis": "San Cristóbal y Nieves", "Saint Vincent and the Grenadines": "San Vicente y las Granadinas", "Macedonia": "Macedonia del Norte", "Swaziland": "Esuatini", "Taiwan": "China Taipéi", "New Caledonia ": "Nueva Caledonia"};
-const APP_VERSION = 'v49.2 · canal de WhatsApp';
+const APP_VERSION = 'v49.3 · más jugadores NBA';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

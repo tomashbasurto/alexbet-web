@@ -132,7 +132,7 @@ export function guion(p, i) {
   const prom = av != null && !p.diff ? `, promedio ${dec1(av)}` : '';
   let qui, mk, est = '';
   if (p.kind === 'player') {
-    qui = p.pname; mk = `Más de ${p.ln} ${String(p.mk).toLowerCase()}`;
+    qui = p.pname; mk = `${p.under ? 'Menos' : 'Más'} de ${p.ln} ${String(p.mk).toLowerCase()}`;
     if (p.hit != null && p.n) est = `La superó en ${p.hit} de sus últimos ${p.n}${prom}.`;
   } else if (p.who && p.who !== 'Partido' && p.mk) {
     qui = `${p.who}${rival(p) ? ', ante ' + rival(p) : ''}`; mk = `Más de ${p.ln} ${String(p.mk).toLowerCase()}`;
@@ -225,7 +225,7 @@ function barras(c, p, x, y, w, h, k) {
     const mx = Math.max(1, ...v.map(Math.abs), Math.abs(p.ln) + 1), half = (h - 60) / 2, y0 = y + 30 + half;
     c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y0); c.lineTo(x + w, y0); c.stroke();
     v.forEach((a, i) => { const q = seg(k, i * .07, .35), hh = Math.max(6, Math.abs(a) / mx * half) * q, bx = x + i * (bw + gp), up = a >= 0;
-      rr(c, bx, up ? y0 - hh : y0, bw, hh, 8); c.fillStyle = a > p.ln ? A : GRAY; c.fill();
+      rr(c, bx, up ? y0 - hh : y0, bw, hh, 8); c.fillStyle = lnOk(a) ? A : GRAY; c.fill();
       if (q > .9) { c.font = '700 26px Orbitron'; c.fillStyle = '#b8c9c3'; c.textAlign = 'center'; c.fillText((a > 0 ? '+' : '') + a, bx + bw / 2, up ? y0 - hh - 12 : y0 + hh + 32); c.textAlign = 'left'; } });
     return true;
   }
@@ -336,13 +336,13 @@ export async function crearVideo(sel, ctx) {
   const depsTxt = deps.length > 1 ? deps.slice(0, -1).join(', ') + ' y ' + deps[deps.length - 1] : deps[0];
   const scenes = [];
   scenes.push({k: 'intro', n: L.length, fecha: (ctx.liga ? ctx.liga + ' · ' : '') + ctx.fecha, items: L, ayer: ayerBueno(ctx.ayer) ? ctx.ayer : null, voz: vozIntro(ctx.day, L.length, ctx.liga, ctx.ayer),
-    tit: L.map(p => p.kind === 'player' ? `${p.pname} · más de ${p.ln} ${String(p.mk).toLowerCase()}` : p.label),
+    tit: L.map(p => p.kind === 'player' ? `${p.pname} · ${p.under ? 'menos' : 'más'} de ${p.ln} ${String(p.mk).toLowerCase()}` : p.label),
     sub: L.map(p => `${ctx.lugar(p)} · ${ctx.hora(p)}${p.kind === 'player' ? '' : ' · ' + p.h + ' vs ' + p.a}`)});
   for (const [i, p] of L.entries()) {
     const g = guion(p, i), im = await ctx.img(p), av = p.avg != null ? p.avg : avgOf(p.vals);
     const unidad = p.kind === 'player' || (p.who && p.who !== 'Partido') ? String(p.mk || '').toLowerCase() : '';
     scenes.push(Object.assign({k: 'pick', p, g, i, total: L.length, voz: g.voz, lugar: ctx.lugar(p), hora: ctx.hora(p),
-      mkTxt: p.kind === 'player' ? `Más de ${p.ln} ${String(p.mk).toLowerCase()}` : p.who && p.who !== 'Partido' ? `${p.who}: más de ${p.ln} ${String(p.mk).toLowerCase()}` : String(p.label),
+      mkTxt: p.kind === 'player' ? `${p.under ? 'Menos' : 'Más'} de ${p.ln} ${String(p.mk).toLowerCase()}` : p.who && p.who !== 'Partido' ? `${p.who}: más de ${p.ln} ${String(p.mk).toLowerCase()}` : String(p.label),
       statTit: p.vals && p.vals.length ? (p.kind === 'player' ? `Sus últimos ${p.n} partidos` : p.sub && /cada/.test(p.sub) ? `Últimos partidos (${p.sub})` : `Últimos ${p.n} partidos`) : 'Sin racha guardada',
       hitTxt: p.passTxt || (p.under ? 'quedó por debajo' : 'superó la línea'),
       avgTxt: av != null && !p.diff ? `promedio ${dec1(av)}${unidad ? ' ' + unidad : ''}` : ''}, im));
