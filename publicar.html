@@ -54,6 +54,15 @@
   .row .p{ font:900 16px Orbitron; color:var(--accent); flex:none; }
   .row .od{ flex:none; font:700 12px Orbitron; color:var(--ink, #eef5f2); display:flex; flex-direction:column; align-items:flex-end; gap:2px; } .row .od i{ font:700 10px Inter, sans-serif; font-style:normal; color:#ffc400; }
   .row .r{ flex:none; font-size:16px; }
+  .pchips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:0 0 10px; } .pchips button{ flex:none; padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--dim); font:600 12.5px Inter, sans-serif; cursor:pointer; } .pchips button.on{ border-color:var(--accent); color:var(--accent); }
+  .pcard{ border:1px solid var(--line); border-radius:14px; padding:12px; margin:0 0 10px; }
+  .pc-hd{ display:flex; align-items:center; gap:10px; margin-bottom:6px; } .pc-tt{ flex:1; min-width:0; } .pc-tt b{ display:block; font-size:15px; } .pc-tt small{ display:block; font-size:12px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pc-ava{ position:relative; width:44px; height:44px; border-radius:50%; overflow:hidden; flex:none; background:rgba(255,255,255,.06); display:flex; align-items:center; justify-content:center; } .pc-ava i{ font-style:normal; font-weight:700; font-size:14px; color:var(--dim); } .pc-ava img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .pc-n{ flex:none; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; background:rgba(200,255,0,.12); color:var(--accent); }
+  .row.pc-r, .pc-r{ display:grid; grid-template-columns:22px 1fr 40px 46px 38px; gap:6px; align-items:center; padding:9px 0; }
+  .pc-h{ padding:2px 0; font-size:10.5px; color:var(--dim); } .pc-h span:nth-child(n+3){ text-align:right; }
+  .pc-m{ font-size:13.5px; font-weight:600; line-height:1.3; min-width:0; } .pc-r b{ font:900 14px Orbitron; color:var(--accent); text-align:right; } .pc-o{ font:700 12px Orbitron; text-align:right; }
+  .pc-v{ font-style:normal; font-size:10px; font-weight:700; padding:1px 6px; border-radius:6px; background:rgba(255,196,0,.16); color:#ffc400; }
   .note{ font-size:12.5px; color:var(--dim); line-height:1.5; margin:8px 2px; }
   .empty{ text-align:center; color:var(--dim); font-size:13px; padding:22px 10px; }
   .btn{ width:100%; min-height:50px; border-radius:14px; border:0; background:var(--accent); color:var(--on); font:800 15px Inter; cursor:pointer; margin-top:12px; }
@@ -247,6 +256,22 @@ function GL(){
 const lugar = p => p.where || LGN[p.sp] || SPN[p.sp] || '';
 
 // ---------- pantalla ----------
+// v49.5 · jugadores como en la app: una tarjeta por jugador con sus mercados, y el cuadrito para elegir cada uno
+const nick = n => String(n || '').split(' ').pop();
+const plFoto = p => { const id = String(p.pid || '').split('|')[0], lg = {nba:'nba', nhl:'nhl', mlb:'mlb', ncaa:'mens-college-basketball'}[p.sp]; return id && lg ? `https://a.espncdn.com/i/headshots/${lg}/players/full/${id}.png` : ''; };
+function plCards(list, S){
+  if(!list.length) return `<div class="list"><div class="empty">${QB ? 'Nada coincide con la búsqueda.' : 'No hay sugerencias para este día.'}</div></div>`;
+  const G = new Map(); list.forEach(p => { const k = (p.gid || p.h + p.a) + '|' + (p.pid || p.pname); if(!G.has(k)) G.set(k, []); G.get(k).push(p); });
+  const cards = [...G.values()], shown = cards.slice(0, LIM);
+  return shown.map(a => { a.sort((x, y) => (y.bk?1:0) - (x.bk?1:0) || (y.vl?1:0) - (x.vl?1:0) || y.prob - x.prob); const o = a[0], f = plFoto(o), rival = o.team === o.h ? o.a : o.h;
+    const ini = String(o.pname || '?').split(' ').map(w => w[0]).slice(0, 2).join('');
+    return `<div class="pcard"><div class="pc-hd"><span class="pc-ava"><i>${esc(ini)}</i>${f ? `<img src="${f}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</span>
+      <div class="pc-tt"><b>${esc(o.pname || '')}</b><small>${o.role ? (o.role==='top' ? 'Titular · ' : 'Suplente · ') : ''}${esc(nick(o.team))} · vs ${esc(nick(rival))} · ${hora(o.ts)}</small></div>
+      <span class="pc-n">${a.length} ${a.length > 1 ? 'mercados' : 'mercado'}</span></div>
+      <div class="pc-r pc-h"><span></span><span>Mercado</span><span>Cuota</span><span>Modelo</span><span>L10</span></div>
+      ${a.map(p => `<div class="row pc-r" data-id="${esc(p.id)}"><input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1"><span class="pc-m">${p.under ? 'Menos' : 'Más'} de ${p.ln} ${esc(String(p.mk).toLowerCase())}${p.vl ? ' <i class="pc-v">valor</i>' : ''}</span><span class="pc-o">${p.odd ? (+p.odd).toFixed(2) : '–'}</span><b>${p.prob}%</b><span class="pc-o">${p.hit != null ? `${p.hit}/${p.n}` : ''}</span></div>`).join('')}
+    </div>`; }).join('') + (cards.length > LIM ? `<button class="more" id="mas">Mostrar más (${cards.length - LIM} jugadores más)</button>` : '');
+}
 function pintar(){
   const all0 = dayPicks();
   // filtros de deporte y liga
@@ -306,13 +331,14 @@ function pintar(){
     <div class="groups">${gs.map(g => `<button data-g="${g.k}" class="${g.k===GRP?'on':''}">${g.ic} ${esc(g.t)}<small>${g.n}</small></button>`).join('')}</div>`}
     <label class="h">${MODE==='res' ? 'Elige hasta 5 para mostrar en la lista' : 'Elige las que quieras (4 por imagen)'} · puedes mezclar deportes y ligas</label>
     <input class="srch" id="qB" type="search" placeholder="🔍 Buscar equipo, jugador, liga o mercado" value="${esc(QB)}">
-    <div class="list">${list.length ? list.slice(0, LIM).map(p => `
+    ${MODE!=='res' && TYPE==='player' && pts.length > 1 ? `<div class="pchips"><button data-pt="all" class="${PTF==='all'?'on':''}">Todos · ${all2.length}</button>${pts.map(p => `<button data-pt="${esc(pk(p))}" class="${PTF===pk(p)?'on':''}">${esc(nick(p.h))}-${esc(nick(p.a))} · ${all2.filter(x=>pk(x)===pk(p)).length}</button>`).join('')}</div>` : ''}
+    ${MODE!=='res' && TYPE==='player' ? plCards(list, S) : `<div class="list">${list.length ? list.slice(0, LIM).map(p => `
       <div class="row" data-id="${esc(p.id)}">
         <input type="checkbox" ${S[p.id]?'checked':''} tabindex="-1">
         <div class="tx"><b>${esc(p.label)}</b><small>${p.kind==='player' && p.role ? (p.role==='top' ? 'Titular · ' : 'Suplente · ') : ''}${esc(p.h)} vs ${esc(p.a)} · ${esc(lugar(p))} · ${hora(p.ts)}${p.hit!=null && p.n ? ` · ${p.hit}/${p.n}` : ''}</small></div>
         ${MODE==='res' ? `<span class="r">${p.res ? '✅' : '❌'}</span>` : ''}${p.odd ? `<span class="od">@${(+p.odd).toFixed(2)}${p.vl ? '<i>valor</i>' : ''}</span>` : ''}<span class="p">${p.prob}%</span>
       </div>`).join('') + (list.length > LIM ? `<button class="more" id="mas">Mostrar más (${list.length - LIM} más)</button>` : '') : `<div class="empty">${QB ? 'Nada coincide con la búsqueda.' : MODE==='res' ? 'Todavía no hay resultados para este día.' : 'No hay sugerencias para este día.'}</div>`}
-    </div>
+    </div>`}
     ${MODE==='res' ? `<div class="note">La imagen muestra el balance de todas las sugerencias ${GRP==='top'?'del día':'de este mercado'} con resultado (${base.filter(G.f).filter(p=>p.res===1).length} de ${base.filter(G.f).length} acertadas) y la lista de las que elijas.${pend ? ` Quedan ${pend} por terminar.` : ''}</div>` : `<div class="note">Están todas: las sugerencias de la app y las rachas de Oportunidades (equipos y jugadores que superaron la línea en sus últimos partidos). Van 4 por imagen: si eliges más, se arman 2 o 3 imágenes.</div>`}
     <div class="chosen"><div class="ch-h"><b>Elegidas: ${nSel}</b>${nSel ? '<button id="clr">Quitar todas</button>' : ''}</div>
       ${nSel ? chosen.map(p => `<div class="ch" data-x="${esc(p.id)}"><span>${ico(p.sp)}</span><em>${esc(p.label)} <small>· ${esc(p.h)} vs ${esc(p.a)}</small></em><i>✕</i></div>`).join('') : '<div class="note" style="margin:4px 0 0">Marca sugerencias de cualquier deporte; se juntan aquí.</div>'}
@@ -347,7 +373,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.5</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v51.6</div>`;
   fbBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -367,6 +393,7 @@ function pintar(){
   $('fSp').onchange = e => { SPF = e.target.value; LGF = 'all'; PTF = 'all'; OUT=[]; pintar(); };
   $('fLg').onchange = e => { LGF = e.target.value; PTF = 'all'; OUT=[]; pintar(); };
   $('fPt').onchange = e => { PTF = e.target.value; GRP = 'top'; LIM = 40; OUT=[]; pintar(); };
+  document.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => { PTF = b.dataset.pt; GRP = 'top'; LIM = 40; OUT=[]; pintar(); });
   document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { GRP = b.dataset.g; OUT=[]; pintar(); });
   if($('fMk')) $('fMk').onchange = e => { GRP = e.target.value; OUT=[]; pintar(); };
   document.querySelectorAll('.row').forEach(r => r.onclick = () => { const id = r.dataset.id; if(S[id]) delete S[id]; else { if(MODE==='res' && nSel>=maxN) return; S[id] = 1; } pintar(); });
