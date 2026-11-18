@@ -51,6 +51,63 @@ async function estadoSet(obj) { const H = await fsInit(); if (!H) return; const 
   const r = await fetch(FS_DOC + '?' + q, {method: 'PATCH', headers: H, body: JSON.stringify({fields: {fb: fsEnc(obj)}})}); if (!r.ok) console.log('estado: no se pudo guardar (HTTP ' + r.status + ')'); }
 async function anotar(e) { try { const st = await estado(); if (!st) return; const log = [Object.assign({t: Date.now(), modo: MODE}, e)].concat(st.log || []).slice(0, 40); await estadoSet({log, armando: '', paso: ''}); } catch (x) {} } // al terminar (bien o mal) el panel deja de mostrar "armando"
 
+// ---------- v52 · jugadas publicadas (fb.pub: {día de la publicación: [jugadas]}) y su resultado ----------
+const pubKey = d => d.src === 'h' ? 'h|' + d.id : ['o', d.sp, d.h, d.a, d.kind, d.pname || d.who || '', d.mk, d.ln, d.u ? 'u' : 'o'].join('|');
+const descOp = o => ({src: 'o', sp: o.sp, lid: o.lid || '', lname: o.lname || '', kind: o.kind, h: o.h, a: o.a, when: o.when || '', ts: o.ts || Date.parse(String(o.when).slice(0, 16) + ':00Z'), gid: o.gid || '', pid: o.pid || '',
+  pname: o.pname || '', team: o.team || '', t: o.t == null ? null : o.t, m: o.m == null ? null : o.m, who: o.who || '', mk: o.mk, ln: o.ln, u: o.u ? 1 : 0, p: o.p,
+  label: `${o.kind === 'player' ? o.pname + ' · ' : o.who && o.who !== 'Partido' ? o.who + ' · ' : ''}${o.u ? 'Menos' : 'Más'} de ${o.ln} ${String(o.mk).toLowerCase()}${o.kind !== 'player' && (!o.who || o.who === 'Partido') ? ' en el partido' : ''}`});
+async function pubGuardar(tipo, L) {
+  try {
+    if (DRY || !L || !L.length) return; const st = await estado(); if (!st) return;
+    const pub = Object.assign({}, st.pub || {}), day = ecuNow().day, lim = new Date(Date.parse(day + 'T12:00:00Z') - 10 * 864e5).toISOString().slice(0, 10);
+    Object.keys(pub).forEach(d => { if (d < lim) delete pub[d]; });
+    const A = (pub[day] || []).slice();
+    for (const d of L) { const k = pubKey(d), x = A.find(y => pubKey(y) === k); if (x) { if (!(x.tipo || []).includes(tipo)) x.tipo = (x.tipo || []).concat(tipo); } else A.push(Object.assign({}, d, {tipo: [tipo], res: null, v: null})); }
+    pub[day] = A; await estadoSet({pub}); console.log(`Guardadas ${L.length} jugadas publicadas (${tipo}); hoy van ${A.length}.`);
+  } catch (e) { console.log('no pude guardar las jugadas publicadas:', e.message); }
+}
+// resultado de las oportunidades (equipos y jugadores) con los mismos datos de la app: estadísticas de fútbol y resúmenes de ESPN
+async function pubResolver(items) {
+  const {browser, page} = await abrirApp();
+  try {
+    return await page.evaluate(async items => {
+      PB.S = null; await pbLoad(); const out = {};
+      for (const [k, o] of Object.entries(items)) {
+        try {
+          let v = null, fin = false;
+          if (o.sp === 'futbol') {
+            const tid = pbTeamId(o.lid, o.h); if (!tid) continue;
+            const g = pbGames(String(tid)).find(g => Math.abs(g.ts - o.ts) < 8 * 3600e3); if (!g) continue; fin = true; // ya está en las estadísticas: terminó
+            if (o.kind === 'team') {
+              const Mk = OP_M.find(M => M.m === o.m) || OP_M.find(M => M.k === String(o.mk).toLowerCase()); if (!Mk) continue;
+              const fh = Mk.f(g.home ? g.us : g.them), fa = Mk.f(g.home ? g.them : g.us); if (fh == null || fa == null) continue;
+              v = o.t === 2 || (o.t == null && (!o.who || o.who === 'Partido')) ? fh + fa : (o.t === 1 || o.who === o.a) ? fa : fh;
+            } else {
+              if (!g.slug) continue; const E = pjParse('futbol', await webGet(`${ESPN_BASE}/${g.slug}/summary?event=${g.id}`));
+              const p = [...E.h, ...E.a].find(p => p.id + '|' + p.k === o.pid); if (!p) { out[k] = {res: -1, v: null}; continue; }
+              const c = (PJ_M.futbol.find(([mk]) => mk === o.mk) || [])[1]; if (!c) continue; v = pjVal(p.S, c);
+              if (v == null) { if ([...E.h, ...E.a].some(q => pjVal(q.S, c) != null)) v = 0; else { out[k] = {res: -1, v: null}; continue; } } // ESPN no trae ese dato en el partido: anulada
+            }
+          } else {
+            if (!o.gid || !US[o.sp]) continue;
+            const j = await webGet(`${US_API}/site/v2/sports/${US[o.sp].path}/summary?event=${o.gid}`), cp = ((j.header || {}).competitions || [])[0] || {}, ty = (cp.status || {}).type || {};
+            fin = cp.status ? !!(ty.completed || ty.state === 'post') : Date.now() > o.ts + 5 * 3600e3; if (!fin) continue;
+            if (o.kind === 'team') {
+              const C = cp.competitors || [], hs = +((C.find(c => c.homeAway === 'home') || {}).score), as = +((C.find(c => c.homeAway === 'away') || {}).score); if (isNaN(hs) || isNaN(as)) continue;
+              v = o.t === 2 || (o.t == null && (!o.who || o.who === 'Partido')) ? hs + as : (o.t === 1 || o.who === o.a) ? as : hs;
+            } else {
+              const E = pjParse(o.sp, j), p = [...E.h, ...E.a].find(p => p.id + '|' + p.k === o.pid); if (!p) { out[k] = {res: -1, v: null}; continue; }
+              const c = ((PJ_M[p.k] || []).find(([mk]) => mk === o.mk) || [])[1]; if (!c) continue; v = pjVal(p.S, c); if (v == null) continue;
+            }
+          }
+          if (fin && v != null) out[k] = {res: (o.u ? v < o.ln : v > o.ln) ? 1 : 0, v};
+        } catch (e) { console.log('BOT no pude revisar ' + k + ': ' + e.message); }
+      }
+      return out;
+    }, items);
+  } finally { await browser.close(); }
+}
+
 // ---------- armar imágenes / video con el panel ----------
 async function panel(fn) {
   const {chromium} = require('playwright');
@@ -165,7 +222,7 @@ async function analisis() {
     const ic = {futbol: '⚽', nba: '🏀', ncaa: '🏀', eul: '🏀', nhl: '🏒', mlb: '⚾', tenis: '🎾'}[o.sp] || '📊';
     const lab = `${d.quien ? d.quien + ': ' : ''}Más de ${o.ln} ${mk}${d.mkt ? ' ' + d.mkt : ''}`;
     const txt = `🎬 ANÁLISIS DEL DÍA\n\n${ic} ${o.h} vs ${o.a}\n👉 ${lab} · ${d.prob}\n📊 Superó la línea en ${hn} de sus últimos ${hd} · promedio ${d.avg}${d.l5 ? ' · últimos 5: ' + d.l5 : ''}\n\nNo es suerte, son datos. Este y otros análisis, en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#pronosticos #apuestasdeportivas #${o.sp === 'futbol' ? 'futbol' : 'NBA'}`;
-    return {file, txt};
+    return {file, txt, pub: [descOp(o)]};
   }
   return null;
 }
@@ -220,7 +277,7 @@ async function radarVideo() {
   await estadoSet({paso: '3/3 · Subiendo el video…'}).catch(() => {});
   const icn = o => ({futbol: '⚽', nhl: '🏒', mlb: '⚾', tenis: '🎾'})[o.sp] || '🏀', L = cap.J.map(j => `${icn(j.o)} ${nom(j.o)}${j.o.kind === 'player' || (j.o.who && j.o.who !== 'Partido') ? ` (${j.o.h} vs ${j.o.a})` : ''}: más de ${j.o.ln} ${String(j.o.mk).toLowerCase()} · ${j.B.v.hit} · ${j.B.v.prob}`).join('\n');
   const txt = `📡 EL RADAR DE HOY\n\n${L}\n\n¿Todavía eliges a ciegas? Donde hay datos, hay ventaja.\nEstas y todas las jugadas del día, en la versión Premium 👉 alexbetpro.web.app\n\n+18 · Son probabilidades, no garantías.\n#${({futbol: 'futbol', nhl: 'NHL', mlb: 'MLB'})[P[0].sp] || 'NBA'} #pronosticos #apuestasdeportivas`;
-  return {file, txt};
+  return {file, txt, pub: P.map(descOp)};
 }
 
 // ---------- v50.1 · guardar el video armado para descargarlo desde el panel (rama "videos" del repo, se guardan los últimos 8) ----------
@@ -322,7 +379,7 @@ async function reel(p, file, txt) {
 // ---------- plan: un trabajo que queda despierto ~5,5 h, revisa cada minuto el horario y los pedidos del panel, y al terminar se vuelve a lanzar ----------
 // (los horarios propios de GitHub llegan con horas de atraso o no llegan; así las publicaciones salen a su hora)
 const SLOTS = [ // hora de Ecuador, modo, hasta qué hora todavía vale la pena publicarlo, días (0 = domingo)
-  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['13:00', 'ana', '16:30'], ['16:00', 'reel:nba', '18:45'], ['17:30', 'radar', '20:30'], ['18:00', 'sem', '22:00', [0]], ['19:00', 'promo', '21:30', [3]]];
+  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['09:00', 'pubres', '12:00'], ['13:00', 'ana', '16:30'], ['16:00', 'reel:nba', '18:45'], ['17:30', 'radar', '20:30'], ['18:00', 'sem', '22:00', [0]], ['19:00', 'promo', '21:30', [3]]];
 const ecuNow = () => { const d = new Date(Date.now() - 5 * 3600e3); return {day: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay()}; };
 function correr(m, programado) {
   console.log(`\n===== ${new Date().toISOString()} · publicar ${m}${programado ? ' (programado)' : ' (pedido desde el panel)'} =====`);
@@ -338,7 +395,7 @@ async function plan() {
       if (st) {
         const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
         Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
-        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
+        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo|pubres)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
           await estadoSet({ya: '', yaT: 0, hecho, armando: m, armandoT: Date.now()}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; process.env.FB_RADAR = m === 'radar:sel' ? JSON.stringify(st.radarSel || []) : ''; process.env.FB_SOLO = (/:sel$/.test(m) || m === 'radar') && st.soloDesc ? '1' : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; process.env.FB_RADAR = ''; process.env.FB_SOLO = ''; continue; }
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
@@ -357,7 +414,7 @@ async function plan() {
   // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
   if (MODE === 'poll') {
     const st = await estado() || {}; let m = 'none';
-    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
+    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo|pubres)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'modo=' + m + '\n'); else console.log('modo=' + m);
     return;
   }
@@ -400,7 +457,7 @@ async function plan() {
     if (DRY || !p) { console.log(`[prueba] no se publica: ${path.basename(f)}\n${res.txt}`); return; }
     const vR = await guardarVideo(f, res.txt, 'Radar');
     if (SOLO) { await anotar({ok: true, txt: 'Video radar listo para compartir (no se publicó)'}); return; }
-    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await alInstagram(p, [f], res.txt); return;
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await pubGuardar(MODE.startsWith('radar') ? 'Radar' : 'Análisis', res.pub); await alInstagram(p, [f], res.txt); return;
   }
   if (MODE.startsWith('ana')) { // v50 · video análisis de una jugada, con capturas de la app
     const res = await analisis(); if (!res) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Sin jugada para el análisis'}); return; }
@@ -408,7 +465,35 @@ async function plan() {
     let f = res.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '25', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
     const vA = await guardarVideo(f, res.txt, 'Ana');
     if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); return; }
-    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await alInstagram(p, [f], res.txt); return;
+    const r = await reel(p, f, res.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: res.txt.split('\n')[0]}); await pubGuardar(MODE.startsWith('radar') ? 'Radar' : 'Análisis', res.pub); await alInstagram(p, [f], res.txt); return;
+  }
+  if (MODE === 'pubres') { // v52 · resultados de las jugadas publicadas ayer
+    for (const f of ['historial.json', 'stats-futbol.json']) try { // datos al día (el turno del plan empezó hace horas)
+      const r = await fetch(`https://raw.githubusercontent.com/tomashbasurto/alexbet-web/main/${f}?t=${Date.now()}`); if (r.ok) fs.writeFileSync(path.join(ROOT, f), Buffer.from(await r.arrayBuffer()));
+    } catch (e) { console.log('no pude actualizar', f, e.message); }
+    const st = process.env.PUB_JSON ? {pub: JSON.parse(fs.readFileSync(process.env.PUB_JSON, 'utf8'))} : await estado();
+    const pub = Object.assign({}, (st || {}).pub || {}), ayer = new Date(Date.parse(ecuNow().day + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
+    const HI = {}; try { JSON.parse(fs.readFileSync(path.join(ROOT, 'historial.json'), 'utf8')).picks.forEach(p => HI[p.id] = p); } catch (e) {}
+    // 1) resolver lo pendiente de los últimos 4 días
+    const pend = {}, lim = new Date(Date.parse(ayer + 'T12:00:00Z') - 3 * 864e5).toISOString().slice(0, 10);
+    Object.entries(pub).forEach(([d, L]) => { if (d < lim) return; (L || []).forEach(x => {
+      if (x.res != null && x.src === 'o') return;
+      if (x.src === 'h') { const h = HI[x.id]; if (h && (h.res === 0 || h.res === 1)) x.res = h.res; return; }
+      if (x.ts + 3 * 3600e3 < Date.now()) pend[pubKey(x)] = x; }); });
+    console.log('Por revisar:', Object.keys(pend).length);
+    if (Object.keys(pend).length) { const R = await pubResolver(pend); Object.values(pub).forEach(L => (L || []).forEach(x => { const r = R[pubKey(x)]; if (r && x.src === 'o') { x.res = r.res; x.v = r.v; } }));
+      console.log('Revisadas:', Object.keys(R).length, JSON.stringify(R)); }
+    if (!DRY && !process.env.PUB_JSON) await estadoSet({pub});
+    if (process.env.PUB_JSON && DRY) fs.writeFileSync(process.env.PUB_JSON.replace(/\.json$/, '-res.json'), JSON.stringify(pub, null, 1));
+    // 2) la publicación: las de ayer que ya tienen resultado
+    const L = (pub[ayer] || []).filter(x => x.res === 0 || x.res === 1);
+    console.log(`Ayer (${ayer}): ${(pub[ayer] || []).length} publicadas · ${L.length} con resultado · ${L.filter(x => x.res === 1).length} acertadas`);
+    if (!L.length) { if (!DRY) await anotar({ok: false, txt: (pub[ayer] || []).length ? 'Todavía sin resultados' : 'Ayer no se publicaron jugadas'}); return; }
+    const out = await panel(async page => { const n = await page.evaluate(([a, b]) => window.__bot.pubImgs(a, b), [L, ayer]), F = [];
+      for (let i = 0; i < n; i++) F.push(await bajar(page, k => window.__bot.bajar(k), i)); return {F, txt: await page.evaluate(() => window.__bot.texto(0))}; });
+    if (DRY || !p) { console.log(`[prueba] no se publica: ${out.F.map(f => path.basename(f)).join(', ')}\n${out.txt}`); return; }
+    const r = out.F.length > 1 ? await album(p, out.F, out.txt) : await foto(p, out.F[0], out.txt);
+    console.log('Publicados los resultados de lo publicado:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: out.txt.split('\n')[0]}); await alInstagram(p, out.F, out.txt); return;
   }
   const out = await panel(async page => {
     if (MODE === 'sem') { // resumen de los 7 días hasta ayer (domingos)
@@ -421,6 +506,7 @@ async function plan() {
       const info = await page.evaluate(o => window.__bot.elegir('reel', o), MODE.split(':')[1] || null);
       console.log('Reel con:', info.join(' | '));
       if (info.length < (MODE === 'reel:sel' ? 1 : 2)) return []; // sin partidos suficientes ese día: no se publica
+      PUB = await page.evaluate(() => window.__bot.elegidas());
       if (/:sel$/.test(MODE)) await estadoSet({paso: '1/2 · Generando la voz y grabando el video…'}).catch(() => {});
       const f = await bajar(page, () => window.__bot.video());
       if (/:sel$/.test(MODE)) await estadoSet({paso: '2/2 · Subiendo el video…'}).catch(() => {});
@@ -433,6 +519,7 @@ async function plan() {
       const info = await page.evaluate(([a, b]) => window.__bot.elegir(a, b), [mm, oo || null]);
       console.log((mm === 'res' ? `Resultados de ayer${oo ? ' (' + oo + ')' : ''}: ` : 'Pronósticos con: ') + info.join(' | '));
       if (!info.length) continue;
+      if (mm !== 'res') PUB = PUB.concat(await page.evaluate(() => window.__bot.elegidas()));
       const n = await page.evaluate(() => window.__bot.imagenes());
       for (let i = 0; i < n; i++) res.push({file: await bajar(page, k => window.__bot.bajar(k), i), txt: await page.evaluate(k => window.__bot.texto(k), i)});
     }
@@ -443,17 +530,18 @@ async function plan() {
   if (!out.length) { console.log('Nada para publicar hoy.'); if (!DRY) await anotar({ok: false, txt: 'Nada para publicar'}); return; }
   if (out.album) {
     if (DRY) { console.log(`[prueba] no se publica: álbum de ${out.length} imágenes\n${out.album}`); return; }
-    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); await alInstagram(p, out.map(o => o.file), out.album); return;
+    const r = await album(p, out.map(o => o.file), out.album); console.log('Publicado el álbum:', r.id); await anotar({ok: true, id: r.id || '', txt: out.album.split('\n')[0]}); await pubGuardar(TIPO_PUB(), PUB); await alInstagram(p, out.map(o => o.file), out.album); return;
   }
   for (const o of out) {
     const kb = Math.round(fs.statSync(o.file).size / 1024);
     if (DRY) { console.log(`[prueba] no se publica: ${path.basename(o.file)} (${kb} KB)\n${o.txt}`); continue; }
-    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); await alInstagram(p, [o.file], o.txt); }
+    if (o.file.endsWith('.png')) { const r = await foto(p, o.file, o.txt); console.log('Publicada la imagen:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: o.txt.split('\n')[0]}); await pubGuardar(TIPO_PUB(), PUB); await alInstagram(p, [o.file], o.txt); }
     else { let f = o.file; if (f.endsWith('.webm')) { const mp4 = f.replace(/\.webm$/, '.mp4'); require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', f, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4]); f = mp4; }
       const vS = /:sel$/.test(MODE) ? await guardarVideo(f, o.txt, 'Reel') : null;
       if (SOLO) { await anotar({ok: true, txt: 'Video listo para descargar (no se publicó)'}); continue; }
       if (process.env.IG_ONLY === '1') { await alInstagram(p, [f], o.txt); continue; } // solo Instagram (a pedido)
-      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); await alInstagram(p, [f], o.txt); }
+      const r = await reel(p, f, o.txt); console.log('Publicado el reel:', JSON.stringify(r)); await anotar({ok: true, id: st0(r), txt: o.txt.split('\n')[0]}); await pubGuardar(TIPO_PUB(), PUB); await alInstagram(p, [f], o.txt); }
   }
 })().catch(async e => { console.error('No se pudo:', e.message); if (!DRY && MODE !== 'poll') await anotar({ok: false, txt: 'Error: ' + String(e.message).slice(0, 140)}); process.exit(1); });
+let PUB = []; const TIPO_PUB = () => MODE.startsWith('reel') ? (MODE === 'reel:nba' ? 'Reel NBA' : 'Reel') : MODE.startsWith('pro') ? 'Pronósticos' : MODE;
 function st0(r) { return (r && (r.post_id || r.video_id || r.id)) || ''; }
