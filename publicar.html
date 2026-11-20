@@ -378,7 +378,7 @@ function pintar(){
       ${vidHTML('Radar')}
     </div>` : ''}
     <div class="prev" id="prev"></div>
-    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v53</div>`;
+    <button class="btn ghost" id="out">Cerrar sesión</button><div class="note" style="text-align:center;margin-top:8px">Panel v54</div>`;
   fbBox(); pubBox();
   const anaPide = solo => { const p = anaP; if(p && confirm(`¿Armar el video análisis de:\n${p.label} · ${p.h} vs ${p.a}${solo ? '\n\n(queda aquí para compartir, no se publica)' : '\n\ny publicarlo en Facebook?'}`)) fbSet({ya: 'ana:sel', yaT: Date.now(), anaSel: anaSpec(p), soloDesc: solo}); };
   if($('anaGo')) $('anaGo').onclick = () => anaPide(false);
@@ -520,6 +520,16 @@ function wrap(c, t, w, maxL){
   for(const wd of words){ const tt = cur ? cur + ' ' + wd : wd; if(c.measureText(tt).width <= w) cur = tt; else { if(cur) L.push(cur); cur = wd; } }
   if(cur) L.push(cur); if(L.length > maxL){ L.length = maxL; L[maxL-1] = fit(c, L[maxL-1] + '…', w); } return L;
 }
+// v54 · nombre que entra en el ancho: completo; sin lo de paréntesis; en EE. UU. solo el apodo (Hornets, Lakers); en Euroliga las dos primeras palabras
+function corto(c, n, w, sp){
+  n = String(n || ''); const C = [n, n.replace(/\s*\(.*?\)\s*/g, ' ').trim(), n.replace(/^Independiente\b/, 'Indep.').replace(/\s*\(.*?\)\s*/g, ' ').trim()];
+  const ws = n.replace(/\s*\(.*?\)\s*/g, ' ').trim().split(/\s+/);
+  if(['nba','nhl','ncaa','mlb'].includes(sp) && ws.length > 1) C.push(ws[ws.length - 1]);
+  if(sp === 'eul'){ if(ws.length > 2) C.push(ws.slice(0, 2).join(' ')); C.push(ws[0]); }
+  if(sp === 'futbol'){ const f = ws.filter(x => !/^(FC|CF|SC|AC|CD|CA|SV|VfB|VfL|TSG|RB|AS|US|SS|Club|de|Deportivo|\d+\.?)$/i.test(x)); C.push(f.join(' '), f.filter(x => !/^\d+$/.test(x)).join(' '), f.filter(x => !/^\d+$/.test(x)).pop() || ''); }
+  for(const t of C) if(t && c.measureText(t).width <= w) return t;
+  return fit(c, C[C.length - 1] || n, w);
+}
 async function tarjeta(c, p, x, y, w, h){
   const g = c.createLinearGradient(0, y, 0, y+h); g.addColorStop(0, 'rgba(20,34,31,.95)'); g.addColorStop(1, 'rgba(12,22,20,.95)');
   rr(c, x, y, w, h, 28); c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.5; c.stroke();
@@ -535,13 +545,17 @@ async function tarjeta(c, p, x, y, w, h){
   const nameW = w - 24 - 190;
   [[p.h, ih], [p.a, ia]].forEach(([n, im], k) => {
     const yy = cy + k*56; if(hasC) drawCrest(c, im, n, px, yy, 44);
-    c.font = '700 25px Inter'; c.fillStyle = INK; c.fillText(fit(c, n, nameW - (hasC ? 58 : 0)), px + (hasC ? 58 : 0), yy + 31);
+    c.font = '700 25px Inter'; c.fillStyle = INK; c.fillText(corto(c, n, nameW - (hasC ? 58 : 0), p.sp), px + (hasC ? 58 : 0), yy + 31);
   });
   c.textAlign = 'center'; c.font = '900 60px Orbitron'; c.fillStyle = A; c.shadowColor = 'rgba(198,255,0,.35)'; c.shadowBlur = 28;
   c.fillText(p.prob + '%', x + w - 100, cy + 60); c.shadowBlur = 0; c.font = '500 16px Inter'; c.fillStyle = DIM; c.fillText('probabilidad', x + w - 100, cy + 88); c.textAlign = 'left';
-  cy += 126; c.font = '600 23px Inter'; const ls = wrap(c, p.label, w - 48, 2);
-  ls.forEach((t, k) => { c.fillStyle = '#dbe7e3'; c.fillText(t, px, cy + 26 + k*31); });
-  const v = (p.vals || []).slice(0, 10).reverse();
+  // v54: la jugada, en una etiqueta verde (es lo principal de la tarjeta)
+  cy += 118; c.font = '800 24px Inter'; const ls = wrap(c, p.label, w - 48 - 32, 2), lh = 30, ph = ls.length * lh + 22;
+  rr(c, px, cy, w - 48, ph, 16); c.fillStyle = 'rgba(198,255,0,.12)'; c.fill(); c.strokeStyle = 'rgba(198,255,0,.55)'; c.lineWidth = 1.5; c.stroke();
+  ls.forEach((t, k) => { c.fillStyle = A; c.fillText(t, px + 16, cy + 33 + k*lh); });
+  cy += ph - 26 - (ls.length - 1)*31 + 8;
+  // v54: la racha de los últimos partidos solo se muestra si apoya la jugada (6 de 10 o más); si no, la barra de probabilidad
+  const fuerte = p.n && p.hit / p.n >= 0.6, v = fuerte ? (p.vals || []).slice(0, 10).reverse() : [];
   const by = y + h - 26, bh = Math.min(130, by - (cy + 26 + (ls.length-1)*31 + 34));
   if(!v.length){ // sin racha guardada: barra de probabilidad y cuota mínima
     const bw = w - 48, yb = by - 74;
@@ -965,7 +979,7 @@ Las de hoy ya están listas 👉 alexbetpro.web.app
         const prio = p => { const t = /Ecuador/i.test(p.h + ' ' + p.a) || ['ecuador','copaecu','supecu'].includes(p.lid) || /LigaPro|Copa Ecuador/i.test(p.where || '') ? 3
             : (p.sp === 'futbol' && TOP.includes(p.lid)) || p.sp === 'nba' ? 2 : p.sp === 'ncaa' || LOW.includes(p.lid) ? 0 : 1;
           return t > 1 && p.prob < 65 ? 1 : t; }; // con menos de 65% no sube de prioridad
-        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3).sort((a,b) => prio(b) - prio(a) || (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
+        const pool = proPool().filter(p => dayOf(p.ts) === DAY && p.ts > now + 30*60e3 && (p.prob || 0) >= 65) // v54: nada por debajo de 65%.sort((a,b) => prio(b) - prio(a) || (b.vals?1:0) - (a.vals?1:0) || b.prob - a.prob);
         if(m === 'pro'){ const n = +opt || 4; SELB = variado(pool.filter(p => p.kind === 'team'), n, Math.max(2, Math.ceil(n / 3))).sort((a,b) => b.prob - a.prob); }
         else if(opt === 'sel'){ // las que eligió Alexander en el panel (llaves de oportunidades o ids de sugerencias)
           const K = (window.__reelSel || []), all = proPool(); SELB = K.map(k => all.find(p => (p.ok || p.id) === k)).filter(Boolean).slice(0, 4);
