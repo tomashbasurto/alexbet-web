@@ -6,15 +6,23 @@ jobs:
     steps:
       - run: |
           mkdir out; B=https://site.api.espn.com/apis/site/v2/sports/soccer
-          for L in ecu.1 eng.1 esp.1 conmebol.sudamericana; do curl -s "$B/$L/scoreboard?dates=20261120" -o out/sb-$L.json; done
-          for L in ecu.1 eng.1 esp.1; do
-            ids=$(python3 -c "import json;d=json.load(open('out/sb-$L.json'));print(' '.join(e['id'] for e in d.get('events',[])[:2]))")
-            for i in $ids; do curl -s "$B/$L/summary?event=$i" -o out/sum-$L-$i.json; done
-          done
-          # last weekend eng.1 finished match
-          curl -s "$B/eng.1/scoreboard?dates=20261108" -o out/sb-eng-old.json
-          i=$(python3 -c "import json;d=json.load(open('out/sb-eng-old.json'));print(d['events'][0]['id'])"); curl -s "$B/eng.1/summary?event=$i" -o out/sum-eng-old.json
-          i=$(python3 -c "import json;d=json.load(open('out/sb-ecu.1.json'));print(d['events'][0]['id'] if d.get('events') else '')"); echo ecu=$i
-          ls -la out
-      - uses: actions/upload-artifact@v4
-        with: {name: sonda, path: out}
+          for L in ecu.1 eng.1 esp.1 ita.1; do curl -s "$B/$L/scoreboard?dates=20261120" -o out/sb-$L.json; curl -s "$B/$L/scoreboard?dates=20261109" -o out/so-$L.json; done
+          cat > a.py <<'P'
+          import json,glob,urllib.request,collections
+          B='https://site.api.espn.com/apis/site/v2/sports/soccer'
+          for f in sorted(glob.glob('out/s*.json')):
+            L=f.split('-',1)[1][:-5]; d=json.load(open(f)); evs=d.get('events',[])
+            print('##',f,len(evs),[ (e['id'],e['status']['type']['state']) for e in evs[:4]])
+            for e in evs[:1]:
+              s=json.load(urllib.request.urlopen(f"{B}/{L}/summary?event={e['id']}"))
+              print('keys',list(s.keys()))
+              c=s.get('commentary') or []; print('commentary',len(c))
+              for x in c[-6:]: print(' C',json.dumps(x)[:500])
+              ke=s.get('keyEvents') or []; print('keyEvents',len(ke))
+              for x in ke[-3:]: print(' K',json.dumps(x)[:600])
+              pl=s.get('plays') or []; print('plays',len(pl))
+              cnt=collections.Counter(((x.get('play') or {}).get('type') or {}).get('text') for x in c); print('types',cnt.most_common(30))
+              fp=[x for x in c if 'fieldPositionX' in json.dumps(x)]; print('withFieldPos',len(fp))
+              for x in fp[:3]: print(' F',json.dumps(x)[:700])
+          P
+          python3 a.py
