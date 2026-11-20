@@ -403,6 +403,8 @@ async function plan() {
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
           if (hecho[k] || (dias && !(dias === 'd1' ? now.day.endsWith('-01') : dias.includes(now.dow))) || now.hm < h || now.hm > hasta) continue; // v53: 'd1' = el día 1 del mes
+          // v54 · candado: si ese mismo tipo ya salió bien en las últimas 2 horas (otro turno, un turno caído o "Publicar ya"), no se repite
+          if ((st.log || []).some(x => x.ok && x.modo === m && Date.now() - (+x.t || 0) < 2 * 3600e3)) { hecho[k] = Date.now(); await estadoSet({hecho}); console.log('Ya se publicó', m, 'hace menos de 2 horas: no se repite.'); continue; }
           hecho[k] = Date.now(); await estadoSet({hecho}); correr(m, true); break;
         }
       }

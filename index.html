@@ -249,7 +249,7 @@
   .pl-none, .pl-note{ font-size:11.5px; color:var(--ink-dim); line-height:1.45; } .pl-note{ margin-top:10px; opacity:.85; }
   .logo-img{ width:30px; height:30px; border-radius:8px; margin-right:8px; vertical-align:middle; box-shadow:0 2px 6px rgba(0,0,0,.4); }
   .lg-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle; }
-  .themes{ display:flex; gap:8px; margin-top:4px; }
+  .themes{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:4px; } /* v52: en filas, sin cortarse */ .themes .theme-btn{ min-width:0; }
   .theme-btn{ flex:1; padding:9px 4px; border-radius:12px; border:2px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:11.5px; font-weight:600; cursor:pointer; text-align:center; font-family:var(--font-body); }
   .theme-btn i{ display:block; height:16px; border-radius:6px; margin-bottom:6px; }
   .theme-btn.on{ border-color:var(--accent); }
@@ -801,7 +801,7 @@ details.bt-bk > summary{ list-style:none; cursor:pointer; } details.bt-bk > summ
 .badge-c .bc-w{ font-style:normal; } .pick-pct .badge-c .bc-w{ display:none; } .pick-pct .badge-c{ text-transform:capitalize !important; }
 .pick-row .pk-add{ width:28px; height:28px; margin-left:0; }
 /* v49 · pestañas de Sugerencias en 2 filas: se ven todas sin deslizar */
-.pk-sec.sec-bar{ display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr)); overflow:visible !important; } .pk-sec.sec-bar button{ padding-left:2px !important; padding-right:2px !important; white-space:nowrap; font-size:12.5px; } /* v51: 2 filas parejas, en columnas */
+.pk-sec.sec-bar{ display:flex !important; flex-wrap:wrap !important; overflow:visible !important; } .pk-sec.sec-bar button{ flex:1 1 auto; padding-left:10px !important; padding-right:10px !important; white-space:nowrap; font-size:12.5px; } /* v52: 2 filas que se reparten solas (6 o 7 pestañas) */
 .pk-duo .cm{ position:absolute; width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,.94); display:grid; place-items:center; overflow:hidden; font:800 10px var(--font-head); color:#fff; font-style:normal; box-shadow:0 0 0 2px var(--surface); }
 .pk-duo .cm:first-child{ left:0; top:0; } .pk-duo .cm:last-child{ right:0; bottom:0; }
 .pk-duo .cm img{ width:80%; height:80%; object-fit:contain; display:block; }
@@ -2168,14 +2168,26 @@ function renderPicks(){
   const top = withPicks.slice(0,5);
   const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol') + cbMixHTML()):'', day:pkDayHTML(p=>p.sp==='futbol' && inL({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:(OP_LIST.length=0, opxHTML('futbol', opHTML(items)))};
   let html = '';
-  if(top.length){
-    html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
+  const topRow = x=>{
       const k = x.pk.picks[0], ri = pkReg('futbol', x.l.id, x.f[0], x.f[1], x.f[2], pkTs(x.f[2], x.l.utcOffset), null, k);
       return `<div class="pick-row" onclick="openMatch('${x.l.id}', ${x.idx})">${pkDuo(x.f[0], x.f[1], x.l.id)}
         <div class="pick-main"><b>${k.label}</b><small>${x.f[0]} vs ${x.f[1]} · ${fmtParts(x.f[2], x.l.utcOffset).time} · ${x.l.name}</small></div>
         <div class="pick-pct"><b>${k.prob}%</b>${confBadge(k)}</div>${pkBtn(ri)}
-      </div>`;
-    }).join('') + `</div>`;
+      </div>`; };
+  if(top.length){
+    html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(topRow).join('') + `</div>`;
+  }
+  // v52: con una liga elegida, debajo van las mejores de las demás ligas (antes, con 1 partido en Ecuador, se veía 1 sola sugerencia)
+  if(!wide && activeLeague!=='all' && (activeDate==='all' || activeDate >= ymd(todayDate))){
+    const otras = [];
+    LEAGUES.filter(l=>!lgIn(l)).forEach(l=>l.fixtures.forEach((f,idx)=>{
+      if(activeDate!=='all' && isoDateOnlyEcuador(f[2], l.utcOffset)!==activeDate) return;
+      if(activeDate==='all' && isoDateOnlyEcuador(f[2], l.utcOffset)!==ymd(todayDate)) return;
+      if(!favOK(f[0],f[1],isoDateOnlyEcuador(f[2], l.utcOffset))) return;
+      const pk = matchPicks(l,f); if(pk && pk.picks.length) otras.push({l,f,idx,pk});
+    }));
+    otras.sort((a,b)=>b.pk.best-a.pk.best);
+    if(otras.length) html += `<div class="prob-card"><h3><span class="dot"></span>Mejores de otras ligas</h3>` + otras.slice(0,5).map(topRow).join('') + `</div>`;
   }
   P.top = html; html = '';
   html += items.map(x=>{
@@ -2357,7 +2369,7 @@ function renderLive(){
   const L = liveData.list.filter(m=>favOK(m.h,m.a));
   document.getElementById('matchCount').textContent = liveData.t ? (L.length + (L.length===1?' partido':' partidos')) : '';
   if(!liveData.t){ list.innerHTML = `<div class="empty-state">Buscando partidos en vivo…</div>`; return; }
-  if(liveData.err){ list.innerHTML = `<div class="empty-state">No pude conectar con ESPN para ver los partidos en vivo (${liveData.err}). Revisa tu conexión y vuelve a intentar.<br><br><button class="btn primary" onclick="liveFetch()">Reintentar</button></div>`; return; }
+  if(liveData.err){ list.innerHTML = `<div class="empty-state">No se pudieron cargar los partidos en vivo. Revisa tu conexión e inténtalo de nuevo.<br><br><button class="btn primary" onclick="liveFetch()">Reintentar</button></div>`; return; }
   const ago = Math.max(0, Math.round((Date.now()-liveData.t)/1000));
   let html = `<div class="data-status" style="display:block"><b>● En vivo</b> · ESPN · se actualiza cada minuto · hace ${ago<60?ago+' s':Math.round(ago/60)+' min'} <a href="#" onclick="liveFetch();return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a>${liveData.fail?` · <span class="warn">${liveData.fail} de ${liveData.total} ligas sin respuesta</span>`:''}</div>`;
   if(!L.length){
@@ -3305,7 +3317,7 @@ function usEmpty(sp, what){
   if(D.loading && !D.games.length) return `<div class="empty-state">Cargando ${US[sp].name}…</div>`;
   if(D.t && !D.games.length) return `<div class="empty-state">${US[sp].name} no tiene partidos programados entre ayer y los próximos 7 días${sp==='mlb'?' (la temporada terminó o está en receso)':''}. Cuando haya partidos aparecerán aquí.</div>`;
   if(D.loading && D.retry) return `<div class="empty-state">Reconectando con ESPN…</div>`;
-  if(D.err && !D.games.length) return `<div class="empty-state">No pude conectar con ESPN para ${US[sp].name} (${D.err}).<br><br><button class="btn primary" onclick="usLoad('${sp}',true)">Reintentar</button></div>`;
+  if(D.err && !D.games.length) return `<div class="empty-state">No se pudieron cargar los partidos de ${US[sp].name}. Revisa tu conexión e inténtalo de nuevo.<br><br><button class="btn primary" onclick="usLoad('${sp}',true)">Reintentar</button></div>`;
   const ds = D.games.map(g=>isoDateOnlyEcuador(g.d,0)), nx = edNext(ds), nm = US[sp].name, td = ymd(todayDate);
   const alt = ['nba','ncaa','eul'].includes(sp) ? ['nba','ncaa','eul'].filter(k=>k!==sp && usData[k] && usData[k].games.some(g=>isoDateOnlyEcuador(g.d,0)===(activeDate==='all'?td:activeDate))).map(k=>{ const n = usData[k].games.filter(g=>isoDateOnlyEcuador(g.d,0)===(activeDate==='all'?td:activeDate)).length; return `<button type="button" class="btn" onclick="setSport('${k}')">Ver ${US[k].name} (${n} ${n===1?'partido':'partidos'})</button>`; }).join('') : '';
   return emptyDay({ic: sp==='mlb'?'mlb':sp==='nhl'?'nhl':'bask', titleToday:`Hoy no juega la ${nm}`, title:`No hay partidos de ${nm} ese día`, next:nx, alt});
@@ -3315,7 +3327,9 @@ function usRenderMatches(){
   document.getElementById('matchesLabel').textContent = 'Partidos';
   if(!usData[sp].games.length && !usData[sp].loading && !usData[sp].err) usLoad(sp);
   plLoad(sp);
-  const games = usGamesForDay(sp);
+  // v52: en vivo primero, después los que vienen y al final los terminados (antes salían primero los de ayer ya jugados)
+  const ord = g => g.state==='in' ? 0 : g.state==='pre' ? 1 : 2;
+  const games = usGamesForDay(sp).slice().sort((a,b)=>ord(a)-ord(b) || (ord(a)===2 ? b.d.localeCompare(a.d) : a.d.localeCompare(b.d)));
   document.getElementById('matchCount').textContent = games.length + (games.length===1?' partido':' partidos');
   if(!games.length){ list.innerHTML = usStatusLine(sp) + usEmpty(sp,'en esta fecha'); return; }
   list.innerHTML = usStatusLine(sp) + games.map(g=>{
@@ -3626,7 +3640,7 @@ function vaRender(){
   document.getElementById('matchCount').textContent = ROWS.length + (ROWS.length===1?' partido':' partidos');
   const ago = Math.max(0, Math.round((Date.now()-VA.t)/60000));
   let html = `<div class="data-status" style="display:block"><b>● Cuotas reales</b> · ESPN · próximos 7 días · ${VA.src} · hace ${ago<1?'un momento':ago+' min'} <a href="#" onclick="vaLoad(true);return false;" style="color:var(--accent);margin-left:6px;">Actualizar</a></div>`;
-  if(VA.err && !VA.rows.length){ list.innerHTML = html + `<div class="empty-state">No pude cargar las cuotas (${VA.err}).<br><br><button class="btn primary" onclick="vaLoad(true)">Reintentar</button></div>`; return; }
+  if(VA.err && !VA.rows.length){ list.innerHTML = html + `<div class="empty-state">No se pudieron cargar las cuotas. Revisa tu conexión e inténtalo de nuevo.<br><br><button class="btn primary" onclick="vaLoad(true)">Reintentar</button></div>`; return; }
   if(!VA.rows.length){ list.innerHTML = html + `<div class="empty-state">ESPN no publica cuotas para los próximos partidos de este deporte ahora mismo (en pretemporada o fuera de fecha es normal). Prueba con otro deporte.</div>`; return; }
   if(!ROWS.length){ list.innerHTML = html + `<div class="empty-state">No hay cuotas para esta fecha. ESPN solo publica cuotas de los próximos 7 días; prueba con otro día o con "Todos".</div>`; return; }
   const cand = ROWS.map(r=>({r, b:vaBest(r)})).filter(x=>x.b && x.b.edge>=6 && x.b.edge<15 && !x.b.est && x.r.known).sort((a,b)=>b.b.edge-a.b.edge).slice(0,5);
@@ -5243,9 +5257,10 @@ function openMatch(leagueId, idx){
         <div class="stat-tile">${ringHTML(p.btts,lvlC(p.btts),72)}<div class="l">Ambos anotan</div></div>
         <div class="stat-tile">${ringHTML(p.under25,lvlC(p.under25),72)}<div class="l">Menos de 2.5 goles</div></div>
       </div>
-      <div class="line-item" style="border-top:1px solid var(--line);">
-        <div class="line-label">Esperados</div>
-        <div style="font-size:13px; color:var(--ink-dim);">${p.lambdaHome.toFixed(1)} - ${p.lambdaAway.toFixed(1)} (${homeName} - ${awayName})</div>
+      <div class="num-grid" style="margin-top:10px"><!-- v52: goles esperados como tarjetas y córners -->
+        <div class="num-tile"><div class="plain-v">${p.lambdaHome.toFixed(1)}</div><div class="l">${homeName}</div></div>
+        <div class="num-tile"><div class="plain-v">${p.lambdaAway.toFixed(1)}</div><div class="l">${awayName}</div></div>
+        <div class="num-tile"><div class="plain-v">${(p.lambdaHome+p.lambdaAway).toFixed(1)}</div><div class="l">Goles esperados</div></div>
       </div>
     </div>
 
@@ -5452,7 +5467,7 @@ const SRC = {
 };
 // v48 · nombres de selecciones en español (igual que en el servidor)
 const NAT_ES = {"Afghanistan": "Afganistán", "Albania": "Albania", "Algeria": "Argelia", "American Samoa": "Samoa Americana", "Andorra": "Andorra", "Angola": "Angola", "Anguilla": "Anguila", "Antigua and Barbuda": "Antigua y Barbuda", "Argentina": "Argentina", "Armenia": "Armenia", "Aruba": "Aruba", "Australia": "Australia", "Austria": "Austria", "Azerbaijan": "Azerbaiyán", "Bahamas": "Bahamas", "Bahrain": "Baréin", "Bangladesh": "Bangladés", "Barbados": "Barbados", "Belarus": "Bielorrusia", "Belgium": "Bélgica", "Belize": "Belice", "Benin": "Benín", "Bermuda": "Bermudas", "Bhutan": "Bután", "Bolivia": "Bolivia", "Bonaire": "Bonaire", "Bosnia-Herzegovina": "Bosnia y Herzegovina", "Botswana": "Botsuana", "Brazil": "Brasil", "British Virgin Islands": "Islas Vírgenes Británicas", "Brunei Darussalam": "Brunéi", "Bulgaria": "Bulgaria", "Burkina Faso": "Burkina Faso", "Burundi": "Burundi", "Cambodia": "Camboya", "Cameroon": "Camerún", "Canada": "Canadá", "Cape Verde": "Cabo Verde", "Cayman Islands": "Islas Caimán", "Central African Republic": "República Centroafricana", "Chad": "Chad", "Chile": "Chile", "China": "China", "Chinese Taipei": "China Taipéi", "Colombia": "Colombia", "Comoros": "Comoras", "Congo": "Congo", "Congo DR": "RD del Congo", "Cook Islands": "Islas Cook", "Costa Rica": "Costa Rica", "Croatia": "Croacia", "Cuba": "Cuba", "Curaçao": "Curazao", "Cyprus": "Chipre", "Czechia": "Chequia", "Denmark": "Dinamarca", "Djibouti": "Yibuti", "Dominica": "Dominica", "Dominican Republic": "República Dominicana", "Ecuador": "Ecuador", "Egypt": "Egipto", "El Salvador": "El Salvador", "England": "Inglaterra", "Equatorial Guinea": "Guinea Ecuatorial", "Eritrea": "Eritrea", "Estonia": "Estonia", "Eswatini": "Esuatini", "Ethiopia": "Etiopía", "Faroe Islands": "Islas Feroe", "Fiji": "Fiyi", "Finland": "Finlandia", "France": "Francia", "French Guiana": "Guayana Francesa", "Gabon": "Gabón", "Gambia": "Gambia", "Georgia": "Georgia", "Germany": "Alemania", "Ghana": "Ghana", "Gibraltar": "Gibraltar", "Greece": "Grecia", "Grenada": "Granada", "Guadeloupe": "Guadalupe", "Guam": "Guam", "Guatemala": "Guatemala", "Guinea": "Guinea", "Guinea-Bissau": "Guinea-Bisáu", "Guyana": "Guyana", "Haiti": "Haití", "Honduras": "Honduras", "Hong Kong": "Hong Kong", "Hungary": "Hungría", "Iceland": "Islandia", "India": "India", "Indonesia": "Indonesia", "Iran": "Irán", "Iraq": "Irak", "Israel": "Israel", "Italy": "Italia", "Ivory Coast": "Costa de Marfil", "Jamaica": "Jamaica", "Japan": "Japón", "Jordan": "Jordania", "Kazakhstan": "Kazajistán", "Kenya": "Kenia", "Kosovo": "Kosovo", "Kuwait": "Kuwait", "Kyrgyz Republic": "Kirguistán", "Latvia": "Letonia", "Lebanon": "Líbano", "Lesotho": "Lesoto", "Liberia": "Liberia", "Libya": "Libia", "Liechtenstein": "Liechtenstein", "Lithuania": "Lituania", "Luxembourg": "Luxemburgo", "Macau": "Macao", "Madagascar": "Madagascar", "Malawi": "Malaui", "Malaysia": "Malasia", "Maldives": "Maldivas", "Mali": "Malí", "Malta": "Malta", "Martinique": "Martinica", "Mauritania": "Mauritania", "Mauritius": "Mauricio", "Mexico": "México", "Moldova": "Moldavia", "Mongolia": "Mongolia", "Montenegro": "Montenegro", "Montserrat": "Montserrat", "Morocco": "Marruecos", "Mozambique": "Mozambique", "Myanmar": "Myanmar", "Namibia": "Namibia", "Nepal": "Nepal", "Netherlands": "Países Bajos", "New Caledonia": "Nueva Caledonia", "New Zealand": "Nueva Zelanda", "Nicaragua": "Nicaragua", "Niger": "Níger", "Nigeria": "Nigeria", "North Korea": "Corea del Norte", "North Macedonia": "Macedonia del Norte", "Northern Ireland": "Irlanda del Norte", "Norway": "Noruega", "Oman": "Omán", "Pakistan": "Pakistán", "Palestine": "Palestina", "Panama": "Panamá", "Papua New Guinea": "Papúa Nueva Guinea", "Paraguay": "Paraguay", "Peru": "Perú", "Philippines": "Filipinas", "Poland": "Polonia", "Portugal": "Portugal", "Puerto Rico": "Puerto Rico", "Qatar": "Catar", "Republic of Ireland": "Irlanda", "Romania": "Rumania", "Russia": "Rusia", "Rwanda": "Ruanda", "San Marino": "San Marino", "Sao Tome and Principe": "Santo Tomé y Príncipe", "Saudi Arabia": "Arabia Saudita", "Scotland": "Escocia", "Senegal": "Senegal", "Serbia": "Serbia", "Seychelles": "Seychelles", "Sierra Leone": "Sierra Leona", "Singapore": "Singapur", "Sint Maarten": "Sint Maarten", "Slovakia": "Eslovaquia", "Slovenia": "Eslovenia", "Solomon Islands": "Islas Salomón", "Somalia": "Somalia", "South Africa": "Sudáfrica", "South Korea": "Corea del Sur", "South Sudan": "Sudán del Sur", "Spain": "España", "Sri Lanka": "Sri Lanka", "St. Kitts and Nevis": "San Cristóbal y Nieves", "St. Lucia": "Santa Lucía", "St. Martin": "San Martín", "St. Vincent and the Grenadines": "San Vicente y las Granadinas", "Sudan": "Sudán", "Suriname": "Surinam", "Sweden": "Suecia", "Switzerland": "Suiza", "Syria": "Siria", "Tahiti": "Tahití", "Tajikistan": "Tayikistán", "Tanzania": "Tanzania", "Thailand": "Tailandia", "Togo": "Togo", "Trinidad and Tobago": "Trinidad y Tobago", "Tunisia": "Túnez", "Turkmenistan": "Turkmenistán", "Turks and Caicos Islands": "Islas Turcas y Caicos", "Türkiye": "Turquía", "US Virgin Islands": "Islas Vírgenes de EE. UU.", "Uganda": "Uganda", "Ukraine": "Ucrania", "United Arab Emirates": "Emiratos Árabes Unidos", "United States": "Estados Unidos", "Uruguay": "Uruguay", "Uzbekistan": "Uzbekistán", "Vanuatu": "Vanuatu", "Venezuela": "Venezuela", "Vietnam": "Vietnam", "Wales": "Gales", "Yemen": "Yemen", "Zambia": "Zambia", "Zanzibar": "Zanzíbar", "Zimbabwe": "Zimbabue", "Turkey": "Turquía", "Korea Republic": "Corea del Sur", "Czech Republic": "Chequia", "Côte d'Ivoire": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "USA": "Estados Unidos", "Ireland": "Irlanda", "IR Iran": "Irán", "Cabo Verde": "Cabo Verde", "DR Congo": "RD del Congo", "Bosnia and Herzegovina": "Bosnia y Herzegovina", "Brunei": "Brunéi", "Kyrgyzstan": "Kirguistán", "Saint Lucia": "Santa Lucía", "Saint Kitts and Nevis": "San Cristóbal y Nieves", "Saint Vincent and the Grenadines": "San Vicente y las Granadinas", "Macedonia": "Macedonia del Norte", "Swaziland": "Esuatini", "Taiwan": "China Taipéi", "New Caledonia ": "Nueva Caledonia"};
-const APP_VERSION = 'v51 · diseño más claro';
+const APP_VERSION = 'v52 · sugerencias de otras ligas y partidos de hoy primero';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;

@@ -329,7 +329,8 @@ function escenaCierre(c, S, t, D) {
 export async function crearVideo(sel, ctx) {
   let cvx = null; const cv0 = () => cvx = cvx || ctx.canvas || document.createElement('canvas');
   const msg = ctx.onMsg || (() => {});
-  const L = sel.slice(0, 4), voz = ctx.voz;
+  // v54: la racha solo se muestra (y se dice) si apoya la jugada (6 de 10 o más); si no, la escena muestra la cuota mínima
+  const L = sel.slice(0, 4).map(p => p.n && p.hit != null && p.hit / p.n < 0.6 ? Object.assign({}, p, {vals: [], hit: null, n: 0, avg: null}) : p), voz = ctx.voz;
   await Promise.all([document.fonts.load('900 64px Orbitron'), document.fonts.load('900 64px Inter'), document.fonts.load('800 40px Inter'), document.fonts.load('600 30px Inter')]).catch(() => {});
   // guiones y voces
   const deps = [...new Set(L.map(p => ({futbol: 'fútbol', nba: 'la NBA', ncaa: 'la NCAA', eul: 'la Euroliga', nhl: 'la NHL', mlb: 'MLB', tenis: 'tenis'})[p.sp] || p.sp))];
@@ -343,7 +344,7 @@ export async function crearVideo(sel, ctx) {
     const unidad = p.kind === 'player' || (p.who && p.who !== 'Partido') ? String(p.mk || '').toLowerCase() : '';
     scenes.push(Object.assign({k: 'pick', p, g, i, total: L.length, voz: g.voz, lugar: ctx.lugar(p), hora: ctx.hora(p),
       mkTxt: p.kind === 'player' ? `${p.under ? 'Menos' : 'Más'} de ${p.ln} ${String(p.mk).toLowerCase()}` : p.who && p.who !== 'Partido' ? `${p.who}: más de ${p.ln} ${String(p.mk).toLowerCase()}` : String(p.label),
-      statTit: p.vals && p.vals.length ? (p.kind === 'player' ? `Sus últimos ${p.n} partidos` : p.sub && /cada/.test(p.sub) ? `Últimos partidos (${p.sub})` : `Últimos ${p.n} partidos`) : 'Sin racha guardada',
+      statTit: p.vals && p.vals.length ? (p.kind === 'player' ? `Sus últimos ${p.n} partidos` : p.sub && /cada/.test(p.sub) ? `Últimos partidos (${p.sub})` : `Últimos ${p.n} partidos`) : 'Lo que dice el modelo',
       hitTxt: p.passTxt || (p.under ? 'quedó por debajo' : 'superó la línea'),
       avgTxt: av != null && !p.diff ? `promedio ${dec1(av)}${unidad ? ' ' + unidad : ''}` : ''}, im));
   }
@@ -473,7 +474,7 @@ export async function crearAnalisis(ctx) {
     if (s.foco && kc > .8) { const f = s.foco, z = sw / cam.w, X = sx + (f[0] - cam.x) * z - 8, Y = sy + (f[1] - cam.y) * z - 8, W = f[2] * z + 16, H2 = f[3] * z + 16, pu = .65 + .35 * Math.sin(lt * 6);
       c.shadowColor = A; c.shadowBlur = 30; rr(c, X, Y, W, H2, 18); c.strokeStyle = `rgba(198,255,0,${pu})`; c.lineWidth = 6; c.stroke(); c.shadowBlur = 0; }
     c.restore();
-    c.fillStyle = '#040807'; rr(c, VW / 2 - 70, sy + 18, 140, 36, 18); c.fill(); // isla
+    // v54: sin la isla negra arriba (tapaba el logo de la app en la captura)
     // titular arriba
     c.globalAlpha = seg(lt, 0, .45); titular(c, s.tit, 190, seg(lt, 0, .45)); c.globalAlpha = 1;
     if (s.badge) { const kb = seg(lt, .35, .45), f = s.foco, z = sw / s.cam.w, by = Math.max(sy + 120, Math.min(sy + sh - 120, sy + (f[1] + f[3] / 2 - s.cam.y) * z)), left = i % 2 === 0;
@@ -513,7 +514,7 @@ function telefono(c, im, cam, foco, lt, kc, alpha) {
   rr(c, sx - 16, sy - 16, sw + 32, sh + 32, 70); c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 3; c.stroke();
   c.save(); rr(c, sx, sy, sw, sh, 56); c.clip(); const fx = im.img.width / im.w; c.drawImage(im.img, cam.x * fx, cam.y * fx, cam.w * fx, cam.h * fx, sx, sy, sw, sh);
   if (foco && kc > .8) { const z = sw / cam.w, X = sx + (foco[0] - cam.x) * z - 8, Y = sy + (foco[1] - cam.y) * z - 8, pu = .65 + .35 * Math.sin(lt * 6); c.shadowColor = A; c.shadowBlur = 30; rr(c, X, Y, foco[2] * z + 16, foco[3] * z + 16, 18); c.strokeStyle = `rgba(198,255,0,${pu})`; c.lineWidth = 6; c.stroke(); c.shadowBlur = 0; }
-  c.restore(); c.fillStyle = '#040807'; rr(c, VW / 2 - 70, sy + 18, 140, 36, 18); c.fill(); c.restore();
+  c.restore(); c.restore(); // v54: sin la isla negra (tapaba el logo de la app)
   return {sx, sy, sw, sh, z: sw / cam.w};
 }
 function sticker(c, big, small, x, y, k, rot) {

@@ -91,7 +91,7 @@ function estado(u) {
   const now = Date.now(), ph = ms(u.premiumHasta) || 0, cr = ms(u.creado) || now, pr = cr + PRUEBA_DIAS * DIA;
   if (ph > now) return {k:'act', t:(u.plan === 'vip' ? 'VIP' : 'PREMIUM'), d:`hasta el ${fecha(ph)}`, vence: ph};
   if (u.pendiente) return {k:'pen', t:'PENDIENTE', d:`Pagó: ${u.pendiente}`};
-  if (now < pr) return {k:'pru', t:'PRUEBA', d:`termina el ${fecha(pr)}`, vence: pr};
+  if (now < pr) { const n = Math.max(1, Math.ceil((pr - now) / DIA)); return {k:'pru', t:'PRUEBA', d:`termina el ${fecha(pr)} · ${n === 1 ? 'último día' : 'quedan ' + n + ' días'}`, vence: pr}; } // v55
   return {k:'ven', t:'GRATIS', d: ph ? `Premium venció el ${fecha(ph)}` : `Prueba terminó el ${fecha(pr)}`};
 }
 
@@ -135,6 +135,13 @@ function pintar() {
       <div class="st"><b style="color:var(--over)">${n('act')}</b><small>Premium</small></div>
       <div class="st"><b style="color:#93c5fd">${n('pru')}</b><small>En prueba</small></div>
       <div class="st"><b style="color:var(--under)">${vencen}</b><small>Vencen en 7 días</small></div>
+    </div>
+    ${(() => { // v55 · conversión: de los que ya terminaron la prueba (o pagaron), cuántos pasaron a Premium alguna vez
+      const now2 = Date.now(), fin = E.filter(x => (ms(x.u.premiumHasta) || 0) > 0 || now2 >= (ms(x.u.creado) || now2) + PRUEBA_DIAS * DIA), pago = fin.filter(x => (ms(x.u.premiumHasta) || 0) > 0).length;
+      const pruebaFin3 = E.filter(x => x.e.k === 'pru' && x.e.vence - now2 <= 3 * DIA).length;
+      return `<div class="stats" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      <div class="st"><b style="color:var(--accent)">${fin.length ? Math.round(pago / fin.length * 100) : 0}%</b><small>Pasaron a Premium (${pago} de ${fin.length} con prueba terminada)</small></div>
+      <div class="st"><b style="color:#f5b942">${pruebaFin3}</b><small>Prueba termina en 3 días o menos</small></div>`; })()}
     </div>
     <label for="q">Buscar usuario</label>
     <input id="q" type="search" placeholder="correo o nombre" value="${esc(busca)}" autocomplete="off" autocapitalize="off">
