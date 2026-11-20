@@ -382,7 +382,7 @@ async function reel(p, file, txt) {
 // ---------- plan: un trabajo que queda despierto ~5,5 h, revisa cada minuto el horario y los pedidos del panel, y al terminar se vuelve a lanzar ----------
 // (los horarios propios de GitHub llegan con horas de atraso o no llegan; así las publicaciones salen a su hora)
 const SLOTS = [ // hora de Ecuador, modo, hasta qué hora todavía vale la pena publicarlo, días (0 = domingo)
-  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['09:00', 'pubres', '12:00'], ['13:00', 'ana', '16:30'], ['16:00', 'reel:nba', '18:45'], ['17:30', 'radar', '20:30'], ['12:00', 'encuesta', '15:00', [2, 4, 6]], ['18:00', 'sem', '22:00', [0]], ['18:30', 'mes', '22:00', 'd1'], ['19:00', 'promo', '21:30', [3]]];
+  ['08:00', 'resdep', '12:00'], ['10:00', 'pro:8', '13:00'], ['10:30', 'reel', '13:30'], ['09:00', 'pubres', '12:00'], ['12:30', 'afiche', '16:00'], ['13:00', 'ana', '16:30'], ['16:00', 'reel:nba', '18:45'], ['17:30', 'radar', '20:30'], ['12:00', 'encuesta', '15:00', [2, 4, 6]], ['18:00', 'sem', '22:00', [0]], ['18:30', 'mes', '22:00', 'd1'], ['19:00', 'promo', '21:30', [3]]];
 const ecuNow = () => { const d = new Date(Date.now() - 5 * 3600e3); return {day: d.toISOString().slice(0, 10), hm: d.toISOString().slice(11, 16), dow: d.getUTCDay()}; };
 function correr(m, programado) {
   console.log(`\n===== ${new Date().toISOString()} · publicar ${m}${programado ? ' (programado)' : ' (pedido desde el panel)'} =====`);
@@ -398,7 +398,7 @@ async function plan() {
       if (st) {
         const now = ecuNow(), hecho = Object.assign({}, st.hecho || {});
         Object.keys(hecho).forEach(k => { if (k.slice(0, 10) < now.day) delete hecho[k]; });
-        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo|pubres|encuesta|mes)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
+        if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo|pubres|encuesta|mes|afiche)$/.test(st.ya)) { const m = st.ya, slot = SLOTS.find(x => x[1] === m || (m === 'pro' && x[1] === 'pro:8') || (m === 'res' && x[1] === 'resdep')); if (slot && now.hm <= slot[2]) hecho[now.day + '|' + slot[1]] = Date.now(); // si ya se publicó a pedido, no se repite a su hora
           await estadoSet({ya: '', yaT: 0, hecho, armando: m, armandoT: Date.now()}); process.env.FB_ANA = m === 'ana:sel' ? (st.anaSel || '') : ''; process.env.FB_REEL = m === 'reel:sel' ? JSON.stringify(st.reelSel || []) : ''; process.env.FB_RADAR = m === 'radar:sel' ? JSON.stringify(st.radarSel || []) : ''; process.env.FB_SOLO = (/:sel$/.test(m) || m === 'radar') && st.soloDesc ? '1' : ''; correr(m, false); process.env.FB_ANA = ''; process.env.FB_REEL = ''; process.env.FB_RADAR = ''; process.env.FB_SOLO = ''; continue; }
         for (const [h, m, hasta, dias] of SLOTS) {
           const k = now.day + '|' + m;
@@ -419,7 +419,7 @@ async function plan() {
   // poll: cada 15 min revisa si en el panel pidieron "publicar ya"; escribe el modo en la salida de GitHub
   if (MODE === 'poll') {
     const st = await estado() || {}; let m = 'none';
-    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo|pubres|encuesta|mes)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
+    if (st.ya && +st.yaT > Date.now() - 2 * 3600e3 && /^(pro(:\d+)?|resdep|res|reel(:nba|:sel)?|sem|ana(:sel)?|radar(:sel)?|promo|pubres|encuesta|mes|afiche)$/.test(st.ya)) { m = st.ya; await estadoSet({ya: '', yaT: 0}); console.log('Pedido desde el panel:', m); }
     if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'modo=' + m + '\n'); else console.log('modo=' + m);
     return;
   }
@@ -450,6 +450,13 @@ async function plan() {
     } catch (e) { console.log('PRUEBA Instagram falló:', e.message); }
     try { const st = await estado(); console.log('Registro del panel:\n' + (st && st.log || []).slice(0, 10).map(x => JSON.stringify(x)).join('\n')); } catch (e) { console.log('registro:', e.message); }
     return; }
+  if (MODE === 'afiche') { // v55 · afiche del día (fb-promo/afiches/AAAA-MM-DD.png y .txt) · solo Facebook
+    const d = ecuNow().day, f = path.join(ROOT, 'fb-promo', 'afiches', d + '.png'), ft = f.replace(/\.png$/, '.txt');
+    if (!fs.existsSync(f) || !fs.existsSync(ft)) { console.log('No hay afiche para', d); return; }
+    const txt = fs.readFileSync(ft, 'utf8').trim();
+    if (DRY || !p) { console.log('[prueba] no se publica:', d, txt.split('\n')[0]); return; }
+    const r = await foto(p, f, txt); console.log('Publicado el afiche:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); return;
+  }
   if (MODE === 'anuncio') { // imagen y texto de fb-promo/anuncio.* · solo Facebook (a pedido)
     const f = path.join(ROOT, 'fb-promo', 'anuncio.png'), txt = fs.readFileSync(path.join(ROOT, 'fb-promo', 'anuncio.txt'), 'utf8').trim();
     if (DRY || !p) { console.log('[prueba] no se publica:', txt.split('\n')[0]); return; }

@@ -79,7 +79,7 @@ const ms = t => t && t.toMillis ? t.toMillis() : null;
 let USERS = [], filtro = 'todos', busca = '', pais = 'todos', origen = 'todos';
 // v50 · de dónde llegó cada usuario (lo guarda la app: enlace ?r= de la publicación o la página de origen)
 const ORIG = {'fb':'Facebook', 'fb-pro':'FB · Pronósticos', 'fb-reel':'FB · Reel', 'fb-ana':'FB · Video análisis', 'fb-radar':'FB · Video radar', 'fb-res':'FB · Resultados', 'fb-pubres':'FB · Lo publicado',
-  'fb-sem':'FB · Resumen semanal', 'fb-mes':'FB · Resumen del mes', 'fb-promo':'FB · Promo', 'fb-anuncio':'FB · Anuncio', 'fb-encuesta':'FB · Encuesta', 'ig':'Instagram', 'wa':'WhatsApp', 'google':'Google', 'tiktok':'TikTok',
+  'fb-sem':'FB · Resumen semanal', 'fb-mes':'FB · Resumen del mes', 'fb-promo':'FB · Promo', 'fb-anuncio':'FB · Anuncio', 'fb-afiche':'FB · Afiches', 'fb-encuesta':'FB · Encuesta', 'ig':'Instagram', 'wa':'WhatsApp', 'google':'Google', 'tiktok':'TikTok',
   'directo':'Directo / sin enlace', 'antiguo':'Antes de medir'};
 const origN = r => r ? (ORIG[r] || r) : 'Sin dato';
 // países: bandera + nombre (el código lo guarda la app de cada usuario, según la zona horaria de su celular)
