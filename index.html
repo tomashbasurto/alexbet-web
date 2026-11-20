@@ -198,6 +198,9 @@
   .pz-lb.on{ opacity:1; } .pz-lb i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:0; }
   .pz-goal{ position:absolute; inset:0; display:grid; place-items:center; font-size:46px; font-weight:900; font-style:italic; letter-spacing:2px; color:#ffd400; text-shadow:0 3px 0 #000,0 0 24px rgba(255,212,0,.8); background:rgba(0,0,0,.35); opacity:0; transform:scale(.6); transition:opacity .25s, transform .35s cubic-bezier(.2,1.6,.4,1); pointer-events:none; }
   .pz-goal.on{ opacity:1; transform:scale(1); }
+  .ld-pill-btn{ border:0; color:inherit; font-family:inherit; cursor:pointer; }
+  .pz-back{ position:absolute; left:8px; top:8px; display:inline-flex; align-items:center; gap:3px; border:1px solid rgba(255,255,255,.18); background:rgba(5,8,14,.7); color:#e9edf3; font:700 11.5px inherit; font-family:inherit; padding:4px 9px 4px 6px; border-radius:8px; cursor:pointer; }
+  .pz-back .ic, .pz-back svg{ width:13px !important; height:13px !important; flex:none; }
   .pz-card{ border-radius:18px; overflow:hidden; background:#0f1a24; margin-bottom:14px; box-shadow:0 0 0 1px rgba(255,255,255,.06); }
   .pz-card .pz{ border-radius:0; box-shadow:none; }
   .pz-sw{ position:absolute; left:50%; bottom:8px; transform:translateX(-50%); display:inline-flex; background:rgba(5,8,14,.72); border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:2px; }
@@ -4388,23 +4391,23 @@ function ldRender(){
   const ht = f && D && D.ls[0].length>=1 && D.ls[1].length>=1 && (m.min>45 || D.ls[0].length>1) ? `HT ${D.ls[0][0]}-${D.ls[1][0]}` : '';
   const lg = f ? m.lname : US[ld.sp].name;
   const logo = n => { const u = logoFor(n, f ? m.lid : null); return u ? `<img src="${u}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<div class="ld-ini">${initials(n)}</div>`; };
-  let html = `<div class="ld-head">
+  const pitch = f && D && ldView()==='pitch';
+  let html = pitch ? pzHTML(hn, an) : `<div class="ld-head">
     <div class="ld-min">${label}</div>
     <div class="ld-row">
       <div class="ld-team">${logo(hn)}<div class="n">${hn}</div>${f?ldForm(hn):''}</div>
       <div class="ld-mid"><div class="ld-score">${gh} - ${ga}</div>${ht?`<div class="ld-ht">${ht}</div>`:''}</div>
       <div class="ld-team">${logo(an)}<div class="n">${an}</div>${f?ldForm(an):''}</div>
     </div>
-    <div class="ld-pill"><span class="ld-dot"></span>Partido en vivo · ${lg}</div>
-  </div>
-  <div class="ld-tabs"><button class="${ld.tab==='general'?'on':''}" onclick="ldTab('general')">General</button><button class="${ld.tab==='model'?'on':''}" onclick="ldTab('model')">Pronóstico</button>${f?`<button class="${ld.tab==='lineup'?'on':''}" onclick="ldTab('lineup')">Alineación</button>`:''}${f?'':`<button class="${ld.tab==='players'?'on':''}" onclick="ldTab('players')">Jugadores</button>`}</div>`;
+    ${f && D ? `<button class="ld-pill ld-pill-btn" onclick="ldSetView('pitch')"><span class="ld-dot"></span>Ver cancha en vivo · ${lg}</button>` : `<div class="ld-pill"><span class="ld-dot"></span>Partido en vivo · ${lg}</div>`}
+  </div>`;
+  html += `<div class="ld-tabs"><button class="${ld.tab==='general'?'on':''}" onclick="ldTab('general')">General</button><button class="${ld.tab==='model'?'on':''}" onclick="ldTab('model')">Pronóstico</button>${f?`<button class="${ld.tab==='lineup'?'on':''}" onclick="ldTab('lineup')">Alineación</button>`:''}${f?'':`<button class="${ld.tab==='players'?'on':''}" onclick="ldTab('players')">Jugadores</button>`}</div>`;
   if(ld.tab==='general'){
     if(ld.loading && !D) html += `<div class="empty-state">Cargando datos del partido…</div>`;
     else if(ld.err && !D) html += `<div class="empty-state">No pude cargar el detalle (${ld.err}).<br><br><button class="btn primary" onclick="ld.loading=true;ldRender();ldFetch()">Reintentar</button></div>`;
     else if(D){
       const S = D.stats;
       if(f){
-        html += pzHTML(hn, an);
         html += `<div class="ld-legend"><span><i style="background:${LD_BLUE}"></i>${hn}</span><span>${an}<i style="background:${LD_GREEN}"></i></span></div>`;
         html += `<div class="prob-card"><h3><span class="dot"></span>Eventos del partido</h3>${D.events.length ? ldTimeline(D.events, 90) : '<div class="pl-none" style="padding:10px 0;">Todavía no hay goles, tarjetas ni cambios registrados.</div>'}
           <div class="lv-stats" style="margin-top:6px;">${IC('goal',13,'color:var(--over)')} gol · ${IC('card',13,'color:#facc15')} amarilla · ${IC('card',13,'color:#ff4d4d')} roja · ${IC('sub',13,'color:var(--accent)')} cambio.</div></div>`;
@@ -4442,7 +4445,7 @@ function ldRender(){
   html += `<div class="foot-note">Datos: ESPN. El pronóstico en vivo es una estimación estadística y no garantiza el resultado.</div>`;
   if(f && ld.tab==='lineup' && mh.live) html += mhPlayerSheet();
   document.getElementById('detailContent').innerHTML = html; abOddsLast();
-  if(f && ld.tab==='general' && D) pzMount();
+  if(pitch) pzMount();
 }
 // ---------- Cancha en vivo ----------
 // ESPN no publica la posición del balón. El balón se mueve con las jugadas reales que aparecen
@@ -4543,6 +4546,8 @@ function pzStatic(){
   const c = pzP(52.5,34); s += `<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="1.4" fill="#fff"/>`;
   return s;
 }
+function ldView(){ try{ return localStorage.getItem('ab_ldv')==='pitch' ? 'pitch' : 'score'; }catch(e){ return 'score'; } }
+function ldSetView(v){ try{ localStorage.setItem('ab_ldv', v); }catch(e){} ldRender(); }
 function pzBarHTML(hn, an){
   const D = ld.data, S = D ? D.stats : {h:{},a:{}}, m = ld.m, n = v => { const x = ldNum(v); return x==null ? 0 : Math.round(x); };
   const gh = D&&D.score&&!isNaN(D.score[0]) ? D.score[0] : m.gh, ga = D&&D.score&&!isNaN(D.score[1]) ? D.score[1] : m.ga;
@@ -4575,6 +4580,7 @@ function pzHTML(hn, an){
       <g id="pzTag" opacity="0" style="transition:opacity .25s"></g>
     </svg><div class="pz-goal" id="pzGoal">¡GOL!</div>
     <div class="pz-sw"><button class="${P.mode!=='2d'?'on':''}" onclick="pzSetMode('3d')">2.5D</button><button class="${P.mode==='2d'?'on':''}" onclick="pzSetMode('2d')">2D</button></div>
+    <button class="pz-back" onclick="ldSetView('score')">${IC('back',13)} Marcador</button>
     <button class="pz-inf" onclick="this.classList.toggle('on')" aria-label="Información">i<span>Jugadas reales de ESPN cada 30 s. La posición del balón es aproximada.</span></button></div>
     ${pzBarHTML(hn, an)}</div>`;
 }
@@ -4601,7 +4607,7 @@ function pzTagSVG(title, s, who, bx, by){
   let x = bx - w/2, y = by - h - 12; x = Math.max(4, Math.min(396-w, x)); if(y < 4) y = by + 12;
   return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><rect width="${w.toFixed(1)}" height="${h}" rx="7" fill="rgba(6,10,18,.86)" stroke="${col}" stroke-width="1"/>
     <text x="8" y="13" font-size="10.5" font-weight="800" fill="#fff">${escA(title)}</text>
-    ${logo ? `<image href="${logo}" x="8" y="18" width="10" height="10" referrerpolicy="no-referrer"/>` : `<circle cx="12" cy="23" r="3.5" fill="${col}"/>`}
+    ${logo ? `<image href="${logo}" x="8" y="18" width="10" height="10" referrerpolicy="no-referrer" onerror="this.remove()"/>` : `<circle cx="12" cy="23" r="3.5" fill="${col}"/>`}
     <text x="${logo?22:20}" y="26.5" font-size="9" font-weight="600" fill="rgba(255,255,255,.82)">${escA(tn)}</text>
     ${who ? `<text x="8" y="39" font-size="8.6" font-weight="600" fill="#ffd400">${escA(who)}</text>` : ''}
     <path d="M${(Math.max(10,Math.min(w-10,bx-x))-5).toFixed(1)} ${h} l5 6 l5 -6z" fill="rgba(6,10,18,.86)"/></g>`;
