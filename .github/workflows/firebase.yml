@@ -39,6 +39,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/min" && cd "$RUNNER_TEMP/min" && npm i -s --no-audit --no-fund html-minifier-terser@7.2.0 terser@5.31.6
           cd "$GITHUB_WORKSPACE" && NODE_PATH="$RUNNER_TEMP/min/node_modules" node tools/minificar.js . || git checkout -- .
+      - name: Publicar en Firebase Hosting
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
