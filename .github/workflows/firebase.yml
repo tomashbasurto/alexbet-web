@@ -11,6 +11,7 @@ on:
       - 'estadisticas.js'
       - 'oportunidades.js'
       - 'tools/minificar.js'
+      - 'tools/hosting-limpieza.js'
       - 'admin.html'
       - 'publicar.html'
       - 'video.js'
@@ -34,6 +35,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Liberar espacio del hosting (deja las últimas 10 versiones)
+        continue-on-error: true
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          node tools/hosting-limpieza.js "$RUNNER_TEMP/sa.json"
+          rm -f "$RUNNER_TEMP/sa.json"
       - name: Comprimir el código de la app (v53, abre más rápido)
         continue-on-error: true
         run: |

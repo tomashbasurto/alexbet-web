@@ -20,7 +20,15 @@
       "calibracion.js",
       "facebook.js",
       "fb-out/**",
-      "node_modules/**"
+      "node_modules/**",
+      "escudos/**",
+      "eul/**",
+      "fb-promo/**",
+      "tools/**",
+      "**/*.json",
+      "**/*.mp4",
+      "**/*.md",
+      "prueba/**"
     ],
     "headers": [
       {
