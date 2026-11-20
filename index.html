@@ -1825,7 +1825,9 @@ function calLiveApply(list, sp, catOf){
   if(!CAL_LIVE) return list;
   list.forEach(x=>{
     const cat = catOf ? catOf(x) : x.cat, base = CAL_LIVE[sp+'|'+cat]; if(!base) return;
-    const band = CAL_LIVE[sp+'|'+cat+'|'+(x.prob>=75?'hi':'lo')], o = band ? band.off : base.off;
+    // v53: tres niveles (menos de 70 · 70 a 74 · 75 o más); si no hay datos de ese nivel, el de antes (lo/hi) o el del mercado
+    const b3 = x.prob>=75 ? 'hi' : x.prob>=70 ? 'mid' : 'lo', band = CAL_LIVE[sp+'|'+cat+'|b:'+b3] || CAL_LIVE[sp+'|'+cat+'|'+(x.prob>=75?'hi':'lo')], o = band ? band.off : base.off;
+    if((band && band.cut) || base.cut){ x.p0 = x.prob; x.prob = Math.min(x.prob, 50); x.cut = 1; if(x.why!=null) x.why += ' · mercado en pausa: acierta poco últimamente'; return; } // v53: queda bajo el mínimo y no sale
     if(!o) return; x.p0 = x.prob; x.prob = Math.max(1, Math.min(85, Math.round(x.prob + o)));
     if(x.why!=null) x.why += ` · ajustado ${o>0?'+':''}${o} por resultados reales`;
   });
@@ -2132,30 +2134,32 @@ function pkSecHTML(P){
 function renderPicks(){
   const list = document.getElementById('matchList'); pmPrime();
   vaPrime(); if(VA.t && VA.sp===sport) pkLogAll(); if(Date.now()-PK.last>10*60e3 && !PK.busy && Object.values(LS.get('ab_preds',{})).some(p=>p.res==null && p.ts<Date.now()-3*3600e3)) pkSweep();
-  const leagues = LEAGUES.filter(lgIn);
-  const items = [];
-  leagues.forEach(l=>l.fixtures.forEach((f,idx)=>{
+  // v53: si la liga elegida no tiene partidos hoy (o después), Sugerencias muestra todas las ligas en vez de quedar vacía
+  let wide = false; const inL = l => wide || lgIn(l);
+  const items = [], fill = () => LEAGUES.filter(inL).forEach(l=>l.fixtures.forEach((f,idx)=>{
     if(activeDate!=='all' && isoDateOnlyEcuador(f[2], l.utcOffset)!==activeDate) return;
     if(!favOK(f[0],f[1],isoDateOnlyEcuador(f[2], l.utcOffset))) return;
     const pk = matchPicks(l,f); if(pk) items.push({l,f,idx,pk});
   }));
+  fill();
+  if(!items.length && activeLeague!=='all' && (activeDate==='all' || activeDate >= ymd(todayDate))){ wide = true; fill(); }
   items.sort((a,b)=>b.pk.best-a.pk.best);
   document.getElementById('matchesLabel').textContent = 'Sugerencias';
   document.getElementById('matchCount').textContent = items.length + (items.length===1?' partido':' partidos');
-  const doneS = pkDoneHTML(p=>p.sp==='futbol' && lgIn({id:p.lid}));
+  const doneS = pkDoneHTML(p=>p.sp==='futbol' && inL({id:p.lid}));
   if(activeDate!=='all' && activeDate < ymd(todayDate)){
-    const dayS = pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid}));
+    const dayS = pkDayHTML(p=>p.sp==='futbol' && inL({id:p.lid}));
     list.innerHTML = (dayS + doneS) || `<div class="empty-state">No hay sugerencias guardadas para ese día. Los aciertos se guardan en este celular desde que la app mostró las sugerencias.</div>`;
     return;
   }
   if(!items.length){
-    const pool = LEAGUES.filter(lgIn).flatMap(L=>L.fixtures.filter(f=>L.teams[f[0]]&&L.teams[f[1]]).map(f=>isoDateOnlyEcuador(f[2], L.utcOffset)));
+    const pool = LEAGUES.filter(inL).flatMap(L=>L.fixtures.filter(f=>L.teams[f[0]]&&L.teams[f[1]]).map(f=>isoDateOnlyEcuador(f[2], L.utcOffset)));
     list.innerHTML = emptyDay({ic:'futbol', titleToday:activeLeague==='all'?'Hoy no hay partidos':'Hoy no hay partidos en esta liga', title:'No hay partidos ese día', next:edNext(pool), none:'Prueba con otra liga o pulsa Actualizar en Más.'}) + doneS;
     return;
   }
   const withPicks = items.filter(x=>x.pk.picks.length);
   const top = withPicks.slice(0,5);
-  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol') + cbMixHTML()):'', day:pkDayHTML(p=>p.sp==='futbol' && lgIn({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:(OP_LIST.length=0, opxHTML('futbol', opHTML(items)))};
+  const isT = activeDate==='all'||activeDate===ymd(todayDate), P = {of:isT?ofCardHTML('futbol'):'', cb:isT?(cbPrime(), cbHTML('futbol') + cbMixHTML()):'', day:pkDayHTML(p=>p.sp==='futbol' && inL({id:p.lid})), top:'', items:'', done:doneS, sig:sgHTML(items), op:(OP_LIST.length=0, opxHTML('futbol', opHTML(items)))};
   let html = '';
   if(top.length){
     html += `<div class="prob-card"><h3><span class="dot"></span>Mejores opciones</h3>` + top.map(x=>{
@@ -2183,6 +2187,7 @@ function renderPicks(){
     </div>`;
   }).join('');
   P.items = html; html = pkSecHTML(P);
+  if(wide) html = `<div style="margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(198,255,0,.3);background:rgba(198,255,0,.06);font-size:13px;line-height:1.4;color:var(--ink-dim)">ℹ️ ${escA(lgLabel())} no tiene partidos ese día: te mostramos las sugerencias de <b style="color:var(--ink)">todas las ligas</b>.</div>` + html;
   html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app, ya recortados por sobreconfianza y contrastados con la cuota del mercado cuando ESPN la publica (se descartan los que el mercado contradice). Ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
@@ -3288,6 +3293,8 @@ function usGamesForDay(sp){
 }
 function usEmpty(sp, what){
   const D = usData[sp];
+  // v53: MLB fuera de temporada (noviembre a marzo): mensaje claro y atajos a los deportes que sí tienen partidos
+  if(sp==='mlb' && !D.games.length && (D.t || D.err) && [10,11,0,1,2].includes(new Date().getMonth())) return `<div class="empty-state"><div style="font-size:40px;margin-bottom:6px">⚾</div><b style="font-size:16px">La MLB está en receso</b><br>La temporada vuelve a finales de marzo. Mientras tanto hay partidos de:<br><br><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="btn primary" onclick="setSport('futbol')">Fútbol</button><button class="btn" onclick="setSport('nba')">NBA</button><button class="btn" onclick="setSport('nhl')">NHL</button></div></div>`;
   if(D.loading && !D.games.length) return `<div class="empty-state">Cargando ${US[sp].name}…</div>`;
   if(D.t && !D.games.length) return `<div class="empty-state">${US[sp].name} no tiene partidos programados entre ayer y los próximos 7 días${sp==='mlb'?' (la temporada terminó o está en receso)':''}. Cuando haya partidos aparecerán aquí.</div>`;
   if(D.loading && D.retry) return `<div class="empty-state">Reconectando con ESPN…</div>`;
@@ -4443,6 +4450,7 @@ function lgCount(l){
   if(activeDate==='all') return l.fixtures.length;
   return l.fixtures.filter(f=>isoDateOnlyEcuador(f[2], l.utcOffset)===activeDate).length;
 }
+function lgLabel(){ const cur = LEAGUES.find(l=>l.id===activeLeague), grp = String(activeLeague).startsWith('c:') ? LG_GROUPS.find(g=>g[2]===activeLeague.slice(2)) : null; return grp ? grp[0] : (cur ? cur.name : 'Esta liga'); }
 function renderChips(){
   const el = document.getElementById('leagueChips');
   if(sport==='nba' || sport==='ncaa' || sport==='eul'){ // Básquet: NBA o NCAA
@@ -4497,7 +4505,7 @@ function lgRender(){
     const open = !!(LGP.open[c] || q);
     h += `<div class="lgp-c"><button type="button" class="lgp-ch" aria-expanded="${open}" onclick="lgpToggle('${c}')"><span class="lgp-fl" style="background:${LG_FLAG[c]||LG_FLAG.otr}"></span><span class="t">${escA(gn)}</span>${badge(tot)}<svg class="chev${open?' up':''}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` +
       (open ? `<div class="lgp-ls">${(ls.length>1 && full && c!=='otr' ? `<button type="button" class="${activeLeague==='c:'+c?'on':''}" onclick="pickLeague('c:${c}')"><i class="lg-dot" style="background:var(--ink-dim)"></i><span>Todas de ${escA(gn)}</span>${badge(tot)}</button>` : '') +
-        lsF.filter(l=>!(hide && l.cup && !lgCount(l))).map(l=>{ const n = lgCount(l); return `<button type="button" class="${l.id===activeLeague?'on':''}${n?'':' z'}" onclick="pickLeague('${l.id}')"><i class="lg-dot" style="background:${l.color}"></i><span>${escA(l.name)}${LG_NOTE[l.id]?` <small style="color:#f5b942">· ${LG_NOTE[l.id]}</small>`:''}</span>${badge(n)}</button>`; }).join('')}</div>` : '') + `</div>`;
+        lsF.filter(l=>!(hide && !lgCount(l) && l.id!==activeLeague)).map(l=>{ const n = lgCount(l); return `<button type="button" class="${l.id===activeLeague?'on':''}${n?'':' z'}" onclick="pickLeague('${l.id}')"><i class="lg-dot" style="background:${l.color}"></i><span>${escA(l.name)}${LG_NOTE[l.id]?` <small style="color:#f5b942">· ${LG_NOTE[l.id]}</small>`:''}</span>${badge(n)}</button>`; }).join('')}</div>` : '') + `</div>`;
   });
   if(hidden) h += `<button type="button" class="lgp-more" onclick="lgpHide()">Ver ${hidden} ${hidden===1?'país':'países'} sin partidos este día</button>`;
   if(!h.includes('lgp-c') && !top.length && q) h += `<div class="pl-none">No encontré ligas con "${escA(LGP.q)}".</div>`;
@@ -5437,7 +5445,7 @@ const SRC = {
 };
 // v48 · nombres de selecciones en español (igual que en el servidor)
 const NAT_ES = {"Afghanistan": "Afganistán", "Albania": "Albania", "Algeria": "Argelia", "American Samoa": "Samoa Americana", "Andorra": "Andorra", "Angola": "Angola", "Anguilla": "Anguila", "Antigua and Barbuda": "Antigua y Barbuda", "Argentina": "Argentina", "Armenia": "Armenia", "Aruba": "Aruba", "Australia": "Australia", "Austria": "Austria", "Azerbaijan": "Azerbaiyán", "Bahamas": "Bahamas", "Bahrain": "Baréin", "Bangladesh": "Bangladés", "Barbados": "Barbados", "Belarus": "Bielorrusia", "Belgium": "Bélgica", "Belize": "Belice", "Benin": "Benín", "Bermuda": "Bermudas", "Bhutan": "Bután", "Bolivia": "Bolivia", "Bonaire": "Bonaire", "Bosnia-Herzegovina": "Bosnia y Herzegovina", "Botswana": "Botsuana", "Brazil": "Brasil", "British Virgin Islands": "Islas Vírgenes Británicas", "Brunei Darussalam": "Brunéi", "Bulgaria": "Bulgaria", "Burkina Faso": "Burkina Faso", "Burundi": "Burundi", "Cambodia": "Camboya", "Cameroon": "Camerún", "Canada": "Canadá", "Cape Verde": "Cabo Verde", "Cayman Islands": "Islas Caimán", "Central African Republic": "República Centroafricana", "Chad": "Chad", "Chile": "Chile", "China": "China", "Chinese Taipei": "China Taipéi", "Colombia": "Colombia", "Comoros": "Comoras", "Congo": "Congo", "Congo DR": "RD del Congo", "Cook Islands": "Islas Cook", "Costa Rica": "Costa Rica", "Croatia": "Croacia", "Cuba": "Cuba", "Curaçao": "Curazao", "Cyprus": "Chipre", "Czechia": "Chequia", "Denmark": "Dinamarca", "Djibouti": "Yibuti", "Dominica": "Dominica", "Dominican Republic": "República Dominicana", "Ecuador": "Ecuador", "Egypt": "Egipto", "El Salvador": "El Salvador", "England": "Inglaterra", "Equatorial Guinea": "Guinea Ecuatorial", "Eritrea": "Eritrea", "Estonia": "Estonia", "Eswatini": "Esuatini", "Ethiopia": "Etiopía", "Faroe Islands": "Islas Feroe", "Fiji": "Fiyi", "Finland": "Finlandia", "France": "Francia", "French Guiana": "Guayana Francesa", "Gabon": "Gabón", "Gambia": "Gambia", "Georgia": "Georgia", "Germany": "Alemania", "Ghana": "Ghana", "Gibraltar": "Gibraltar", "Greece": "Grecia", "Grenada": "Granada", "Guadeloupe": "Guadalupe", "Guam": "Guam", "Guatemala": "Guatemala", "Guinea": "Guinea", "Guinea-Bissau": "Guinea-Bisáu", "Guyana": "Guyana", "Haiti": "Haití", "Honduras": "Honduras", "Hong Kong": "Hong Kong", "Hungary": "Hungría", "Iceland": "Islandia", "India": "India", "Indonesia": "Indonesia", "Iran": "Irán", "Iraq": "Irak", "Israel": "Israel", "Italy": "Italia", "Ivory Coast": "Costa de Marfil", "Jamaica": "Jamaica", "Japan": "Japón", "Jordan": "Jordania", "Kazakhstan": "Kazajistán", "Kenya": "Kenia", "Kosovo": "Kosovo", "Kuwait": "Kuwait", "Kyrgyz Republic": "Kirguistán", "Latvia": "Letonia", "Lebanon": "Líbano", "Lesotho": "Lesoto", "Liberia": "Liberia", "Libya": "Libia", "Liechtenstein": "Liechtenstein", "Lithuania": "Lituania", "Luxembourg": "Luxemburgo", "Macau": "Macao", "Madagascar": "Madagascar", "Malawi": "Malaui", "Malaysia": "Malasia", "Maldives": "Maldivas", "Mali": "Malí", "Malta": "Malta", "Martinique": "Martinica", "Mauritania": "Mauritania", "Mauritius": "Mauricio", "Mexico": "México", "Moldova": "Moldavia", "Mongolia": "Mongolia", "Montenegro": "Montenegro", "Montserrat": "Montserrat", "Morocco": "Marruecos", "Mozambique": "Mozambique", "Myanmar": "Myanmar", "Namibia": "Namibia", "Nepal": "Nepal", "Netherlands": "Países Bajos", "New Caledonia": "Nueva Caledonia", "New Zealand": "Nueva Zelanda", "Nicaragua": "Nicaragua", "Niger": "Níger", "Nigeria": "Nigeria", "North Korea": "Corea del Norte", "North Macedonia": "Macedonia del Norte", "Northern Ireland": "Irlanda del Norte", "Norway": "Noruega", "Oman": "Omán", "Pakistan": "Pakistán", "Palestine": "Palestina", "Panama": "Panamá", "Papua New Guinea": "Papúa Nueva Guinea", "Paraguay": "Paraguay", "Peru": "Perú", "Philippines": "Filipinas", "Poland": "Polonia", "Portugal": "Portugal", "Puerto Rico": "Puerto Rico", "Qatar": "Catar", "Republic of Ireland": "Irlanda", "Romania": "Rumania", "Russia": "Rusia", "Rwanda": "Ruanda", "San Marino": "San Marino", "Sao Tome and Principe": "Santo Tomé y Príncipe", "Saudi Arabia": "Arabia Saudita", "Scotland": "Escocia", "Senegal": "Senegal", "Serbia": "Serbia", "Seychelles": "Seychelles", "Sierra Leone": "Sierra Leona", "Singapore": "Singapur", "Sint Maarten": "Sint Maarten", "Slovakia": "Eslovaquia", "Slovenia": "Eslovenia", "Solomon Islands": "Islas Salomón", "Somalia": "Somalia", "South Africa": "Sudáfrica", "South Korea": "Corea del Sur", "South Sudan": "Sudán del Sur", "Spain": "España", "Sri Lanka": "Sri Lanka", "St. Kitts and Nevis": "San Cristóbal y Nieves", "St. Lucia": "Santa Lucía", "St. Martin": "San Martín", "St. Vincent and the Grenadines": "San Vicente y las Granadinas", "Sudan": "Sudán", "Suriname": "Surinam", "Sweden": "Suecia", "Switzerland": "Suiza", "Syria": "Siria", "Tahiti": "Tahití", "Tajikistan": "Tayikistán", "Tanzania": "Tanzania", "Thailand": "Tailandia", "Togo": "Togo", "Trinidad and Tobago": "Trinidad y Tobago", "Tunisia": "Túnez", "Turkmenistan": "Turkmenistán", "Turks and Caicos Islands": "Islas Turcas y Caicos", "Türkiye": "Turquía", "US Virgin Islands": "Islas Vírgenes de EE. UU.", "Uganda": "Uganda", "Ukraine": "Ucrania", "United Arab Emirates": "Emiratos Árabes Unidos", "United States": "Estados Unidos", "Uruguay": "Uruguay", "Uzbekistan": "Uzbekistán", "Vanuatu": "Vanuatu", "Venezuela": "Venezuela", "Vietnam": "Vietnam", "Wales": "Gales", "Yemen": "Yemen", "Zambia": "Zambia", "Zanzibar": "Zanzíbar", "Zimbabwe": "Zimbabue", "Turkey": "Turquía", "Korea Republic": "Corea del Sur", "Czech Republic": "Chequia", "Côte d'Ivoire": "Costa de Marfil", "Cote d'Ivoire": "Costa de Marfil", "USA": "Estados Unidos", "Ireland": "Irlanda", "IR Iran": "Irán", "Cabo Verde": "Cabo Verde", "DR Congo": "RD del Congo", "Bosnia and Herzegovina": "Bosnia y Herzegovina", "Brunei": "Brunéi", "Kyrgyzstan": "Kirguistán", "Saint Lucia": "Santa Lucía", "Saint Kitts and Nevis": "San Cristóbal y Nieves", "Saint Vincent and the Grenadines": "San Vicente y las Granadinas", "Macedonia": "Macedonia del Norte", "Swaziland": "Esuatini", "Taiwan": "China Taipéi", "New Caledonia ": "Nueva Caledonia"};
-const APP_VERSION = 'v49.5 · más y menos de';
+const APP_VERSION = 'v50 · porcentajes ajustados con resultados reales';
 const FINISHED = ['FT','AET','PEN'];
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let lastFdAt = 0, updating = false, statusMsg = '', fdDead = false;
