@@ -2,6 +2,10 @@ name: Publicar promo en Facebook
 # Publica la imagen y el texto de la carpeta fb-promo (a pedido)
 on:
   workflow_dispatch:
+    inputs:
+      modo:
+        description: 'promo (Facebook + Instagram) o anuncio (solo Facebook)'
+        default: 'promo'
 permissions:
   contents: read
 jobs:
@@ -13,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node facebook.js promo
+      - run: node facebook.js "${{ inputs.modo || 'promo' }}"
         env:
           FB_USER_TOKEN: ${{ secrets.FB_USER_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}

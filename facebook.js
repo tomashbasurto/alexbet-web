@@ -445,6 +445,11 @@ async function plan() {
     } catch (e) { console.log('PRUEBA Instagram falló:', e.message); }
     try { const st = await estado(); console.log('Registro del panel:\n' + (st && st.log || []).slice(0, 10).map(x => JSON.stringify(x)).join('\n')); } catch (e) { console.log('registro:', e.message); }
     return; }
+  if (MODE === 'anuncio') { // imagen y texto de fb-promo/anuncio.* · solo Facebook (a pedido)
+    const f = path.join(ROOT, 'fb-promo', 'anuncio.png'), txt = fs.readFileSync(path.join(ROOT, 'fb-promo', 'anuncio.txt'), 'utf8').trim();
+    if (DRY || !p) { console.log('[prueba] no se publica:', txt.split('\n')[0]); return; }
+    const r = await foto(p, f, txt); console.log('Publicado el anuncio:', r.post_id || r.id); await anotar({ok: true, id: r.post_id || r.id || '', txt: txt.split('\n')[0]}); return;
+  }
   if (MODE === 'promo') { // una imagen y su texto preparados a mano (carpeta fb-promo)
     const f = path.join(ROOT, 'fb-promo', 'promo.png'), txt = (() => { const ls = fs.readdirSync(path.join(ROOT, 'fb-promo')).filter(x => /^promo\d+\.txt$/.test(x)).sort(), sem = Math.floor(Date.now() / (7 * 864e5)); /* un texto distinto cada semana */
       return fs.readFileSync(path.join(ROOT, 'fb-promo', ls.length ? ls[sem % ls.length] : 'promo.txt'), 'utf8').trim(); })();
