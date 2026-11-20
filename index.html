@@ -198,6 +198,7 @@
   .pz-lb.on{ opacity:1; } .pz-lb i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:0; }
   .pz-goal{ position:absolute; inset:0; display:grid; place-items:center; font-size:46px; font-weight:900; font-style:italic; letter-spacing:2px; color:#ffd400; text-shadow:0 3px 0 #000,0 0 24px rgba(255,212,0,.8); background:rgba(0,0,0,.35); opacity:0; transform:scale(.6); transition:opacity .25s, transform .35s cubic-bezier(.2,1.6,.4,1); pointer-events:none; }
   .pz-goal.on{ opacity:1; transform:scale(1); }
+  .pz-sw{ display:inline-flex; background:rgba(255,255,255,.06); border-radius:999px; padding:2px; } .pz-sw button{ border:0; background:transparent; color:var(--ink-dim); font:700 11px inherit; font-family:inherit; padding:4px 10px; border-radius:999px; cursor:pointer; } .pz-sw button.on{ background:var(--accent); color:#0a0f0a; }
   .pz-pr{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:var(--ink-dim); }
   .pz-pr .ld-bb{ margin:0; height:7px; } .pz-pr .ld-bb i{ transition:width .8s; }
   .pz-log{ margin-top:8px; display:grid; gap:4px; } .pz-log div{ display:flex; gap:8px; align-items:center; font-size:12.5px; } .pz-log b{ min-width:34px; color:var(--ink-dim); font-weight:700; } .pz-log i{ width:8px; height:8px; border-radius:50%; flex:none; }
@@ -4459,17 +4460,20 @@ function pzUpdate(D){
     for(let i=0;i<tot-on;i++) acts.push({t:'off', s});
     for(let i=0;i<on;i++) acts.push({t:'on', s});
   });
-  D.events.forEach(e=>{ if(!P.seen.has(e.id) && (e.kind==='yellow'||e.kind==='red')) acts.push({t:e.kind, s:e.side}); });
-  if(sc && P.score){ for(let i=0;i<R(sc[0]-P.score[0]);i++) acts.push({t:'goal', s:'h'}); for(let i=0;i<R(sc[1]-P.score[1]);i++) acts.push({t:'goal', s:'a'}); }
+  const who = e => String(e.text||'').replace(/\s+(Yellow Card|Red Card|Own Goal|Goal|Penalty.*|Substitution)$/i,'').trim();
+  const fresh = D.events.filter(e=>!P.seen.has(e.id));
+  fresh.forEach(e=>{ if(e.kind==='yellow'||e.kind==='red') acts.push({t:e.kind, s:e.side, who:who(e)}); });
+  if(sc && P.score){ ['h','a'].forEach((s,i)=>{ const gs = fresh.filter(e=>e.kind==='goal' && e.side===s); for(let k=0;k<R(sc[i]-P.score[i]);k++) acts.push({t:'goal', s, who: gs[k] ? who(gs[k]) : ''}); }); }
   const W = {foul:.5, offside:1, corner:2, off:2, on:3, goal:5, yellow:0, red:0};
   acts.forEach(a=>{ a.min = min; P.hist.push({s:a.s, w:W[a.t]||0, t:Date.now()}); });
   P.q = P.q.concat(acts).slice(-10);
   P.prev = snap; P.seen = ids; if(sc) P.score = sc;
 }
+function pzTitle(a){ return {corner:'Córner', on:'Tiro a puerta', off:'Tiro desviado', offside:'Fuera de juego', foul:'Tiro libre', yellow:'Tarjeta amarilla', red:'Tarjeta roja', goal:'¡GOL!'}[a.t] || ''; }
 function pzLabel(a){
   const N = pzName(a.s);
-  return {corner:`Córner para ${N}`, on:`Remate al arco de ${N}`, off:`Remate desviado de ${N}`, offside:`Fuera de juego de ${N}`,
-    foul:`Falta a favor de ${N}`, yellow:`Amarilla para ${N}`, red:`Roja para ${N}`, goal:`¡GOL de ${N}!`}[a.t] || N;
+  return {corner:`Córner para ${N}`, on:`Tiro a puerta de ${N}`, off:`Tiro desviado de ${N}`, offside:`Fuera de juego de ${N}`,
+    foul:`Tiro libre para ${N}`, yellow:`Amarilla para ${N}`, red:`Roja para ${N}`, goal:`¡GOL de ${N}!`}[a.t] + (a.who ? ` · ${a.who}` : '');
 }
 function pzTarget(a){
   const r = Math.random; let p;
@@ -4494,34 +4498,70 @@ function pzPress(){
   const pr = h+a > 0 ? h/(h+a) : poss;
   return Math.max(.1, Math.min(.9, .5*poss + .5*pr));
 }
+// proyección: x 0-105 (largo), y 0-68 (ancho; 0 = lado lejano)
+function pzMode(){ try{ return localStorage.getItem('ab_pz')==='2d' ? '2d' : '3d'; }catch(e){ return '3d'; } }
+function pzP(x, y){
+  if(pzState().mode==='2d') return [22+x*3.4, 8+y*3.15];
+  const t = y/68, w = 1/(1+.62*(1-t));
+  const hz = -258, near = 222;
+  return [200+(x-52.5)*3.78*w, hz+(near-hz)*w];
+}
+function pzPoly(pts){ return pts.map(p=>pzP(p[0],p[1]).map(v=>v.toFixed(1)).join(',')).join(' '); }
+function pzArc(cx, cy, r, a0, a1, n){ const o = []; for(let i=0;i<=n;i++){ const a = a0+(a1-a0)*i/n; o.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]); } return o; }
+function pzStatic(){
+  const P = pzState(), d3 = P.mode!=='2d', L = (pts, close)=>`<polyline points="${pzPoly(close?pts.concat([pts[0]]):pts)}"/>`;
+  let s = '';
+  if(d3){
+    s += `<rect x="0" y="0" width="400" height="236" fill="url(#pzSky)"/>`;
+    let crowd = ''; for(let i=0;i<260;i++){ const x = (i*37.7)%400, y = 6+((i*13.3)%34), c = ['#2b3546','#3a465a','#1c2431','#55617a','#6b7790'][i%5]; crowd += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="3.2" height="2.6" rx=".8" fill="${c}"/>`; }
+    s += crowd + `<rect x="0" y="40" width="400" height="3" fill="#0b1018"/>`;
+    s += `<g fill="#fff" opacity=".85"><circle cx="40" cy="4" r="3"/><circle cx="360" cy="4" r="3"/></g><circle cx="40" cy="4" r="22" fill="url(#pzFl)"/><circle cx="360" cy="4" r="22" fill="url(#pzFl)"/>`;
+  } else s += `<rect x="0" y="0" width="400" height="236" fill="#0f5a28"/>`;
+  const g0 = d3 ? [[-6,-3],[111,-3],[111,71],[-6,71]] : [[-4,-2],[109,-2],[109,70],[-4,70]];
+  s += `<polygon points="${pzPoly(g0)}" fill="#0f5a28"/>`;
+  for(let i=0;i<14;i++){ const x0 = i*7.5, x1 = x0+7.5; s += `<polygon points="${pzPoly([[x0,0],[x1,0],[x1,68],[x0,68]])}" fill="${i%2?'#16722f':'#1a8237'}"/>`; }
+  s += `<polygon id="pzZoneH" points="${pzPoly([[70,0],[105,0],[105,68],[70,68]])}" fill="url(#pzZh)" opacity="0" style="transition:opacity .8s"/>`;
+  s += `<polygon id="pzZoneA" points="${pzPoly([[0,0],[35,0],[35,68],[0,68]])}" fill="url(#pzZa)" opacity="0" style="transition:opacity .8s"/>`;
+  s += `<g fill="none" stroke="rgba(255,255,255,.82)" stroke-width="${d3?1:1.1}" stroke-linejoin="round">`;
+  s += L([[0,0],[105,0],[105,68],[0,68]], true) + L([[52.5,0],[52.5,68]]) + L(pzArc(52.5,34,9.15,0,2*Math.PI,48));
+  s += L([[0,13.84],[16.5,13.84],[16.5,54.16],[0,54.16]]) + L([[105,13.84],[88.5,13.84],[88.5,54.16],[105,54.16]]);
+  s += L([[0,24.84],[5.5,24.84],[5.5,43.16],[0,43.16]]) + L([[105,24.84],[99.5,24.84],[99.5,43.16],[105,43.16]]);
+  s += L(pzArc(11,34,9.15,-.93,.93,16)) + L(pzArc(94,34,9.15,Math.PI-.93,Math.PI+.93,16));
+  s += `</g><g fill="none" stroke="#fff" stroke-width="${d3?1.4:1.5}">` + L([[0,30.34],[-2.2,30.34],[-2.2,37.66],[0,37.66]]) + L([[105,30.34],[107.2,30.34],[107.2,37.66],[105,37.66]]) + `</g>`;
+  const c = pzP(52.5,34); s += `<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="1.4" fill="#fff"/>`;
+  const lh = pzP(1,68), la = pzP(104,68), m = ld.m;
+  s += `<text x="${lh[0].toFixed(1)}" y="${(lh[1]+(d3?11:9)).toFixed(1)}" font-size="9" font-weight="800" fill="rgba(255,255,255,.85)">${escA(m.h).slice(0,20)} →</text>`;
+  s += `<text x="${la[0].toFixed(1)}" y="${(la[1]+(d3?11:9)).toFixed(1)}" font-size="9" font-weight="800" fill="rgba(255,255,255,.85)" text-anchor="end">← ${escA(m.a).slice(0,20)}</text>`;
+  return s;
+}
 function pzHTML(hn, an){
-  const lines = `<g fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".35">
-    <rect x="0" y="0" width="105" height="68"/><line x1="52.5" y1="0" x2="52.5" y2="68"/><circle cx="52.5" cy="34" r="9.15"/>
-    <rect x="0" y="13.84" width="16.5" height="40.32"/><rect x="88.5" y="13.84" width="16.5" height="40.32"/>
-    <rect x="0" y="24.84" width="5.5" height="18.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/>
-    <path d="M16.5 26.7 A9.15 9.15 0 0 1 16.5 41.3"/><path d="M88.5 26.7 A9.15 9.15 0 0 0 88.5 41.3"/>
-    <rect x="-2" y="30.34" width="2" height="7.32" stroke="#fff"/><rect x="105" y="30.34" width="2" height="7.32" stroke="#fff"/></g>
-    <g fill="rgba(255,255,255,.8)"><circle cx="52.5" cy="34" r=".5"/><circle cx="11" cy="34" r=".4"/><circle cx="94" cy="34" r=".4"/></g>`;
-  const stripes = Array.from({length:10},(_,i)=>`<rect x="${i*10.5}" y="0" width="10.5" height="68" fill="${i%2?'#15692f':'#127a33'}"/>`).join('');
-  return `<div class="prob-card"><h3><span class="dot"></span>Cancha en vivo</h3>
-    <div class="pz"><svg viewBox="-4 -4 113 76" preserveAspectRatio="xMidYMid meet">
-      <defs><linearGradient id="pzZh" x1="0" x2="1"><stop offset="0" stop-color="${LD_BLUE}" stop-opacity="0"/><stop offset="1" stop-color="${LD_BLUE}" stop-opacity=".55"/></linearGradient>
-      <linearGradient id="pzZa" x1="1" x2="0"><stop offset="0" stop-color="${LD_GREEN}" stop-opacity="0"/><stop offset="1" stop-color="${LD_GREEN}" stop-opacity=".55"/></linearGradient>
-      <radialGradient id="pzBg"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#e8edf3"/><stop offset="1" stop-color="#9aa4b2"/></radialGradient></defs>
-      <rect x="-4" y="-4" width="113" height="76" fill="#0f5a28"/>${stripes}
-      <rect id="pzZoneH" x="70" y="0" width="35" height="68" fill="url(#pzZh)" opacity="0" style="transition:opacity .8s"/>
-      <rect id="pzZoneA" x="0" y="0" width="35" height="68" fill="url(#pzZa)" opacity="0" style="transition:opacity .8s"/>
-      ${lines}
-      <text x="3" y="72" font-size="3" fill="rgba(255,255,255,.75)" font-weight="700">${escA(hn).slice(0,22)} →</text>
-      <text x="102" y="72" font-size="3" fill="rgba(255,255,255,.75)" font-weight="700" text-anchor="end">← ${escA(an).slice(0,22)}</text>
-      <circle id="pzRing" cx="52.5" cy="34" r="1.2" fill="none" stroke="#ffd400" stroke-width=".5" opacity="0"/>
-      <ellipse id="pzSh" cx="52.9" cy="34.9" rx="1.3" ry=".6" fill="rgba(0,0,0,.35)"/>
-      <circle id="pzBall" cx="52.5" cy="34" r="1.5" fill="url(#pzBg)" stroke="#111" stroke-width=".25"/>
-    </svg><div class="pz-lb" id="pzLb"></div><div class="pz-goal" id="pzGoal">¡GOL!</div></div>
+  const P = pzState(); P.mode = pzMode();
+  return `<div class="prob-card" style="padding:12px"><h3 style="display:flex;align-items:center;justify-content:space-between"><span><span class="dot"></span>Cancha en vivo</span>
+      <span class="pz-sw"><button class="${P.mode!=='2d'?'on':''}" onclick="pzSetMode('3d')">2.5D</button><button class="${P.mode==='2d'?'on':''}" onclick="pzSetMode('2d')">2D</button></span></h3>
+    <div class="pz"><svg id="pzSvg" viewBox="0 0 400 ${P.mode==="2d"?236:238}">
+      <defs><linearGradient id="pzZh" x1="0" x2="1"><stop offset="0" stop-color="${LD_BLUE}" stop-opacity="0"/><stop offset="1" stop-color="${LD_BLUE}" stop-opacity=".6"/></linearGradient>
+      <linearGradient id="pzZa" x1="1" x2="0"><stop offset="0" stop-color="${LD_GREEN}" stop-opacity="0"/><stop offset="1" stop-color="${LD_GREEN}" stop-opacity=".6"/></linearGradient>
+      <linearGradient id="pzSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1220"/><stop offset=".2" stop-color="#121a2a"/><stop offset=".3" stop-color="#0f5a28"/></linearGradient>
+      <radialGradient id="pzFl"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="pzBg" cx=".35" cy=".35"><stop offset="0" stop-color="#fff"/><stop offset=".65" stop-color="#e6ebf2"/><stop offset="1" stop-color="#8f9aab"/></radialGradient></defs>
+      <g id="pzSt">${pzStatic()}</g>
+      <polyline id="pzTrail" fill="none" stroke="#ffd400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".8" points=""/>
+      <circle id="pzRing" r="4" fill="none" stroke="#ffd400" stroke-width="1.4" opacity="0"/>
+      <ellipse id="pzSh" rx="5" ry="2" fill="rgba(0,0,0,.4)"/>
+      <circle id="pzBall" r="4.2" fill="url(#pzBg)" stroke="#1a1a1a" stroke-width=".7"/>
+      <g id="pzTag" opacity="0" style="transition:opacity .25s"></g>
+    </svg><div class="pz-goal" id="pzGoal">¡GOL!</div></div>
     <div class="pz-pr"><span>${escA(hn)}</span><div class="ld-bb"><i id="pzPh" style="width:50%;background:${LD_BLUE}"></i><i id="pzPa" style="width:50%;background:${LD_GREEN}"></i></div><span>${escA(an)}</span></div>
     <div class="lv-stats" style="margin:4px 0 0;justify-content:center"><span>Presión de los últimos minutos</span></div>
     <div class="pz-log" id="pzLog"></div>
-    <div class="lv-stats" style="margin-top:8px;">Las jugadas (remates, córners, faltas, fueras de juego, tarjetas y goles) son reales y llegan de ESPN cada 30 segundos. ESPN no da la posición exacta del balón: la ubicación en la cancha y el movimiento entre jugadas son aproximados.</div></div>`;
+    <div class="lv-stats" style="margin-top:8px;">Las jugadas (tiros, córners, faltas, fueras de juego, tarjetas y goles) son reales y llegan de ESPN cada 30 segundos. ESPN no da la posición exacta del balón: la ubicación y el movimiento entre jugadas son aproximados.</div></div>`;
+}
+function pzSetMode(m){
+  try{ localStorage.setItem('ab_pz', m); }catch(e){}
+  const P = pzState(); P.mode = m; P.trail = [];
+  const sv = document.getElementById('pzSvg'), st = document.getElementById('pzSt');
+  if(sv) sv.setAttribute('viewBox', `0 0 400 ${m==='2d'?236:238}`); if(st) st.innerHTML = pzStatic();
+  document.querySelectorAll('.pz-sw button').forEach(b=>b.classList.toggle('on', (b.textContent==='2D')===(m==='2d')));
 }
 function pzLogHTML(){
   const P = pzState();
@@ -4530,19 +4570,29 @@ function pzLogHTML(){
 }
 function pzMount(){
   const P = pzState(), lg = document.getElementById('pzLog'); if(lg) lg.innerHTML = pzLogHTML();
-  P.last = 0; if(!pzRAF) pzRAF = requestAnimationFrame(pzLoop);
+  P.last = 0; P.tagKey = ''; if(!pzRAF) pzRAF = requestAnimationFrame(pzLoop);
 }
 function pzEase(t){ return t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
+function pzTagSVG(title, s, who, bx, by){
+  const P = pzState(), team = pzName(s), col = s==='h' ? LD_BLUE : LD_GREEN, logo = logoFor(team, ld.m && ld.m.lid);
+  const tn = team.length > 20 ? team.slice(0,19)+'…' : team, w = Math.max(title.length*6.4, tn.length*5.4 + (logo?16:10), who ? who.length*5.2+12 : 0) + 16, h = who ? 44 : 32;
+  let x = bx - w/2, y = by - h - 12; x = Math.max(4, Math.min(396-w, x)); if(y < 4) y = by + 12;
+  return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><rect width="${w.toFixed(1)}" height="${h}" rx="7" fill="rgba(6,10,18,.86)" stroke="${col}" stroke-width="1"/>
+    <text x="8" y="13" font-size="10.5" font-weight="800" fill="#fff">${escA(title)}</text>
+    ${logo ? `<image href="${logo}" x="8" y="18" width="10" height="10" referrerpolicy="no-referrer"/>` : `<circle cx="12" cy="23" r="3.5" fill="${col}"/>`}
+    <text x="${logo?22:20}" y="26.5" font-size="9" font-weight="600" fill="rgba(255,255,255,.82)">${escA(tn)}</text>
+    ${who ? `<text x="8" y="39" font-size="8.6" font-weight="600" fill="#ffd400">${escA(who)}</text>` : ''}
+    <path d="M${(Math.max(10,Math.min(w-10,bx-x))-5).toFixed(1)} ${h} l5 6 l5 -6z" fill="rgba(6,10,18,.86)"/></g>`;
+}
 function pzLoop(ts){
   const ball = document.getElementById('pzBall');
   if(!ball || !ld.pz){ pzRAF = 0; return; }
   const P = ld.pz, now = performance.now();
-  // siguiente jugada real en cola
   if(!P.cur && P.q.length){
     const a = P.q.shift(), p = pzTarget(a);
     P.cur = {a, p, t0:now, from:{...P.ball}, ph:0};
-    P.mv = null; P.lbl = pzLabel(a); P.zone = a.s;
-    P.log.unshift({min:a.min, s:a.s, txt:P.lbl}); P.log = P.log.slice(0,6);
+    P.mv = null; P.zone = a.s;
+    P.log.unshift({min:a.min, s:a.s, txt:pzLabel(a)}); P.log = P.log.slice(0,6);
     const lg = document.getElementById('pzLog'); if(lg) lg.innerHTML = pzLogHTML();
     if(a.t==='goal'){ try{ navigator.vibrate && navigator.vibrate([120,60,180]); }catch(e){} }
   }
@@ -4550,31 +4600,40 @@ function pzLoop(ts){
     const c = P.cur, t = now-c.t0;
     if(c.ph===0){ const k = Math.min(1, t/1100), e = pzEase(k); P.ball = {x:c.from.x+(c.p.x-c.from.x)*e, y:c.from.y+(c.p.y-c.from.y)*e}; if(k>=1){ c.ph = c.p.end ? 1 : 2; c.t1 = now; c.mid = {...P.ball}; } }
     else if(c.ph===1){ const k = Math.min(1, (now-c.t1)/650), e = k*k; P.ball = {x:c.mid.x+(c.p.end.x-c.mid.x)*e, y:c.mid.y+(c.p.end.y-c.mid.y)*e}; if(k>=1){ c.ph = 2; if(c.a.t==='goal') P.goalUntil = now+2600; } }
-    if(t > (c.a.t==='goal' ? 5200 : 3400)){
+    if(t > (c.a.t==='goal' ? 5200 : 3600)){
       if(c.a.t==='goal') P.ball = {x:52.5, y:34};
-      else if(c.a.t==='on' || c.a.t==='off'){ const gk = c.a.s==='h' ? 99 : 6; P.ball = {x:gk, y:34}; }
-      P.cur = null; P.lbl = ''; P.idleNext = now+600;
+      else if(c.a.t==='on' || c.a.t==='off'){ P.ball = {x:c.a.s==='h' ? 99 : 6, y:34}; }
+      P.cur = null; P.idleNext = now+600; P.trail = [];
     }
   } else {
-    // movimiento ilustrativo entre jugadas
     if(!P.mv || now >= P.idleNext){
-      const ph = pzPress(), s = Math.random() < ph ? 'h' : 'a', depth = 38 + Math.random()*40;
-      const x = s==='h' ? depth : 105-depth, y = 8 + Math.random()*52;
-      P.mv = {from:{...P.ball}, to:{x, y}, t0:now, d:2200+Math.random()*900}; P.idleNext = now + P.mv.d + 500 + Math.random()*900; P.zone = s;
+      const ph = pzPress(), s = Math.random() < ph ? 'h' : 'a', depth = 36 + Math.random()*38;
+      P.mv = {from:{...P.ball}, to:{x: s==='h' ? depth : 105-depth, y:8 + Math.random()*52}, t0:now, d:2300+Math.random()*900};
+      P.idleNext = now + P.mv.d + 500 + Math.random()*900; P.zone = s;
     }
     const k = Math.min(1, (now-P.mv.t0)/P.mv.d), e = pzEase(k);
     P.ball = {x:P.mv.from.x+(P.mv.to.x-P.mv.from.x)*e, y:P.mv.from.y+(P.mv.to.y-P.mv.from.y)*e};
   }
-  ball.setAttribute('cx', P.ball.x.toFixed(2)); ball.setAttribute('cy', P.ball.y.toFixed(2));
-  const sh = document.getElementById('pzSh'); if(sh){ sh.setAttribute('cx', (P.ball.x+.4).toFixed(2)); sh.setAttribute('cy', (P.ball.y+.9).toFixed(2)); }
+  const [bx, by] = pzP(P.ball.x, P.ball.y), d3 = P.mode!=='2d', sc = d3 ? .65 + .35*(P.ball.y/68) : 1;
+  ball.setAttribute('cx', bx.toFixed(1)); ball.setAttribute('cy', (by-(d3?3*sc:0)).toFixed(1)); ball.setAttribute('r', (4.2*sc).toFixed(2));
+  const sh = document.getElementById('pzSh'); if(sh){ sh.setAttribute('cx', (bx+1).toFixed(1)); sh.setAttribute('cy', (by+1.5).toFixed(1)); sh.setAttribute('rx', (4.6*sc).toFixed(2)); sh.setAttribute('ry', (1.8*sc).toFixed(2)); }
+  P.trail = (P.trail||[]); P.trail.push([bx, by]); if(P.trail.length > 26) P.trail.shift();
+  const tr = document.getElementById('pzTrail'); if(tr) tr.setAttribute('points', P.cur ? P.trail.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ') : '');
   const ring = document.getElementById('pzRing');
-  if(ring){ if(P.cur){ const f = ((now-P.cur.t0)%1000)/1000; ring.setAttribute('cx', P.ball.x.toFixed(2)); ring.setAttribute('cy', P.ball.y.toFixed(2)); ring.setAttribute('r', (1.3+f*4).toFixed(2)); ring.setAttribute('opacity', (1-f).toFixed(2)); } else ring.setAttribute('opacity','0'); }
+  if(ring){ if(P.cur){ const f = ((now-P.cur.t0)%1000)/1000; ring.setAttribute('cx', bx.toFixed(1)); ring.setAttribute('cy', by.toFixed(1)); ring.setAttribute('r', ((4+f*12)*sc).toFixed(1)); ring.setAttribute('opacity', (1-f).toFixed(2)); } else ring.setAttribute('opacity','0'); }
+  const tag = document.getElementById('pzTag');
+  if(tag){
+    let title, s, who = '';
+    if(P.cur){ title = pzTitle(P.cur.a); s = P.cur.a.s; who = P.cur.a.who || ''; }
+    else { title = 'Posesión del balón'; s = P.zone || 'h'; }
+    const key = title+'|'+s+'|'+who+'|'+Math.round(bx/3)+'|'+Math.round(by/3);
+    if(key !== P.tagKey){ P.tagKey = key; tag.innerHTML = pzTagSVG(title, s, who, bx, by-(d3?3*sc:0)); }
+    tag.setAttribute('opacity', '1');
+  }
   if(now - P.last > 400){
     P.last = now;
     const zh = document.getElementById('pzZoneH'), za = document.getElementById('pzZoneA');
-    if(zh) zh.setAttribute('opacity', P.zone==='h' ? (P.cur?'1':'.55') : '0'); if(za) za.setAttribute('opacity', P.zone==='a' ? (P.cur?'1':'.55') : '0');
-    const lb = document.getElementById('pzLb');
-    if(lb){ if(P.lbl){ const html = `<i style="background:${P.cur&&P.cur.a.s==='h'?LD_BLUE:LD_GREEN}"></i>${escA(P.lbl)}`; if(lb.innerHTML!==html) lb.innerHTML = html; lb.classList.add('on'); } else lb.classList.remove('on'); }
+    if(zh) zh.setAttribute('opacity', P.zone==='h' ? (P.cur?'1':'.5') : '0'); if(za) za.setAttribute('opacity', P.zone==='a' ? (P.cur?'1':'.5') : '0');
     const g = document.getElementById('pzGoal'); if(g) g.classList.toggle('on', now < P.goalUntil);
     const pr = pzPress(), a1 = document.getElementById('pzPh'), a2 = document.getElementById('pzPa');
     if(a1){ a1.style.width = (pr*100).toFixed(1)+'%'; a2.style.width = ((1-pr)*100).toFixed(1)+'%'; }
