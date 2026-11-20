@@ -1,0 +1,20 @@
+name: Sonda ESPN
+on: push
+jobs:
+  s:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir out; B=https://site.api.espn.com/apis/site/v2/sports/soccer
+          for L in ecu.1 eng.1 esp.1 conmebol.sudamericana; do curl -s "$B/$L/scoreboard?dates=20261120" -o out/sb-$L.json; done
+          for L in ecu.1 eng.1 esp.1; do
+            ids=$(python3 -c "import json;d=json.load(open('out/sb-$L.json'));print(' '.join(e['id'] for e in d.get('events',[])[:2]))")
+            for i in $ids; do curl -s "$B/$L/summary?event=$i" -o out/sum-$L-$i.json; done
+          done
+          # last weekend eng.1 finished match
+          curl -s "$B/eng.1/scoreboard?dates=20261108" -o out/sb-eng-old.json
+          i=$(python3 -c "import json;d=json.load(open('out/sb-eng-old.json'));print(d['events'][0]['id'])"); curl -s "$B/eng.1/summary?event=$i" -o out/sum-eng-old.json
+          i=$(python3 -c "import json;d=json.load(open('out/sb-ecu.1.json'));print(d['events'][0]['id'] if d.get('events') else '')"); echo ecu=$i
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: {name: sonda, path: out}
