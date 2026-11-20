@@ -23,7 +23,7 @@ jobs:
       - name: Guardar cuadros
         if: always()
         run: |
-          mkdir -p prueba-out; for f in fb-out/*.mp4 fb-out/*.webm; do [ -f "$f" ] || continue; b=$(basename "$f"); d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f"); for i in 0 1 2 3 4 5 6 7; do t=$(python3 -c "print(round($d*($i+0.5)/8,1))"); ffmpeg -v error -y -ss $t -i "$f" -frames:v 1 -vf scale=270:-1 "prueba-out/$b-$i.png"; done; done
+          mkdir -p prueba-out; ls -la fb-out; for f in fb-out/*.mp4 fb-out/*.webm; do [ -f "$f" ] || continue; b=$(basename "$f"); ffmpeg -v error -y -i "$f" -vf "fps=1/4,scale=270:-1" "prueba-out/$b-%02d.png" || true; done
           ls prueba-out | head -40
           git config user.name probe-bot; git config user.email probe@users.noreply.github.com
           git add -f prueba-out && git commit -qm "cuadros de prueba" && git push
