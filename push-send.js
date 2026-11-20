@@ -34,7 +34,8 @@ async function init() {
       const p = f.push; if (!p || !p.token) return;
       const creado = f.creado ? Date.parse(f.creado) : 0, hasta = f.premiumHasta ? Date.parse(f.premiumHasta) : 0, now = Date.now();
       const prem = now < creado + PRUEBA_DIAS * 864e5 || now < hasta || f.email === OWNER;
-      if (prem) users.push({path: d.name, email: f.email, ep: p.ep || '', token: p.token, tipos: p.tipos || ['movido', 'alineacion', 'fav', 'combinadas'], favs: p.favs || [], hora: +p.hora || 9});
+      if (prem) users.push({path: d.name, email: f.email, ep: p.ep || '', token: p.token, tipos: p.tipos || ['movido', 'alineacion', 'fav', 'combinadas'], favs: p.favs || [], hora: +p.hora || 9,
+        fin: creado + PRUEBA_DIAS * 864e5, pago: now < hasta || f.email === OWNER, aviso: f.avisoPrueba || ''}); // v50 · para el aviso de fin de prueba
     });
     if (!j.nextPageToken) break; page = j.nextPageToken;
   }
@@ -68,6 +69,19 @@ async function init() {
         if (opt.hora != null && u.hora !== opt.hora) continue; // aviso diario a la hora que eligió cada usuario
         await send(u, title, body, opt.tag);
       }
+    },
+    // v50 · aviso de fin de prueba: cuando quedan 3 días y el último día (una vez cada uno; queda anotado en avisoPrueba)
+    async finPrueba(txt) {
+      const now = Date.now(); let n = 0;
+      for (const u of users) {
+        if (u.dead || u.pago || !u.fin || u.fin < now) continue;
+        const dl = Math.ceil((u.fin - now) / 864e5), k = dl === 3 ? '3' : dl === 1 ? '1' : '';
+        if (!k || u.aviso === k) continue;
+        const m = txt(dl); if (!(await send(u, m.title, m.body, 'prueba'))) continue;
+        await fetch(`https://firestore.googleapis.com/v1/${u.path}?updateMask.fieldPaths=avisoPrueba`, {method: 'PATCH', headers: H, body: JSON.stringify({fields: {avisoPrueba: {stringValue: k}}})}).catch(() => {});
+        u.aviso = k; n++;
+      }
+      if (n) console.log('push: avisos de fin de prueba', n);
     },
     stats: () => ({sent, dead})
   };

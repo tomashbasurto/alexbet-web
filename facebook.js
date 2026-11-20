@@ -350,7 +350,10 @@ const SOLO = process.env.FB_SOLO === '1';
 
 // ---------- publicar ----------
 const WA = 'https://whatsapp.com/channel/0029VbEE3dUInlqGu4PmJF3o'; // canal de WhatsApp: va en todo lo que se publica
-const conWA = t => { t = String(t || ''); if (t.includes('whatsapp.com/channel')) return t; const l = '📲 Pronóstico diario en WhatsApp: ' + WA, i = t.search(/\n\n\+18/); return i >= 0 ? t.slice(0, i) + '\n\n' + l + t.slice(i) : t + '\n\n' + l; };
+// v50 · el enlace de la app lleva de qué publicación viene (?r=fb-reel, fb-pro…) para ver en Admin qué trae usuarios
+const refTag = () => 'fb-' + (MODE.split(':')[0] === 'resdep' ? 'res' : MODE.split(':')[0]).replace(/[^a-z]/g, '').slice(0, 12);
+const conRef = t => String(t || '').replace(/alexbetpro\.web\.app(?![\/?\w])/g, 'alexbetpro.web.app/?r=' + refTag());
+const conWA = t => { t = conRef(t); if (t.includes('whatsapp.com/channel')) return t; const l = '📲 Pronóstico diario en WhatsApp: ' + WA, i = t.search(/\n\n\+18/); return i >= 0 ? t.slice(0, i) + '\n\n' + l + t.slice(i) : t + '\n\n' + l; };
 async function foto(p, file, txt) {
   txt = conWA(txt);
   const fd = new FormData(); fd.append('source', new Blob([fs.readFileSync(file)]), path.basename(file)); fd.append('message', txt); fd.append('access_token', p.access_token);

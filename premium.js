@@ -101,6 +101,9 @@ async function leerCuenta(u, nombre) {
   }
   // v49.2 · país del usuario (por la zona horaria del celular) para separarlos en el panel; se guarda solo si cambió
   try { const p = paisCel(); if (p && (snap.data() || {}).pais !== p) F.updateDoc(ref, {pais: p}).catch(() => {}); } catch (e) {}
+  // v50 · de dónde llegó (enlace ?r= de la publicación, o Facebook/Instagram/Google por la página de origen). Se guarda una sola vez;
+  // si las reglas todavía no lo permiten, queda en el celular y se vuelve a intentar al abrir la app.
+  try { const r = refCel(); if (r && !(snap.data() || {}).ref) F.updateDoc(ref, {ref: r}).catch(() => {}); } catch (e) {}
   return {ref, d: leerDoc(snap.data(), u)};
 }
 // zona horaria → país (código de 2 letras); si no está en la lista, la región del idioma del celular (es-MX → MX)
@@ -111,6 +114,10 @@ const TZ_PAIS = {Guayaquil: 'EC', Galapagos: 'EC', Bogota: 'CO', Lima: 'PE', Car
   Sao_Paulo: 'BR', Fortaleza: 'BR', Manaus: 'BR', Recife: 'BR', Belem: 'BR', Bahia: 'BR', Cuiaba: 'BR', Porto_Velho: 'BR', Rio_Branco: 'BR', Campo_Grande: 'BR', Maceio: 'BR', Araguaina: 'BR', Boa_Vista: 'BR', Santarem: 'BR', Noronha: 'BR',
   Madrid: 'ES', Canary: 'ES', Ceuta: 'ES', New_York: 'US', Chicago: 'US', Denver: 'US', Los_Angeles: 'US', Phoenix: 'US', Anchorage: 'US', Detroit: 'US', Honolulu: 'US', Toronto: 'CA', Vancouver: 'CA',
   London: 'GB', Rome: 'IT', Paris: 'FR', Berlin: 'DE', Lisbon: 'PT', Amsterdam: 'NL', Brussels: 'BE', Zurich: 'CH'};
+function refCel() {
+  let r = ''; try { r = JSON.parse(localStorage.getItem('ab_ref') || '""'); } catch (e) {}
+  return /^[a-z0-9-]{1,24}$/.test(r) ? r : '';
+}
 function paisCel() {
   let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
   const p = TZ_PAIS[tz.split('/').pop()]; if (p) return p;
@@ -256,7 +263,11 @@ function barra() {
   const ahora = Date.now();
   let t, cls = '';
   if (AB.premiumHasta > ahora) { t = AB.user.plan === 'vip' ? 'VIP' : 'Premium'; cls = 'ok'; b.title = `Activo hasta el ${fecha(AB.premiumHasta)}`; }
-  else if (AB.enPrueba) { const n = diasRest(AB.pruebaHasta); t = `Prueba · ${n} ${n === 1 ? 'día' : 'días'}`; b.title = 'Prueba gratis con todo incluido'; }
+  else if (AB.enPrueba) { const n = diasRest(AB.pruebaHasta); t = `Prueba · ${n} ${n === 1 ? 'día' : 'días'}`; b.title = 'Prueba gratis con todo incluido';
+    // v50 · quedan 3 días o menos: la etiqueta se pone en naranja y, una vez al día, se muestran los planes con el aviso
+    if (n <= 3) { cls = 'warn'; const k = new Date().toISOString().slice(0, 10) + '|' + n;
+      let vis = ''; try { vis = localStorage.getItem('ab_finp') || ''; } catch (e) {}
+      if (vis !== k) { try { localStorage.setItem('ab_finp', k); } catch (e) {} setTimeout(() => { if (!document.querySelector('.show')) window.abPayOpen('planes'); }, 6000); } } }
   else if (AB.user.pendiente) { t = 'Activando…'; b.title = 'Pago recibido, estamos activando tu Premium'; }
   else { t = 'Hazte Premium'; cls = 'off'; b.title = 'Tu prueba terminó. El 1X2 de todas las ligas sigue gratis'; }
   b.className = 'ab-chip ' + cls;
@@ -292,8 +303,10 @@ window.abPayOpen = (paso) => {
   const pago = (mets.find(m => m[0] === metodo) || [])[1] || '';
   const plan = PLANES.find(x => x.id === planSel) || PLANES[0];
   if (payPaso === 'planes') {
+    const nP = AB.enPrueba ? diasRest(AB.pruebaHasta) : 99;
     s.innerHTML = `
     <div class="ab-ph"><h2>Elige tu plan</h2></div>
+    ${nP <= 3 ? `<div style="margin:0 0 12px;padding:12px 14px;border-radius:14px;background:rgba(245,185,66,.12);border:1px solid rgba(245,185,66,.45);font-size:14px;line-height:1.4"><b style="color:#f5b942">${nP <= 1 ? '⏰ Hoy termina tu prueba' : `⏳ Te quedan ${nP} días de prueba`}</b><br>Activa Premium para seguir con todos los pronósticos, estadísticas y alertas. Si no, sigues gratis con el 1X2 de todas las ligas.</div>` : ''}
     <div class="ab-pc">
       <div class="ab-pc-h"><b>Gratis</b><span class="ab-pr">$0</span></div>
       <div class="sub">Todas las ligas con pronóstico 1X2 · En vivo · Tablas · Precisión del modelo</div>

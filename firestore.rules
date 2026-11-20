@@ -25,8 +25,9 @@ service cloud.firestore {
       // El usuario solo puede avisar que pagó, cambiar su nombre, registrar su celular para notificaciones o guardar su país (código de 2 letras). Premium y fechas solo los cambias tú.
       allow update: if esAdmin()
         || (request.auth != null && request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'pendiente', 'push', 'pais'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'pendiente', 'push', 'pais', 'ref'])
             && (!('pais' in request.resource.data) || (request.resource.data.pais is string && request.resource.data.pais.size() <= 3))
+            && (!('ref' in request.resource.data) || (request.resource.data.ref is string && request.resource.data.ref.size() <= 24))
             && request.resource.data.pendiente is string
             && request.resource.data.pendiente.size() < 80);
 

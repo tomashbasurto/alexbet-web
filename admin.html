@@ -76,7 +76,12 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp
 const fecha = ms => new Date(ms).toLocaleDateString('es-EC', {day:'numeric', month:'short', year:'numeric'});
 const ms = t => t && t.toMillis ? t.toMillis() : null;
 
-let USERS = [], filtro = 'todos', busca = '', pais = 'todos';
+let USERS = [], filtro = 'todos', busca = '', pais = 'todos', origen = 'todos';
+// v50 · de dónde llegó cada usuario (lo guarda la app: enlace ?r= de la publicación o la página de origen)
+const ORIG = {'fb':'Facebook', 'fb-pro':'FB · Pronósticos', 'fb-reel':'FB · Reel', 'fb-ana':'FB · Video análisis', 'fb-radar':'FB · Video radar', 'fb-res':'FB · Resultados', 'fb-pubres':'FB · Lo publicado',
+  'fb-sem':'FB · Resumen semanal', 'fb-mes':'FB · Resumen del mes', 'fb-promo':'FB · Promo', 'fb-anuncio':'FB · Anuncio', 'fb-encuesta':'FB · Encuesta', 'ig':'Instagram', 'wa':'WhatsApp', 'google':'Google', 'tiktok':'TikTok',
+  'directo':'Directo / sin enlace', 'antiguo':'Antes de medir'};
+const origN = r => r ? (ORIG[r] || r) : 'Sin dato';
 // países: bandera + nombre (el código lo guarda la app de cada usuario, según la zona horaria de su celular)
 const PAISES = {EC:'Ecuador', CO:'Colombia', PE:'Perú', MX:'México', AR:'Argentina', CL:'Chile', VE:'Venezuela', BO:'Bolivia', PY:'Paraguay', UY:'Uruguay', BR:'Brasil', PA:'Panamá', CR:'Costa Rica', GT:'Guatemala', SV:'El Salvador', HN:'Honduras', NI:'Nicaragua', DO:'Rep. Dominicana', PR:'Puerto Rico', CU:'Cuba', ES:'España', US:'Estados Unidos', CA:'Canadá', GB:'Reino Unido', IT:'Italia', FR:'Francia', DE:'Alemania', PT:'Portugal', NL:'Países Bajos', BE:'Bélgica', CH:'Suiza'};
 const bandera = c => c && /^[A-Z]{2}$/.test(c) ? String.fromCodePoint(...[...c].map(x => 0x1F1E6 + x.charCodeAt(0) - 65)) : '🌐';
@@ -118,7 +123,10 @@ function pintar() {
   const PC = {}; E.forEach(x => { const c = x.u.pais || ''; PC[c] = PC[c] || {n: 0, p: 0}; PC[c].n++; if (x.e.k === 'act') PC[c].p++; });
   const paises = Object.keys(PC).sort((a, b) => (a === '') - (b === '') || PC[b].n - PC[a].n);
   if (pais !== 'todos' && !(pais in PC)) pais = 'todos';
-  const lista = E.filter(x => (pais === 'todos' || (x.u.pais || '') === pais) && (filtro === 'todos' || x.e.k === filtro) && (!q || (x.u.email || '').includes(q) || (x.u.nombre || '').toLowerCase().includes(q)))
+  const OC = {}; E.forEach(x => { const r = x.u.ref || ''; OC[r] = OC[r] || {n: 0, p: 0}; OC[r].n++; if (x.e.k === 'act') OC[r].p++; });
+  const origenes = Object.keys(OC).sort((a, b) => (a === '') - (b === '') || OC[b].n - OC[a].n);
+  if (origen !== 'todos' && !(origen in OC)) origen = 'todos';
+  const lista = E.filter(x => (pais === 'todos' || (x.u.pais || '') === pais) && (origen === 'todos' || (x.u.ref || '') === origen) &&(filtro === 'todos' || x.e.k === filtro) && (!q || (x.u.email || '').includes(q) || (x.u.nombre || '').toLowerCase().includes(q)))
     .sort((a, b) => (a.e.k === 'pen' ? -1 : 0) - (b.e.k === 'pen' ? -1 : 0));
   const F = [['todos','Todos'],['pen','Pendientes'],['act','Premium'],['pru','En prueba'],['ven','Gratis']];
   $('app').innerHTML = `
@@ -132,12 +140,14 @@ function pintar() {
     <input id="q" type="search" placeholder="correo o nombre" value="${esc(busca)}" autocomplete="off" autocapitalize="off">
     <label style="margin-top:12px">País</label>
     <div class="filters" style="margin-top:0"><button data-p="todos" class="${pais === 'todos' ? 'on' : ''}">🌎 Todos ${E.length}</button>${paises.map(c => `<button data-p="${esc(c)}" class="${pais === c ? 'on' : ''}">${bandera(c)} ${esc(paisN(c))} ${PC[c].n}${PC[c].p ? ` · <span style="color:var(--over)">${PC[c].p}★</span>` : ''}</button>`).join('')}</div>
+    <label style="margin-top:12px">¿De dónde llegaron?</label>
+    <div class="filters" style="margin-top:0"><button data-o="todos" class="${origen === 'todos' ? 'on' : ''}">📍 Todos ${E.length}</button>${origenes.map(r => `<button data-o="${esc(r)}" class="${origen === r ? 'on' : ''}">${esc(origN(r))} ${OC[r].n}${OC[r].p ? ` · <span style="color:var(--over)">${OC[r].p}★</span>` : ''}</button>`).join('')}</div>
     <div class="filters">${F.map(([k, t]) => `<button data-f="${k}" class="${filtro === k ? 'on' : ''}">${t}</button>`).join('')}</div>
     <div id="list">${lista.length ? lista.map(({u, e}) => `
       <div class="u ${e.k === 'pen' ? 'pend' : ''}">
         <div class="uh">
           <div><div class="mail">${esc(u.email || '(sin correo)')}</div>
-          <div class="det">${bandera(u.pais)} ${esc(paisN(u.pais))} · ${esc(u.nombre || '')}${u.nombre ? ' · ' : ''}${esc(e.d)}</div></div>
+          <div class="det">${bandera(u.pais)} ${esc(paisN(u.pais))}${u.ref ? ` · 📍 ${esc(origN(u.ref))}` : ''} · ${esc(u.nombre || '')}${u.nombre ? ' · ' : ''}${esc(e.d)}</div></div>
           <span class="chip c-${e.k}">${e.t}</span>
         </div>
         <div class="acts">
@@ -154,6 +164,7 @@ function pintar() {
   qi.oninput = () => { busca = qi.value; const pos = qi.selectionStart; pintar(); const n2 = $('q'); n2.focus(); n2.setSelectionRange(pos, pos); };
   document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filtro = b.dataset.f; pintar(); });
   document.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { pais = b.dataset.p; pintar(); });
+  document.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { origen = b.dataset.o; pintar(); });
   document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => accion(b.dataset.a, b.dataset.id, b));
   $('rel').onclick = cargar;
   $('out').onclick = () => signOut(auth);

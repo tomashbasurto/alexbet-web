@@ -148,6 +148,15 @@ async function main(){
     const r = await fetch(NTFY, {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({topic:TOPIC, title:a.title, message:a.msg, tags:a.tags.split(','), priority:a.prio})});
     if(r.ok){ seen[a.id] = t; sent++; } else { errs.push('ntfy HTTP '+r.status); if(P) seen[a.id] = t; }
   }
+  // v50 · aviso de fin de prueba (entre 10:00 y 20:00 de Ecuador), con el acierto real de los últimos 15 días
+  const hEC = (new Date().getUTCHours() + 19) % 24;
+  if(P && hEC>=10 && hEC<20){ try{
+    const H = JSON.parse(fs.readFileSync('historial.json','utf8')), lim = Date.now()-15*864e5, R = (H.picks||[]).filter(p=>p.ts>=lim && (p.res===0||p.res===1));
+    const ok = R.filter(p=>p.res===1).length, pct = R.length ? Math.round(ok/R.length*100) : 0, dato = R.length ? `En estos 15 días AlexBet acertó ${ok} de ${R.length} sugerencias (${pct}%).` : '';
+    await P.finPrueba(dl => dl===1
+      ? {title:'⏰ Hoy termina tu prueba de AlexBet', body:`${dato} Activa Premium hoy para seguir con todos los pronósticos, estadísticas y alertas.`}
+      : {title:`⏳ Te quedan ${dl} días de prueba en AlexBet`, body:`${dato} Activa Premium para no perder los pronósticos, estadísticas y alertas.`});
+  }catch(e){ console.log('fin de prueba:', e.message); } }
   if(P){ const S = P.stats(); console.log(`push: enviadas ${S.sent}${S.dead?' · celulares dados de baja '+S.dead:''}`); }
   fs.writeFileSync(SEEN_FILE, JSON.stringify(seen));
   console.log(`Alertas encontradas: ${found.length} · enviadas: ${sent}${errs.length?' · avisos: '+errs.slice(0,5).join(' | '):''}`);
