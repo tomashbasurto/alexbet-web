@@ -203,6 +203,7 @@
   .pz-back .ic, .pz-back svg{ width:13px !important; height:13px !important; flex:none; }
   .rs-head{ display:grid; grid-template-columns:1fr 1fr; gap:10px 8px; }
   .rs-tm{ display:flex; align-items:center; gap:8px; min-width:0; } .rs-tm.r{ justify-content:flex-end; text-align:right; } .rs-tm img{ width:34px; height:34px; object-fit:contain; flex:none; } .rs-tm b{ display:block; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rs-bd{ flex:none; } .rs-bd .badge{ width:34px !important; height:34px !important; }
   .rs-tm > div{ min-width:0; flex:1; } .rs-fs{ display:flex; gap:3px; margin-top:4px; } .rs-tm.r .rs-fs{ justify-content:flex-end; }
   .rs-f{ display:inline-grid; place-items:center; width:18px; height:18px; border-radius:50%; font-size:10px; font-weight:800; color:#0c0e12; } .rs-f.W{ background:var(--over); } .rs-f.D{ background:var(--draw); } .rs-f.L{ background:var(--under); }
   .rs-cmp{ grid-column:1/-1; display:grid; gap:9px; margin-top:4px; }
@@ -3448,6 +3449,91 @@ function usRenderLive(){
   html += `<div class="foot-note">Pronóstico en vivo: el modelo reparte el promedio de cada equipo en el tiempo que falta y lo suma al marcador. No considera el ritmo real, lesiones, faltas${sp==='mlb'?', lanzadores en el montículo':''} ni cuotas, y ninguna probabilidad garantiza el resultado. Juega con responsabilidad.</div>`;
   list.innerHTML = html;
 }
+
+// v57 · Resumen para NBA, NCAA, Euroliga, NHL y MLB: promedios de la temporada (ESPN) + calendario de cada equipo
+const RS = {st:{}, loading:{}};
+async function rsUsStats(sp, side){
+  const k = sp+'|'+String(side.id), c = RS.st[k]; if(c && Date.now()-c.t < 6*3600e3) return c;
+  if(RS.loading[k]) return RS.loading[k];
+  return RS.loading[k] = (async()=>{ let v = null;
+    try{ const j = await webGet(`${US_API}/site/v2/sports/${US[sp].path}/teams/${side.id}/statistics`); v = {};
+      (((j.results||{}).stats||{}).categories||[]).forEach(cat=>(cat.stats||[]).forEach(x=>{ const n = parseFloat(x.value!=null ? x.value : x.displayValue); if(!isNaN(n)) v[x.name] = n; })); }catch(e){}
+    delete RS.loading[k]; return RS.st[k] = {t:Date.now(), v}; })();
+}
+function rsRadarG(va, vb, labels, hn, an){
+  const cx = 160, cy = 132, R = 88, N = labels.length, pt = (i, r) => { const a = -Math.PI/2 + i*2*Math.PI/N; return [cx + R*r*Math.cos(a), cy + R*r*Math.sin(a)]; };
+  const ring = r => labels.map((_,i)=>pt(i,r).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const poly = (v, col) => { if(v.filter(x=>x!=null).length < 4) return ''; const P = v.map((x,i)=>pt(i, .12 + .88*Math.max(0, Math.min(1, x==null ? 0 : x)))); return `<polygon points="${P.map(p=>p.map(q=>q.toFixed(1)).join(',')).join(' ')}" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>` + P.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="${col}"/>`).join(''); };
+  const lab = labels.map((l,i)=>{ const [x,y] = pt(i, 1.24); return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="${Math.abs(x-cx)<5?'middle':x<cx?'end':'start'}" font-size="11.5" font-weight="700" fill="var(--ink)">${l}</text>`; }).join('');
+  return `<svg viewBox="0 0 320 262" style="width:100%;max-width:360px;display:block;margin:0 auto">${[.25,.5,.75,1].map(r=>`<polygon points="${ring(r)}" fill="none" stroke="var(--line)"/>`).join('')}${labels.map((_,i)=>{ const p = pt(i,1); return `<line x1="${cx}" y1="${cy}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="var(--line)"/>`; }).join('')}${poly(vb, LD_GREEN)}${poly(va, LD_BLUE)}${lab}</svg>
+    <div class="ld-legend" style="justify-content:center;gap:18px;margin-top:2px"><span><i style="background:${LD_BLUE}"></i>${escA(hn)}</span><span><i style="background:${LD_GREEN}"></i>${escA(an)}</span></div>`;
+}
+function rsCmpRows(A, B, rows){ // rows: [label, key, inverso, formato]
+  return rows.filter(r=>A[r[1]]!=null && B[r[1]]!=null).map(([l,k,inv,fm])=>{
+    const a = A[k], b = B[k], tot = Math.abs(a)+Math.abs(b) || 1, wa = Math.abs(a)/tot*100, best = a===b ? '' : ((a>b) !== !!inv ? 'h' : 'a');
+    const F = v => fm==='%' ? Math.round(v*100)+'%' : fm==='p1' ? v.toFixed(1)+'%' : fm==='3' ? v.toFixed(3).replace(/^0/,'') : fm==='0' ? Math.round(v) : v.toFixed(fm==='2'?2:1);
+    return `<div class="rs-row"><b class="${best==='h'?'on':''}">${F(a)}</b><div class="rs-mid"><span>${l}</span><div class="rs-bar"><i style="width:${wa.toFixed(1)}%;background:${LD_BLUE}"></i><i style="width:${(100-wa).toFixed(1)}%;background:${LD_GREEN}"></i></div></div><b class="${best==='a'?'on':''}">${F(b)}</b></div>`; }).join('');
+}
+function rsInsHTML(ins){
+  const ICX = {up:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>', shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>', target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>', card:'<rect x="6" y="3" width="12" height="18" rx="2"/>', flag:'<path d="M5 21V4M5 4h12l-3 4 3 4H5"/>', fire:'<path d="M12 22c4 0 7-3 7-7 0-4-3-6-4-9-1 2-2 3-4 3 0-2 0-4-2-6-1 3-5 6-5 12 0 4 3 7 8 7z"/>'};
+  const h = ins.slice(0,4).map(([ic,c,t,d])=>`<div class="rs-in ${c}"><div class="rs-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICX[ic]||ICX.bolt}</svg></div><div><b>${escA(t)}</b><p>${escA(d)}</p></div></div>`).join('');
+  return h ? `<div class="rs-ins">${h}</div>` : '';
+}
+function rsUsTeam(sp, side){
+  const c = RC.sched[sp+'|'+String(side.id)], S = RS.st[sp+'|'+String(side.id)], v = (S && S.v) || null;
+  let L = (c && c.all) || []; if(L.length){ const last = Date.parse(L[L.length-1].date); L = L.filter(m=>last - Date.parse(m.date) < 200*864e5 && m.st !== 1); }
+  const av = (arr, f) => arr.length ? arr.reduce((a,x)=>a+f(x),0)/arr.length : null, l10 = L.slice(-10), hm = L.filter(m=>m.home), aw = L.filter(m=>!m.home);
+  const T = {n:L.length, pf:av(L,m=>m.us), pa:av(L,m=>m.them), tot10:av(l10,m=>m.us+m.them), form:l10.length ? l10.filter(m=>m.us>m.them).length/l10.length : null, n10:l10.length,
+    home: hm.length>=3 ? hm.filter(m=>m.us>m.them).length/hm.length : null, nh:hm.length, hw:hm.filter(m=>m.us>m.them).length,
+    away: aw.length>=3 ? aw.filter(m=>m.us>m.them).length/aw.length : null, na:aw.length, aw:aw.filter(m=>m.us>m.them).length,
+    streak: (()=>{ let k = 0; for(let i=L.length-1;i>=0;i--){ if(L[i].us>L[i].them) k++; else break; } return k; })(), last:L.slice(-5) };
+  if(v){ const gp = v.gamesPlayed || v.games || null;
+    if(usPts(sp)){ T.reb = v.avgRebounds; T.ast = v.avgAssists; T.tri = v.avgThreePointFieldGoalsMade; T.fg = v.fieldGoalPct; T.to = v.avgTurnovers; T.stl = v.avgSteals; T.blk = v.avgBlocks; }
+    else if(sp==='nhl' && gp){ T.sog = v.shotsTotal!=null ? v.shotsTotal/gp : null; T.sv = v.savePct; T.ppg = v.powerPlayGoals!=null ? v.powerPlayGoals/gp : null; T.fo = v.faceoffPercent; T.pim = v.penaltyMinutes!=null ? v.penaltyMinutes/gp : null; }
+  }
+  return T;
+}
+function rsUsHTML(sp, g){
+  const hn = g.h.name, an = g.a.name, A = rsUsTeam(sp, g.h), B = rsUsTeam(sp, g.a), pts = usPts(sp), u = US[sp].unit;
+  if(!RC.sched[sp+'|'+String(g.h.id)] || !RC.sched[sp+'|'+String(g.a.id)]) return `<div class="prob-card"><div class="pl-none" style="padding:12px 0">Cargando el resumen…</div></div>`;
+  const er = (RC.sched[sp+'|'+String(g.h.id)].err || RC.sched[sp+'|'+String(g.a.id)].err);
+  if(A.n < 3 || B.n < 3) return `<div class="prob-card"><div class="empty-state" style="padding:16px">${er ? 'No pude cargar los partidos de ESPN ('+escA(er)+'). Vuelve a intentar en un momento.' : 'Todavía no hay suficientes partidos jugados esta temporada para armar el resumen.'}</div></div>`;
+  const chips = T => T.last.map(m=>`<span class="rs-f ${m.us>m.them?'W':'L'}">${m.us>m.them?'G':'P'}</span>`).join('');
+  const lg = n => { const b = badgeHTML(n, false, n===hn ? g.h.abbr : g.a.abbr); return `<div class="rs-bd">${b}</div>`; };
+  const U = pts ? 'Puntos' : sp==='nhl' ? 'Goles' : 'Carreras';
+  let rows = [[U+' a favor','pf',0], [U+' en contra','pa',1]];
+  if(pts) rows = rows.concat([['Rebotes','reb',0],['Asistencias','ast',0],['Triples','tri',0],['% de tiro','fg',0,'p1'],['Pérdidas','to',1],['Robos','stl',0]]);
+  else if(sp==='nhl') rows = rows.concat([['Tiros a puerta','sog',0],['% de atajadas','sv',0,'3'],['Goles en power play','ppg',0,'2'],['% de faceoffs','fo',0,'p1'],['Minutos de castigo','pim',1]]);
+  rows.push(['Forma (últ. 10)','form',0,'%'], ['Gana de local','home',0,'%'], ['Gana de visita','away',0,'%']);
+  const cmp = rsCmpRows(A, B, rows);
+  // gráfico: escala por deporte
+  const n01 = (x, lo, hi, inv) => x==null ? null : (inv ? (hi - x)/(hi - lo) : (x - lo)/(hi - lo));
+  const sc = US[sp].avg.pf, ax = pts
+    ? [['Ataque', T=>n01(T.pf, sc*.88, sc*1.1)], ['Defensa', T=>n01(T.pa, sc*.88, sc*1.1, 1)], ['Rebote', T=>n01(T.reb, sp==='nba'?38:30, sp==='nba'?50:42)], ['Triples', T=>n01(T.tri, sp==='nba'?10:5, sp==='nba'?18:11)], ['Pases', T=>n01(T.ast, sp==='nba'?20:11, sp==='nba'?32:20)], ['Forma', T=>T.form]]
+    : sp==='nhl'
+    ? [['Ataque', T=>n01(T.pf, 2, 4)], ['Defensa', T=>n01(T.pa, 2, 4, 1)], ['Tiros', T=>n01(T.sog, 24, 35)], ['Portero', T=>n01(T.sv, .87, .925)], ['Faceoffs', T=>n01(T.fo, 44, 56)], ['Forma', T=>T.form]]
+    : [['Ataque', T=>n01(T.pf, sc*.7, sc*1.3)], ['Defensa', T=>n01(T.pa, sc*.7, sc*1.3, 1)], ['Local', T=>T.home], ['Visita', T=>T.away], ['Forma', T=>T.form], ['Racha', T=>Math.min(1, T.streak/5)]];
+  const va = ax.map(a=>a[1](A)), vb = ax.map(a=>a[1](B));
+  // tarjetas de lectura rápida
+  const ins = [], f1 = v => v.toFixed(pts ? 1 : 2), d0 = pts ? 3 : .3;
+  if(Math.abs(A.pf-B.pf) >= d0){ const [w,l,x,y] = A.pf>B.pf ? [hn,an,A.pf,B.pf] : [an,hn,B.pf,A.pf]; ins.push(['up','g',`${w} con mejor ataque`,`Promedia ${f1(x)} ${u} por partido, frente a ${f1(y)} de ${l}.`]); }
+  if(A.home!=null && A.home >= .65) ins.push(['shield','b',`${hn} fuerte en casa`,`Ganó ${A.hw} de sus ${A.nh} partidos de local esta temporada.`]);
+  else if(B.away!=null && B.away >= .55) ins.push(['shield','b',`${an} rinde de visitante`,`Ganó ${B.aw} de sus ${B.na} partidos fuera de casa esta temporada.`]);
+  const hot = [A, B].map((T,i)=>[T, i?an:hn]).filter(([T])=>T.streak >= 4).sort((x,y)=>y[0].streak-x[0].streak)[0];
+  if(hot) ins.push(['fire','r',`${hot[1]} en racha`,`Lleva ${hot[0].streak} victorias seguidas.`]);
+  if(pts && A.reb!=null && B.reb!=null && Math.abs(A.reb-B.reb) >= 3){ const [w,x,y] = A.reb>B.reb ? [hn,A.reb,B.reb] : [an,B.reb,A.reb]; ins.push(['bolt','y',`${w} domina el rebote`,`Captura ${x.toFixed(1)} rebotes por partido frente a ${y.toFixed(1)}.`]); }
+  if(sp==='nhl' && A.sv!=null && B.sv!=null && Math.max(A.sv,B.sv) >= .905 && Math.abs(A.sv-B.sv) >= .008){ const [w,x] = A.sv>B.sv ? [hn,A.sv] : [an,B.sv]; ins.push(['shield','y',`Portería sólida de ${w}`,`Ataja el ${(x*100).toFixed(1)}% de los tiros que recibe.`]); }
+  if(A.tot10!=null && B.tot10!=null){ const t = (A.tot10+B.tot10)/2, ref = pts ? (US[sp].totRef || sc*2) : sc*2;
+    if(t >= ref*1.04) ins.push(['target','p',`Partidos de muchos ${u}`,`Sus últimos 10 partidos promedian ${t.toFixed(1)} ${u} en total.`]);
+    else if(t <= ref*.95) ins.push(['target','p',`Partidos de pocos ${u}`,`Sus últimos 10 partidos promedian ${t.toFixed(1)} ${u} en total.`]); }
+  return `<div class="prob-card rs-head">
+      <div class="rs-tm">${lg(hn)}<div><b>${escA(hn)}</b><div class="rs-fs">${chips(A)}</div></div></div>
+      <div class="rs-tm r"><div><b>${escA(an)}</b><div class="rs-fs">${chips(B)}</div></div>${lg(an)}</div>
+      <div class="rs-cmp">${cmp}</div>
+      <div class="lv-stats" style="margin-top:6px;justify-content:center">Promedios por partido de esta temporada (ESPN)</div></div>
+    ${rsInsHTML(ins)}
+    <div class="prob-card"><h3 style="justify-content:center"><span class="dot"></span>Rendimiento del partido</h3><div class="lv-stats" style="text-align:center;justify-content:center;margin:-4px 0 6px">Comparación de su temporada</div>${rsRadarG(va, vb, ax.map(a=>a[0]), hn, an)}</div>`;
+}
 function usOpen(sp, id, keep){
   const g = usData[sp].games.find(x=>x.id===id); if(!g) return;
   const m = usPre(g), f = fmtParts(g.d,0), tag = usSeasonTag(g);
@@ -3493,6 +3579,7 @@ function usOpen(sp, id, keep){
         <div class="team-big">${badgeHTML(g.a.name,true,g.a.abbr)}<div class="name">${g.a.name}${favStar(g.a.name)}</div></div>
       </div></div>
     ${dtTabsHTML('Lesionados')}
+    <div class="sec sec-r">${rsUsHTML(sp, g)}</div>
     <div class="sec sec-p">
     <div class="prob-card" id="oddBox"></div>
     <div class="prob-card"><h3><span class="dot"></span>Quién gana</h3>
@@ -3515,7 +3602,7 @@ function usOpen(sp, id, keep){
   usxInit(sp, g);
   document.getElementById('home').classList.add('hide');
   document.getElementById('detail').classList.add('show');
-  if(!keep){ window.scrollTo(0,0); usOpenCur = {sp,id}; rcLoad(sp,g).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); if(PL[sp] && !PL[sp].t && !PL[sp].err) plLoad(sp).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); }
+  if(!keep){ window.scrollTo(0,0); usOpenCur = {sp,id}; Promise.all([rsUsStats(sp,g.h), rsUsStats(sp,g.a), rcLoad(sp,g)]).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); if(PL[sp] && !PL[sp].t && !PL[sp].err) plLoad(sp).then(()=>{ if(usOpenCur && usOpenCur.id===id && document.getElementById('detail').classList.contains('show') && !ld.timer) usOpen(sp,id,true); }); }
 }
 let usOpenCur = null;
 function updateChrome(){

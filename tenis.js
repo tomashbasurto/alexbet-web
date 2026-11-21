@@ -407,6 +407,39 @@ function tnForm(s) {
     return `<div class="pk-line" style="cursor:default"><div class="t">${won ? '✅' : '❌'} vs ${escA(o.name)}<small>${escA(x.ev)} · ${escA(x.round)} · ${fmtParts(x.d, 0).date}</small></div><div class="v" style="min-width:auto;font-size:12.5px;white-space:nowrap">${sc}</div></div>`;
   }).join('');
 }
+function tnStats(s) { // v57 · resumen de un jugador con sus partidos recientes en los datos
+  const rows = Object.values(TN.m).filter(x => x.state === 'post' && !x.off && (x.p[0].id === s.id || x.p[1].id === s.id)).sort((a, b) => a.d.localeCompare(b.d)).slice(-12);
+  let w = 0, sw = 0, sl = 0, gw = 0, gl = 0, tb = 0, deci = 0, n = 0;
+  rows.forEach(x => { const k = x.p[0].id === s.id ? 0 : 1, me = x.p[k], op = x.p[1 - k]; n++; if (me.winner) w++;
+    me.sets.forEach((v, i) => { const o = op.sets[i]; if (!o) return; gw += v.v; gl += o.v; if (v.v > o.v) sw++; else if (o.v > v.v) sl++; if ((v.v === 7 && o.v === 6) || (v.v === 6 && o.v === 7)) tb++; });
+    if (me.sets.length >= (x.bo === 5 ? 5 : 3)) deci++; });
+  let st = 0; for (let i = rows.length - 1; i >= 0; i--) { const k = rows[i].p[0].id === s.id ? 0 : 1; if (rows[i].p[k].winner) st++; else break; }
+  return {n, win: n ? w / n : null, sets: sw + sl ? sw / (sw + sl) : null, games: gw + gl ? gw / (gw + gl) : null, gpm: n ? (gw + gl) / n : null, tb, deci: n ? deci / n : null, streak: st, w, last: rows.slice(-5).map(x => x.p[x.p[0].id === s.id ? 0 : 1].winner)};
+}
+function tnResumen(m, M, A, B) {
+  const a = tnStats(A), b = tnStats(B);
+  if (a.n < 2 || b.n < 2 || typeof rsCmpRows !== 'function') return '';
+  const chips = T => T.last.map(wn => `<span class="rs-f ${wn ? 'W' : 'L'}">${wn ? 'G' : 'P'}</span>`).join('');
+  const rkA = M.A && M.A.rank, rkB = M.B && M.B.rank;
+  a.rk = rkA ? -rkA : null; b.rk = rkB ? -rkB : null;
+  const cmp = rsCmpRows(a, b, [['Partidos ganados', 'win', 0, '%'], ['Sets ganados', 'sets', 0, '%'], ['Juegos ganados', 'games', 0, '%'], ['Juegos por partido', 'gpm', 0], ['Tie-breaks jugados', 'tb', 0, '0'], ['Partidos a set decisivo', 'deci', 0, '%']]);
+  const ins = [], nA = A.short || A.name, nB = B.short || B.name;
+  if (rkA && rkB && Math.abs(rkA - rkB) >= 15) { const [w, x, y] = rkA < rkB ? [nA, rkA, rkB] : [nB, rkB, rkA]; ins.push(['up', 'g', `${w} parte arriba en el ranking`, `Es #${x} frente al #${y} de su rival.`]); }
+  const hot = [[a, nA], [b, nB]].filter(([T]) => T.streak >= 3).sort((x, y) => y[0].streak - x[0].streak)[0];
+  if (hot) ins.push(['fire', 'r', `${hot[1]} en racha`, `Lleva ${hot[0].streak} partidos ganados seguidos.`]);
+  if (a.games != null && b.games != null && Math.abs(a.games - b.games) >= .05) { const [w, x] = a.games > b.games ? [nA, a.games] : [nB, b.games]; ins.push(['bolt', 'y', `${w} domina los juegos`, `Gana el ${Math.round(x * 100)}% de los juegos que disputa últimamente.`]); }
+  if (a.deci != null && b.deci != null && (a.deci + b.deci) / 2 >= .45) ins.push(['target', 'p', 'Partidos largos', `Los dos suelen llegar al set decisivo (${Math.round(a.deci * 100)}% y ${Math.round(b.deci * 100)}% de sus partidos).`]);
+  if (a.tb + b.tb >= 4) ins.push(['shield', 'b', 'Muchos tie-breaks', `Entre los dos jugaron ${a.tb + b.tb} tie-breaks en sus últimos partidos.`]);
+  const va = [a.win, a.sets, a.games, a.gpm != null ? (a.gpm - 16) / 16 : null, Math.min(1, a.streak / 5), rkA ? Math.max(0, 1 - Math.log10(rkA) / 2.5) : null];
+  const vb = [b.win, b.sets, b.games, b.gpm != null ? (b.gpm - 16) / 16 : null, Math.min(1, b.streak / 5), rkB ? Math.max(0, 1 - Math.log10(rkB) / 2.5) : null];
+  return `<div class="prob-card rs-head">
+      <div class="rs-tm">${tnAv(A)}<div><b>${escA(A.name)}</b><div class="rs-fs">${chips(a)}</div></div></div>
+      <div class="rs-tm r"><div><b>${escA(B.name)}</b><div class="rs-fs">${chips(b)}</div></div>${tnAv(B)}</div>
+      <div class="rs-cmp">${cmp}</div>
+      <div class="lv-stats" style="margin-top:6px;justify-content:center">Sus últimos ${Math.min(a.n, b.n)} partidos en los datos (ESPN)</div></div>
+    ${rsInsHTML(ins)}
+    <div class="prob-card"><h3 style="justify-content:center"><span class="dot"></span>Rendimiento</h3>${rsRadarG(va, vb, ['Victorias', 'Sets', 'Juegos', 'Duración', 'Racha', 'Ranking'], A.short || A.name, B.short || B.name)}</div>`;
+}
 function tnOpen(id, keep) {
   const m = TN.m[id]; if (!m) return;
   TN.open = id;
@@ -426,6 +459,7 @@ function tnOpen(id, keep) {
         <div class="center-vs"><div class="ko-big">${m.state === 'pre' ? tnTime(m, f) : `<span style="font-size:17px;white-space:nowrap">${sc.pairs || '-'}</span>`}<small>${f.date} ${TZN}${m.state === 'post' ? ' · Final' : m.state === 'in' ? ' · En vivo' : ''}${m.court ? ' · ' + escA(m.court) : ''}</small></div></div>
         <div class="team-big">${tnAv(B, true)}<div class="name">${escA(B.name)}${favStar(B.name)}</div></div>
       </div></div>
+    ${tnResumen(m, M, A, B)}
     <div class="prob-card"><h3><span class="dot"></span>Quién gana${L ? ' (con el marcador actual)' : ''}</h3>
       <div class="bar1x2"><span style="width:${pA}%; background:var(--over);"></span><span style="width:${pB}%; background:var(--accent);"></span></div>
       <div class="bar1x2-labels"><div><div class="v">${pA}%</div><div class="l">${escA(A.name)}</div></div><div><div class="v">${pB}%</div><div class="l">${escA(B.name)}</div></div></div>
