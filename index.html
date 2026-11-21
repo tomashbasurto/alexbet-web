@@ -201,6 +201,18 @@
   .ld-pill-btn{ border:0; color:inherit; font-family:inherit; cursor:pointer; }
   .pz-back{ position:absolute; left:8px; top:8px; display:inline-flex; align-items:center; gap:3px; border:1px solid rgba(255,255,255,.18); background:rgba(5,8,14,.7); color:#e9edf3; font:700 11.5px inherit; font-family:inherit; padding:4px 9px 4px 6px; border-radius:8px; cursor:pointer; }
   .pz-back .ic, .pz-back svg{ width:13px !important; height:13px !important; flex:none; }
+  .rs-head{ display:grid; grid-template-columns:1fr 1fr; gap:10px 8px; }
+  .rs-tm{ display:flex; align-items:center; gap:8px; min-width:0; } .rs-tm.r{ justify-content:flex-end; text-align:right; } .rs-tm img{ width:34px; height:34px; object-fit:contain; flex:none; } .rs-tm b{ display:block; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rs-tm > div{ min-width:0; flex:1; } .rs-fs{ display:flex; gap:3px; margin-top:4px; } .rs-tm.r .rs-fs{ justify-content:flex-end; }
+  .rs-f{ display:inline-grid; place-items:center; width:18px; height:18px; border-radius:50%; font-size:10px; font-weight:800; color:#0c0e12; } .rs-f.W{ background:var(--over); } .rs-f.D{ background:var(--draw); } .rs-f.L{ background:var(--under); }
+  .rs-cmp{ grid-column:1/-1; display:grid; gap:9px; margin-top:4px; }
+  .rs-row{ display:grid; grid-template-columns:44px 1fr 44px; align-items:center; gap:8px; } .rs-row b{ font-size:14.5px; font-weight:800; color:var(--ink-dim); } .rs-row b:last-child{ text-align:right; } .rs-row b.on{ color:var(--ink); }
+  .rs-mid span{ display:block; text-align:center; font-size:12px; color:var(--ink-dim); margin-bottom:3px; } .rs-bar{ display:flex; gap:3px; height:6px; } .rs-bar i{ display:block; border-radius:3px; }
+  .rs-ins{ display:grid; gap:8px; margin:0 0 12px; }
+  .rs-in{ display:flex; gap:12px; align-items:center; padding:12px 14px; border-radius:14px; background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--c); --c:var(--accent); }
+  .rs-in b{ font-size:14.5px; font-weight:800; } .rs-in p{ margin:2px 0 0; font-size:12.8px; color:var(--ink-dim); line-height:1.35; }
+  .rs-ic{ flex:none; width:42px; height:42px; border-radius:12px; display:grid; place-items:center; color:var(--c); background:color-mix(in srgb, var(--c) 16%, transparent); }
+  .rs-in.g{ --c:#22c55e; } .rs-in.b{ --c:#3b82f6; } .rs-in.y{ --c:#f59e0b; } .rs-in.p{ --c:#a855f7; } .rs-in.r{ --c:#ef4444; }
   .pz-card{ border-radius:18px; overflow:hidden; background:#0f1a24; margin-bottom:14px; box-shadow:0 0 0 1px rgba(255,255,255,.06); }
   .pz-card .pz{ border-radius:0; box-shadow:none; }
   .pz-sw{ position:absolute; left:50%; bottom:8px; transform:translateX(-50%); display:inline-flex; background:rgba(5,8,14,.72); border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:2px; }
@@ -458,7 +470,7 @@
   .dt-tabs{ position:sticky; top:var(--hdrH,64px); z-index:15; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding:8px 0; margin:0 0 6px; background:var(--bg); }
   .dt-tabs button{ flex:0 0 auto; min-height:36px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12.5px var(--font-body); cursor:pointer; }
   .dt-tabs button.on{ border-color:var(--accent); color:var(--accent); }
-  #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a), #detailContent[data-sec="j"] .sec:not(.sec-j){ display:none !important; }
+  #detailContent[data-sec="r"] .sec:not(.sec-r), #detailContent[data-sec="p"] .sec:not(.sec-p), #detailContent[data-sec="e"] .sec:not(.sec-e), #detailContent[data-sec="h"] .sec:not(.sec-h), #detailContent[data-sec="f"] .sec:not(.sec-f), #detailContent[data-sec="a"] .sec:not(.sec-a), #detailContent[data-sec="j"] .sec:not(.sec-j){ display:none !important; }
   .cd-tb{ margin-top:10px; font-size:13px; }
   .cd-r{ display:grid; grid-template-columns:1fr 60px 52px 46px; gap:6px; align-items:center; padding:7px 0; border-top:1px solid var(--line); }
   .cd-r > span{ text-align:right; } .cd-r b{ font-size:14px; } .cd-r small{ display:block; font-size:10.5px; color:var(--ink-dim); }
@@ -5442,7 +5454,7 @@ function playersHTML(league, homeName, awayName, home, away, p){
 }
 
 // v37.1 · Ficha del partido por secciones (pestañas fijas arriba)
-const DT_TABS = [['p','Pronóstico'],['e','Estadísticas'],['j','Jugadores'],['h','Cara a cara'],['f','Forma'],['a','Alineaciones']];
+const DT_TABS = [['r','Resumen'],['p','Pronóstico'],['e','Estadísticas'],['j','Jugadores'],['h','Cara a cara'],['f','Forma'],['a','Alineaciones']];
 function dtTabsHTML(last){ const cur = LS.get('ab_dtsec','p'); return `<div class="dt-tabs" id="dtTabs">${DT_TABS.map(([k,t])=>[k, k==='a'&&last?last:t]).map(([k,t])=>`<button type="button" data-k="${k}" class="${k===cur?'on':''}" onclick="dtSec('${k}')">${t}</button>`).join('')}</div>`; }
 function dtSec(k, keep){
   const dc = document.getElementById('detailContent'); if(!dc) return;
@@ -5452,6 +5464,63 @@ function dtSec(k, keep){
   const hd = document.querySelector('header.top'); if(hd) document.documentElement.style.setProperty('--hdrH', hd.offsetHeight+'px');
   if(k==='j') pjRender();
   if(!keep){ const t = document.getElementById('dtTabs'); if(t && t.getBoundingClientRect().top < (hd?hd.offsetHeight:0)+2) window.scrollTo(0, t.offsetTop - (hd?hd.offsetHeight:0)); }
+}
+
+// ---------- v57 · Resumen del partido (fútbol) ----------
+function rsTeam(t){
+  const H = (t && t.hist) || [], av = (arr, f) => { const v = arr.map(f).filter(x=>x!=null && !isNaN(x)); return v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; };
+  const sd = (x, k) => x.st && x.st[k] && x.st[k][x.h?0:1]!=null ? x.st[k][x.h?0:1] : null;
+  const pts = x => x.gf>x.ga ? 3 : x.gf===x.ga ? 1 : 0, l5 = H.slice(-5), hm = H.filter(x=>x.h), aw = H.filter(x=>!x.h);
+  return { n:H.length, gf: av(H,x=>x.gf), ga: av(H,x=>x.ga), s: av(H,x=>sd(x,'s')), t: av(H,x=>sd(x,'t')), c: av(H,x=>sd(x,'c')),
+    y: av(H,x=>{ const a = sd(x,'y'); if(a==null) return null; const r = sd(x,'r'); return a + (r||0); }), f: av(H,x=>sd(x,'f')),
+    form: l5.length ? l5.reduce((a,x)=>a+pts(x),0)/(3*l5.length) : null, home: hm.length>=2 ? hm.reduce((a,x)=>a+pts(x),0)/(3*hm.length) : null, nh: hm.length,
+    away: aw.length>=2 ? aw.reduce((a,x)=>a+pts(x),0)/(3*aw.length) : null, na: aw.length,
+    o25: H.length ? H.filter(x=>x.gf+x.ga>2).length : 0, btts: H.length ? H.filter(x=>x.gf>0&&x.ga>0).length : 0 };
+}
+function rsRadar(A, B, hn, an){
+  const ax = [['Ataque','gf',0,2.6],['Defensa','ga',1,2.2],['Puntería','t',0,6.5],['Balón parado','c',0,7.5],['Disciplina','y',1,4.5],['Forma','form',0,1]];
+  const val = (T, [l,k,inv,mx]) => { const v = T[k]; if(v==null) return null; let r = Math.max(0, Math.min(1, v/mx)); if(inv) r = 1 - Math.max(0, Math.min(1, (v - (k==='ga'?.3:1))/(mx-(k==='ga'?.3:1)))); return .12 + .88*r; };
+  const cx = 160, cy = 132, R = 88, pt = (i, r) => { const a = -Math.PI/2 + i*Math.PI/3; return [cx + R*r*Math.cos(a), cy + R*r*Math.sin(a)]; };
+  const ring = r => ax.map((_,i)=>pt(i,r).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const poly = (T, col) => { const v = ax.map(a=>val(T,a)); if(v.filter(x=>x!=null).length < 4) return ''; const P = v.map((x,i)=>pt(i, x==null?.12:x)); return `<polygon points="${P.map(p=>p.map(v=>v.toFixed(1)).join(',')).join(' ')}" fill="${col}" fill-opacity=".18" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/>` + P.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.2" fill="${col}"/>`).join(''); };
+  const lab = ax.map((a,i)=>{ const [x,y] = pt(i, 1.24); return `<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" text-anchor="${Math.abs(x-cx)<5?'middle':x<cx?'end':'start'}" font-size="11.5" font-weight="700" fill="var(--ink)">${a[0]}</text>`; }).join('');
+  return `<svg viewBox="0 0 320 262" style="width:100%;max-width:360px;display:block;margin:0 auto">
+    ${[.25,.5,.75,1].map(r=>`<polygon points="${ring(r)}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('')}
+    ${ax.map((_,i)=>{ const p = pt(i,1); return `<line x1="${cx}" y1="${cy}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="var(--line)"/>`; }).join('')}
+    ${poly(B, LD_GREEN)}${poly(A, LD_BLUE)}${lab}</svg>
+    <div class="ld-legend" style="justify-content:center;gap:18px;margin-top:2px"><span><i style="background:${LD_BLUE}"></i>${escA(hn)}</span><span><i style="background:${LD_GREEN}"></i>${escA(an)}</span></div>`;
+}
+function rsHTML(league, hn, an, home, away, p){
+  const A = rsTeam(home), B = rsTeam(away);
+  if(A.n < 3 || B.n < 3) return `<div class="prob-card"><div class="empty-state" style="padding:16px">Todavía no hay suficientes partidos jugados de los dos equipos para armar el resumen.</div></div>`;
+  const f1 = (v, d) => v==null ? '–' : v.toFixed(d==null?1:d), pc = v => v==null ? '–' : Math.round(v*100)+'%';
+  const chips = t => (t.lastMatches||[]).slice().reverse().map(m=>`<span class="rs-f ${m.outcome}">${m.outcome==='W'?'G':m.outcome==='L'?'P':'E'}</span>`).join('');
+  const rows = [['Goles a favor','gf',0],['Goles en contra','ga',1],['Remates','s',0],['Remates al arco','t',0],['Córners','c',0],['Tarjetas','y',1],['Faltas','f',1],['Forma (últ. 5)','form',0,'%']];
+  const cmp = rows.filter(r=>A[r[1]]!=null && B[r[1]]!=null).map(([l,k,inv,pf])=>{
+    const a = A[k], b = B[k], tot = a+b || 1, wa = a/tot*100, best = a===b ? '' : ((a>b) !== !!inv ? 'h' : 'a');
+    return `<div class="rs-row"><b class="${best==='h'?'on':''}">${pf?pc(a):f1(a)}</b><div class="rs-mid"><span>${l}</span><div class="rs-bar"><i style="width:${wa.toFixed(1)}%;background:${LD_BLUE}"></i><i style="width:${(100-wa).toFixed(1)}%;background:${LD_GREEN}"></i></div></div><b class="${best==='a'?'on':''}">${pf?pc(b):f1(b)}</b></div>`; }).join('');
+  // tarjetas de lectura rápida (solo con datos reales)
+  const ins = [];
+  if(A.gf!=null && B.gf!=null && Math.abs(A.gf-B.gf) >= .2){ const [w,l,x,y] = A.gf>B.gf ? [hn,an,A.gf,B.gf] : [an,hn,B.gf,A.gf]; ins.push(['up','g',`${w} con mejor ataque`,`Promedia ${f1(x)} goles por partido, frente a ${f1(y)} de ${l}.`]); }
+  if(A.home!=null && A.home >= .55) ins.push(['shield','b',`${hn} fuerte en casa`,`Sumó el ${pc(A.home)} de los puntos posibles como local (últimos ${A.nh}).`]);
+  else if(B.away!=null && B.away >= .5) ins.push(['shield','b',`${an} rinde de visitante`,`Sumó el ${pc(B.away)} de los puntos posibles fuera de casa (últimos ${B.na}).`]);
+  if(A.t!=null && B.t!=null && (A.t+B.t) >= 7) ins.push(['bolt','y','Partido de muchas llegadas',`Entre los dos promedian ${f1(A.t+B.t)} remates al arco por partido.`]);
+  else if(A.s!=null && B.s!=null && Math.abs(A.s-B.s) >= 2.5){ const [w,x,y] = A.s>B.s ? [hn,A.s,A.t] : [an,B.s,B.t]; ins.push(['bolt','y',`${w} remata más`,`Promedia ${f1(x)} remates por partido (${f1(y)} al arco).`]); }
+  const o = A.o25 + B.o25, n = A.n + B.n;
+  if(o/n >= .6) ins.push(['target','p','Tendencia de goles',`En ${o} de los últimos ${n} partidos de ambos hubo más de 2.5 goles.`]);
+  else if(o/n <= .35) ins.push(['target','p','Partidos cerrados',`Solo en ${o} de los últimos ${n} partidos de ambos hubo más de 2.5 goles.`]);
+  if(ins.length < 4 && A.y!=null && B.y!=null && A.y+B.y >= 5) ins.push(['card','r','Partido caliente',`Suman ${f1(A.y+B.y)} tarjetas por partido entre los dos.`]);
+  if(ins.length < 4 && A.c!=null && B.c!=null && A.c+B.c >= 10) ins.push(['flag','g','Muchos córners',`Entre los dos promedian ${f1(A.c+B.c)} córners por partido.`]);
+  const ICX = {up:'<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>', shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>', target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>', card:'<rect x="6" y="3" width="12" height="18" rx="2"/>', flag:'<path d="M5 21V4M5 4h12l-3 4 3 4H5"/>'};
+  const insH = ins.slice(0,4).map(([ic,c,t,d])=>`<div class="rs-in ${c}"><div class="rs-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICX[ic]}</svg></div><div><b>${escA(t)}</b><p>${escA(d)}</p></div></div>`).join('');
+  const lg = t => { const u = logoFor(t, league.id); return u ? `<img src="${u}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''; };
+  return `<div class="prob-card rs-head">
+      <div class="rs-tm">${lg(hn)}<div><b>${escA(hn)}</b><div class="rs-fs">${chips(home)}</div></div></div>
+      <div class="rs-tm r"><div><b>${escA(an)}</b><div class="rs-fs">${chips(away)}</div></div>${lg(an)}</div>
+      <div class="rs-cmp">${cmp}</div>
+      <div class="lv-stats" style="margin-top:6px;justify-content:center">Promedio por partido · últimos ${Math.min(A.n,B.n)} partidos</div></div>
+    ${insH ? `<div class="rs-ins">${insH}</div>` : ''}
+    <div class="prob-card"><h3 style="justify-content:center"><span class="dot"></span>Rendimiento del partido</h3><div class="lv-stats" style="text-align:center;justify-content:center;margin:-4px 0 6px">Comparación de sus últimos partidos</div>${rsRadar(A, B, hn, an)}</div>`;
 }
 function openMatch(leagueId, idx){
   curFixture = {lid:leagueId, idx};
@@ -5478,6 +5547,7 @@ function openMatch(leagueId, idx){
       </div>
     </div>
     ${dtTabsHTML()}
+    <div class="sec sec-r">${rsHTML(league, homeName, awayName, home, away, p)}</div>
     <div class="sec sec-p">
     <div class="prob-card" id="oddBox"></div>
     <div class="prob-card" id="wxBox" style="display:none"></div>
@@ -6181,7 +6251,8 @@ function buildLive(){
         n: nr ? nr.n : rec.length, ny: sy.length, nc: sc.length, S: sl.nat ? undefined : sl.cup ? (divS(n) || (sl.cup===2 ? 0.8 : 0.5)) : undefined,
         estG: nr ? nr.n<4 : rec.length<3, estC: sy.length<3, estK: sc.length<3,
         lastMatches: ms.slice(-5).reverse().map(x=>({opponent:x.opp, where:x.home?'H':'A', score:`${x.gf}-${x.ga}`,
-          outcome:x.gf>x.ga?'W':(x.gf<x.ga?'L':'D'), date:x.f.d, fid:x.f.i}))
+          outcome:x.gf>x.ga?'W':(x.gf<x.ga?'L':'D'), date:x.f.d, fid:x.f.i})),
+        hist: ms.slice(-10).map(x=>({h:x.home, gf:x.gf, ga:x.ga, st:x.st})) // v57: para la pestaña Resumen
       };
     });
     const now = Date.now();
