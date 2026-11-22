@@ -5971,9 +5971,9 @@ function normName(s){
     .replace(/[^a-z0-9]+/g,' ').trim();
 }
 // v59 · apodos cortos (de los datos) ↔ nombre de ESPN: Barça = Barcelona, Atleti = Atlético Madrid… (los nombres no se cambian, solo se reconocen)
-const TEAM_EQ = {'barca':'barcelona', 'atleti':'atletico madrid', 'koln':'cologne', 'hsv':'hamburg', 'amadora':'estrela', 'estrela da amadora':'estrela', 'estrela amadora':'estrela', 'spurs':'tottenham hotspur', 'man united':'manchester united', 'man utd':'manchester united', 'man city':'manchester city', 'psg':'paris saint germain', 'brighton hove':'brighton hove albion'};
+const TEAM_EQ = {'barca':'barcelona', 'atleti':'atletico madrid', 'koln':'cologne', '1 koln':'cologne', '1 cologne':'cologne', 'hsv':'hamburg', 'amadora':'estrela', 'estrela da amadora':'estrela', 'estrela amadora':'estrela', 'spurs':'tottenham hotspur', 'man united':'manchester united', 'man utd':'manchester united', 'man city':'manchester city', 'psg':'paris saint germain', 'brighton hove':'brighton hove albion'};
 function sameTeam(a,b){
-  let x = normName(a), y = normName(b); x = TEAM_EQ[x] || x; y = TEAM_EQ[y] || y;
+  let x = normName(a) || String(a||'').toLowerCase().trim(), y = normName(b) || String(b||'').toLowerCase().trim(); x = TEAM_EQ[x] || x; y = TEAM_EQ[y] || y; // nombres que quedan vacíos al limpiar ("AFC") se comparan tal cual
   if(!x || !y) return false;
   if(x===y || x.includes(y) || y.includes(x)) return true;
   if(typeof TM_GEN!=='undefined' && TM_GEN){ const A = tmTok(a), B = tmTok(b); if(A.length && B.length){ const [S, L] = A.length<=B.length ? [A, B] : [B, A];
