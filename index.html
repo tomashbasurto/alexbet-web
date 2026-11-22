@@ -5971,7 +5971,7 @@ function normName(s){
     .replace(/[^a-z0-9]+/g,' ').trim();
 }
 // v59 · apodos cortos (de los datos) ↔ nombre de ESPN: Barça = Barcelona, Atleti = Atlético Madrid… (los nombres no se cambian, solo se reconocen)
-const TEAM_EQ = {'barca':'barcelona', 'atleti':'atletico madrid', 'spurs':'tottenham hotspur', 'man united':'manchester united', 'man utd':'manchester united', 'man city':'manchester city', 'psg':'paris saint germain', 'brighton hove':'brighton hove albion'};
+const TEAM_EQ = {'barca':'barcelona', 'atleti':'atletico madrid', 'koln':'cologne', 'hsv':'hamburg', 'amadora':'estrela', 'estrela da amadora':'estrela', 'estrela amadora':'estrela', 'spurs':'tottenham hotspur', 'man united':'manchester united', 'man utd':'manchester united', 'man city':'manchester city', 'psg':'paris saint germain', 'brighton hove':'brighton hove albion'};
 function sameTeam(a,b){
   let x = normName(a), y = normName(b); x = TEAM_EQ[x] || x; y = TEAM_EQ[y] || y;
   if(!x || !y) return false;
