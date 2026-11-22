@@ -9,11 +9,7 @@ jobs:
         with: {ref: espn-sonda, path: sonda-br}
       - uses: actions/checkout@v4
         with: {ref: main, path: app}
+      - uses: actions/setup-node@v4
+        with: {node-version: 20}
       - run: |
-          pip install -q playwright piper-tts
-                    cd sonda-br/sonda && mkdir -p out
-          curl -sL -o voz.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx
-          curl -sL -o voz.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx.json
-          python voz.py || echo VOZFAIL
-          ls -la out
-          cd .. && git config user.name bot && git config user.email bot@x && git add sonda/out && git commit -qm "salida sonda" && git push -q origin espn-sonda
+          cd sonda-br/sonda && node aud.js $GITHUB_WORKSPACE/app
