@@ -2468,7 +2468,13 @@ function lgSave(){ const C = LG(), ab = u => u.startsWith(LOGO_PFX) ? '~' + u.sl
   LS.set('ab_logos', {map:lgMapF(C.map, ab), lg:L, t:C.t, z:1}); }
 const LOGO_MEMO = {};
 // v38.4: escudos por liga primero (Santos de Brasil ≠ Santos Laguna, Barcelona ≠ Barcelona SC)
+// v58 · apodos cortos que usa ESPN → nombre con escudo
+const LOGO_AL = {'Barça':'Barcelona', 'Barca':'Barcelona', 'Atleti':'Atlético Madrid', 'Inter':'Internazionale', 'Brighton Hove':'Brighton & Hove Albion', 'Twente':'FC Twente', 'Man United':'Manchester United', 'Man City':'Manchester City', 'Spurs':'Tottenham Hotspur', 'PSG':'Paris Saint-Germain', 'Bayern':'Bayern Munich'};
 function logoFor(name, lid){
+  if(LOGO_AL[name]){ const r = logoFor0(LOGO_AL[name], lid); if(r) return r; }
+  return logoFor0(name, lid);
+}
+function logoFor0(name, lid){
   const sl = lid && SRC[lid] && SRC[lid].espn, L = sl && LG().lg && LG().lg[sl];
   if(L){ const k = normName(name); if(L[k]) return L[k];
     for(const key of Object.keys(L)) if(key.length>=4 && k.length>=4 && (key.includes(k) || k.includes(key))) return L[key]; }
