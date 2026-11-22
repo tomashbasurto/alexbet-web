@@ -467,12 +467,13 @@ async function plan() {
     await pubGuardar('Lista ' + sp, L.rows.map(x => x._s === 'o' ? descOp(x._x) : {src: 'h', id: x._x.id, sp: x._x.sp, lid: x._x.lid || '', lname: x._x.where || '', h: x._x.h, a: x._x.a, when: x._x.when || '', ts: x._x.ts, label: x._x.label, p: x._x.prob}));
     await alInstagram(p, [file], L.txt); return;
   }
-  if (MODE === 'especialv') { // video especial del día (fb-promo/especiales/AAAA-MM-DD.mp4 y AAAA-MM-DD-video.txt) · reel en Facebook
+  if (MODE === 'especialv') { // video especial del día (fb-promo/especiales/AAAA-MM-DD.mp4 y AAAA-MM-DD-video.txt) · reel en Facebook e Instagram
     const d = ecuNow().day, f = path.join(ROOT, 'fb-promo', 'especiales', d + '.mp4'), ft = path.join(ROOT, 'fb-promo', 'especiales', d + '-video.txt');
     if (!fs.existsSync(f) || !fs.existsSync(ft)) { console.log('No hay video especial para', d); return; }
     const txt = fs.readFileSync(ft, 'utf8').trim();
     if (DRY || !p) { console.log('[prueba] no se publica:', d, txt.split('\n')[0]); return; }
-    const r = await reel(p, f, txt); console.log('Publicado el video especial:', st0(r)); await anotar({ok: true, id: st0(r), txt: txt.split('\n')[0]}); return;
+    const r = await reel(p, f, txt); console.log('Publicado el video especial:', st0(r)); await anotar({ok: true, id: st0(r), txt: txt.split('\n')[0]});
+    await alInstagram(p, [f], conWA(txt)); return;
   }
   if (MODE === 'especial') { // publicación especial del día (fb-promo/especiales/AAAA-MM-DD.png y .txt) · solo Facebook
     const d = ecuNow().day, f = path.join(ROOT, 'fb-promo', 'especiales', d + '.png'), ft = f.replace(/\.png$/, '.txt');
