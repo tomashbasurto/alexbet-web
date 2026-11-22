@@ -21,6 +21,10 @@ const PLANES = [
   {id: 'premium', nombre: 'Premium mensual', precio: '$4,99', dias: 30},
   {id: 'premium_anual', nombre: 'Premium anual', precio: '$39,99', dias: 365}
 ];
+// Promo Black Friday: el plan anual a $10 solo el domingo 22 de noviembre de 2026 (hora de Ecuador); después vuelve solo a $39,99
+const PROMO = {id: 'premium_anual', precio: '$10', antes: '$39,99', desde: '2026-11-22', hasta: '2026-11-22', nombre: 'Black Friday'};
+const promoHoy = () => { const d = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); return d >= PROMO.desde && d <= PROMO.hasta; };
+if (promoHoy()) { const p = PLANES.find(x => x.id === PROMO.id); if (p) { p.precio = PROMO.precio; p.antes = PROMO.antes; p.promo = PROMO.nombre; } }
 const PRUEBA_DIAS = 15;
 // ==============================
 
@@ -313,9 +317,9 @@ window.abPayOpen = (paso) => {
     </div>
     <div class="ab-pc rec">
       <div class="ab-pc-h"><b>Premium</b><span class="ab-tag">RECOMENDADO</span></div>
-      <div class="ab-big">${esc(plan.precio)} <small>${plan.id === 'premium_anual' ? '/año' : '/mes'}</small></div>
+      <div class="ab-big">${esc(plan.precio)} <small>${plan.id === 'premium_anual' ? '/año' : '/mes'}</small>${plan.antes ? ` <s style="font-size:16px;color:var(--ink-dim);font-weight:600">${esc(plan.antes)}</s>` : ''}</div>
       <div class="ab-tg2">${PLANES.map(p => `<button type="button" class="${p.id === planSel ? 'on' : ''}" aria-pressed="${p.id === planSel}" onclick="abPlan('${p.id}')">${p.id === 'premium_anual' ? 'Anual' : 'Mensual'} · ${esc(p.precio)}</button>`).join('')}</div>
-      ${planSel === 'premium_anual' ? '<div class="sub" style="margin:-2px 0 6px">Equivale a $3,33 al mes: ahorras 4 meses.</div>' : ''}
+      ${planSel === 'premium_anual' ? (plan.promo ? `<div class="sub" style="margin:-2px 0 6px;color:#c6ff00;font-weight:700">🔥 ${esc(plan.promo)}: solo hoy, antes ${esc(plan.antes)}. Equivale a $0,83 al mes.</div>` : '<div class="sub" style="margin:-2px 0 6px">Equivale a $3,33 al mes: ahorras 4 meses.</div>') : ''}
       <ul class="ab-ok">${PREM_INCLUYE.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
       <button type="button" class="btn primary" onclick="abPayOpen('pago')">Activar Premium</button>
     </div>
