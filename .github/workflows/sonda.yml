@@ -1,22 +1,21 @@
 name: Sonda ESPN
 on: push
+permissions: {contents: write}
 jobs:
   s:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with: {ref: espn-sonda, path: sonda-br}
+      - uses: actions/checkout@v4
+        with: {ref: main, path: app}
       - run: |
-          cat > a.py <<'P'
-          import json,urllib.request
-          B='https://site.api.espn.com/apis/site/v2/sports'
-          for path,tid in [('basketball/nba','13'),('hockey/nhl','10'),('basketball/mens-college-basketball','150')]:
-            try:
-              j=json.load(urllib.request.urlopen(f"{B}/{path}/teams/{tid}/statistics"))
-              print('##',path,list(j.keys()))
-              r=j.get('results') or {}; print('results keys',list(r.keys()) if isinstance(r,dict) else type(r))
-              st=(r.get('stats') or {}) if isinstance(r,dict) else {}
-              cats=st.get('categories') or []
-              for c in cats:
-                print(' CAT',c.get('name'), [(s.get('name'),s.get('displayValue')) for s in c.get('stats',[])][:40])
-            except Exception as e: print('ERR',path,e)
-          P
-          python3 a.py
+          pip install -q playwright piper-tts
+          python -m playwright install --with-deps chromium >/dev/null
+          cd sonda-br/sonda && mkdir -p out
+          curl -sL -o voz.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/ald/medium/es_MX-ald-medium.onnx
+          curl -sL -o voz.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/ald/medium/es_MX-ald-medium.onnx.json
+          python voz.py || echo VOZFAIL
+          AB_ROOT=$GITHUB_WORKSPACE/app OUT=out python cap.py || echo CAPFAIL
+          ls -la out
+          cd .. && git config user.name bot && git config user.email bot@x && git add sonda/out && git commit -qm "salida sonda" && git push -q origin espn-sonda
