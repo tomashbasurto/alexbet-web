@@ -8,8 +8,8 @@ let code = '';
 code += H.split('\n').filter(l => /^var TM_STOP|^var TM_GEN/.test(l)).join('\n') + '\n';
 code += block('function tmTok(') + '\n' + block('function tmCover(') + '\n' + block('function normName(') + '\n';
 code += H.split('\n').find(l => l.startsWith('const TEAM_EQ')) + '\n' + block('function sameTeam(') + '\n';
-code += block('const SRC = {') + ';\n';
-const F = new Function(code + '; return {sameTeam, normName, SRC};')();
+code += block('const SRC = {') + ';\n'; code += H.split('\n').find(l => l.startsWith('const NAT_ES')) + '\n' + H.split('\n').find(l => l.startsWith('const NAT_URL')) + '\n' + block('function natEs(') + '\n';
+const F = new Function(code + '; return {sameTeam, normName, SRC, natEs, NAT_URL};')();
 const D = JSON.parse(fs.readFileSync(path.join(ROOT, 'datos.json'), 'utf8'));
 const B = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
 (async () => {
@@ -18,6 +18,7 @@ const B = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
     const slug = (F.SRC[lid] || {}).espn; if (!slug) continue;
     let teams = [];
     try { const j = await (await fetch(`${B}/${slug}/teams`)).json(); teams = (((j.sports || [])[0] || {}).leagues || [])[0]?.teams?.map(t => t.team) || []; } catch (e) { out.push(`${lid}: no pude leer ESPN`); continue; }
+    if (F.NAT_URL.test('/soccer/' + slug + '/')) F.natEs(teams);
     if (!teams.length) { out.push(`${lid} (${slug}): ESPN sin equipos`); continue; }
     const names = [...new Set((L.fx || []).flatMap(f => [f.h, f.a]))];
     for (const n of names) {
