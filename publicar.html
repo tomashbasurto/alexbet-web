@@ -455,8 +455,9 @@ function loadImg(src){
   return imgCache[src] = new Promise(res => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => { delete imgCache[src]; res(null); }; im.src = src; });
 }
 const nrm = x => String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(fc|sc|cf|ac|afc|cd|club|de)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
-function escudo(n){ // nombre exacto, o el parecido (Venezia FC ↔ Venezia, PEC Zwolle ↔ Zwolle)
-  if(ESC[n]) return ESC[n]; const q = nrm(n); if(!q) return null;
+const ESC_AL = {'Barça':'Barcelona', 'Barca':'Barcelona', 'Atleti':'Atlético Madrid', 'Inter':'Internazionale', 'Brighton Hove':'Brighton & Hove Albion', 'Twente':'FC Twente', 'Man United':'Manchester United', 'Man City':'Manchester City', 'Spurs':'Tottenham Hotspur', 'PSG':'Paris Saint-Germain', 'Bayern':'Bayern Munich', 'Atlético-MG':'Atlético Mineiro'};
+function escudo(n){ // nombre exacto, el apodo corto (Barça → Barcelona) o el parecido (Venezia FC ↔ Venezia, PEC Zwolle ↔ Zwolle)
+  if(ESC[n]) return ESC[n]; if(ESC_AL[n] && ESC[ESC_AL[n]]) return ESC[ESC_AL[n]]; const q = nrm(n); if(!q) return null;
   const ks = Object.keys(ESC); let k = ks.find(x => nrm(x) === q) || ks.find(x => { const z = nrm(x); return z.length > 3 && q.length > 3 && (z.includes(q) || q.includes(z)); });
   return k ? ESC[k] : null;
 }
@@ -562,11 +563,11 @@ async function tarjeta(c, p, x, y, w, h){
   cy += 118; c.font = '800 24px Inter'; const ls = wrap(c, p.label, w - 48 - 32, 2), lh = 30, ph = ls.length * lh + 22;
   rr(c, px, cy, w - 48, ph, 16); c.fillStyle = 'rgba(198,255,0,.12)'; c.fill(); c.strokeStyle = 'rgba(198,255,0,.55)'; c.lineWidth = 1.5; c.stroke();
   ls.forEach((t, k) => { c.fillStyle = A; c.fillText(t, px + 16, cy + 33 + k*lh); });
-  cy += ph - 26 - (ls.length - 1)*31 + 8;
+  const lbot = cy + ph; cy += ph - 26 - (ls.length - 1)*31 + 8;
   // v54: la racha de los últimos partidos solo se muestra si apoya la jugada (6 de 10 o más); si no, la barra de probabilidad
   const fuerte = p.n && p.hit / p.n >= 0.6, v = fuerte ? (p.vals || []).slice(0, 10).reverse() : [];
-  const by = y + h - 26, bh = Math.min(130, by - (cy + 26 + (ls.length-1)*31 + 34));
-  if(!v.length){ // sin racha guardada: barra de probabilidad y cuota mínima
+  const by = y + h - 26, bh = Math.min(130, by - lbot - 16); // v58: alto del gráfico medido desde el final de la etiqueta (con 2 líneas no quedaba espacio)
+  if(!v.length || bh <= 40){ // sin racha guardada: barra de probabilidad y cuota mínima
     const bw = w - 48, yb = by - 74;
     rr(c, px, yb, bw, 16, 8); c.fillStyle = '#26332f'; c.fill();
     rr(c, px, yb, Math.max(16, bw * p.prob/100), 16, 8); c.fillStyle = A; c.fill();
