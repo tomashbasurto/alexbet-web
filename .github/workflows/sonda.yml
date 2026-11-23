@@ -6,10 +6,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {ref: espn-sonda, path: sonda-br}
-      - uses: actions/checkout@v4
-        with: {ref: main, path: app}
+        with: {ref: espn-sonda}
       - uses: actions/setup-node@v4
         with: {node-version: 20}
       - run: |
-          cd sonda-br/sonda && node aud.js $GITHUB_WORKSPACE/app
+          cd sonda && mkdir -p out && node resolver.js
+          cd .. && git config user.name bot && git config user.email bot@x && git add sonda/out/props-res.json && git commit -qm "resultados props" && git push -q
