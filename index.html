@@ -1822,6 +1822,15 @@ function mkProb(row,label,h,a){
   if(label==='Empate o '+a){ const v = g(row.a); return (v==null||d==null)?null:(v+d)*100; }
   return null;
 }
+// v63 · el mercado solo publica una línea de goles (2.5 o 3.5): con ella se saca el promedio de goles que espera y de ahí cualquier otra línea (1.5, 3.5…)
+function mkGoalsEst(row,label){
+  if(!row) return null; const m = /^(Más|Menos) de (\d+(?:\.5)?) goles$/.exec(label); if(!m) return null;
+  const ref = row.mk.find(z=>/^Más de \d+(?:\.5)? goles$/.test(z.label) && z.mk>0 && z.mk<1); if(!ref) return null;
+  const L0 = parseFloat(ref.label.replace(/[^\d.]/g,'')); let lo = .2, hi = 7;
+  for(let i=0;i<50;i++){ const mid = (lo+hi)/2; if(poissonOverHalf(L0, mid) < ref.mk) lo = mid; else hi = mid; }
+  const q = poissonOverHalf(parseFloat(m[2]), (lo+hi)/2); return (m[1]==='Más' ? q : 1-q)*100;
+}
+const VAL_MIN = 1.30; // v63: por debajo de esta cuota la jugada no vale la pena aunque se acierte (ej. "Más de 1.5 goles" a 1.13)
 function mkOdd(row,label,h,a){
   if(!row) return null; let x = row.mk.find(m=>m.label===label);
   if(!x && label==='Gana '+h) x = row.mk.find(m=>m.label==='Gana '+row.h);
@@ -1839,7 +1848,7 @@ function mkSummary(sp,h,a){
   if(!parts.length) return '';
   return `<div style="${st}">Cuotas (${row.mk.some(m=>m.dec)?'mejor de varias casas':'ESPN'}): ${parts.join(' · ')}</div>`;
 }
-function pkScore(x, est){ return x.prob - (est?8:0) - (x.dc?6:0) - (x.prob>74?(x.prob-74)*1.2:0) + (x.edge!=null ? Math.max(-5,Math.min(10,x.edge))*0.8 : 0); }
+function pkScore(x, est){ return x.prob - (est?8:0) - (x.dc?6:0) - (x.prob>74?(x.prob-74)*1.2:0) + (x.edge!=null ? Math.max(-5,Math.min(10,x.edge))*0.8 : 0) + (x.oe ? Math.max(-8,Math.min(10,(x.prob/100*x.oe-1)*100))*0.6 : 0); } // v63: + valor esperado con la cuota
 // ---- Cuotas dentro del partido ----
 function oddBoxHTML(sp,h,a,mf,loading){
   const row = mkRow(sp,h,a), head = '<h3><span class="dot"></span>Cuotas del mercado</h3>';
@@ -1881,13 +1890,16 @@ function calLiveApply(list, sp, catOf){
 calLiveLoad();
 function calAll(c, sp, h, a, est){
   const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
-  c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x), sp); const mp = mkProb(row,x.label,h,a);
+  c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x), sp); let mp = mkProb(row,x.label,h,a), mpe = false;
+    if(mp==null && sp==='futbol'){ mp = mkGoalsEst(row,x.label); mpe = mp!=null; }
     x.dc = / o empate$|^Empate o /.test(x.label); x.edge = null;
     if(mp!=null){ x.drop = q-mp>=12 || q-mp<-3; x.edge = q-mp; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · las casas le dan '+x.mk+'%'; }
     // v51: sin cuota de las casas no se agrega nada (antes decía "sin cuota del mercado")
     x.prob = Math.min(85,q); const od = mkOdd(row,x.label,h,a); x.odd = od?od.d:null;
-    if((od && od.d<1.25) || (mp!=null && mp>=80) || (mp==null && x.prob>=81)) x.drop = true; // cuota demasiado baja: sin valor
-    x.why += (!od && mp!=null ? ' · cuota de las casas ≈ '+(100/mp).toFixed(2) : '') + (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · cuota mínima '+(100/x.prob).toFixed(2); });
+    // v63: cuota que paga la casa (la real, o estimada con el % del mercado y su margen de ~5%); sin valor si no llega a VAL_MIN
+    x.oe = od ? od.d : (mp!=null ? Math.round(95/mp*100)/100 : null); x.oeEst = !od && mp!=null;
+    if((x.oe && x.oe<VAL_MIN) || (mp!=null && mp>=80) || (mp==null && x.prob>=81)) x.drop = true; // cuota demasiado baja: sin valor
+    x.why += (!od && mp!=null ? ' · cuota de las casas ≈ '+x.oe.toFixed(2)+(mpe?' (estimada con su línea de goles)':'') : '') + (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · cuota mínima '+(100/x.prob).toFixed(2); });
   return c.filter(x=>!x.drop);
 }
 function vaPrime(){

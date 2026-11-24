@@ -44,7 +44,7 @@ const KEEP_DAYS = 120;
       const one = (sp, lid, h, a, when, ts, gid, k, where) => {
         if (!k || ts < now + 5 * 60e3) return;
         const mkt = sp === 'tenis' ? {t: 'tn'} : pkMkt(k.label, h, a); if (!mkt) return;
-        picks.push({id: [sp, lid, h, a, when, k.label].join('|'), sp, lid, h, a, when, ts, gid: gid || null, where, label: k.label, cat: k.cat || null, prob: k.prob, p0: k.p0 != null ? k.p0 : null, odd: k.odd || null, mkt, pub: now, res: null});
+        picks.push({id: [sp, lid, h, a, when, k.label].join('|'), sp, lid, h, a, when, ts, gid: gid || null, where, label: k.label, cat: k.cat || null, prob: k.prob, p0: k.p0 != null ? k.p0 : null, odd: k.odd || null, oe: k.oe || null, mkt, pub: now, res: null});
       };
       if (sp === 'futbol') LEAGUES.forEach(l => (l.fixtures || []).forEach(f => {
         if (!l.teams[f[0]] || !l.teams[f[1]] || isoDateOnlyEcuador(f[2], l.utcOffset) !== day) return;
@@ -88,7 +88,12 @@ const KEEP_DAYS = 120;
 
   const have = new Set(H.picks.map(p => p.id)), newCombos = [];
   let added = 0;
-  fresh.picks.forEach(p => { if (!have.has(p.id)) { H.picks.push(p); added++; } });
+  // v63: ya no se publican todas (llegaban a 100+ por día y bajaba el %): solo las mejores del día según el historial, con cuota que valga la pena
+  const ecDay = p => new Date(p.ts - 5 * 3600e3).toISOString().slice(0, 10);
+  const ya = H.picks.filter(p => ecDay(p) === fresh.day && p.sel != null);
+  const elegidas = require('./seleccion.js').seleccionar(fresh.picks.filter(p => !have.has(p.id) && ecDay(p) === fresh.day), ya, H.picks);
+  console.log('candidatas', fresh.picks.length, '· ya publicadas hoy', ya.length, '· nuevas elegidas', elegidas.length);
+  elegidas.forEach(p => { H.picks.push(p); added++; });
   // combinadas: una vez por día y deporte; se pueden completar solo si ninguna selección empezó
   for (const [sp, C] of Object.entries(fresh.combos)) {
     const cur = H.combos.filter(c => c.day === fresh.day && c.sp === sp);
