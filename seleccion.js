@@ -36,7 +36,9 @@ function weak(p, st) {
   const s = st.S[kind(p)], sb = st.S[kind(p) + '|' + band(p.prob)];
   if (s && s[1] >= 15 && s[0] / s[1] * 100 < MIN_SEG) return true;     // tipo flojo (ej. tenis "gana al menos un set")
   if (sb && sb[1] >= 12 && sb[0] / sb[1] * 100 < MIN_SEG - 4) return true; // rango flojo dentro de un tipo (ej. NBA menos de puntos al 70-74%)
-  const o = p.odd || p.oe; if (o && o < MIN_ODD) return true;           // paga muy poco: sin valor
+  const o = p.odd || p.oe; if (o && o < MIN_ODD) return true;
+  // v64 · NBA: la casa no se equivoca en promedio (1.237 partidos); solo se publica si hay cuota real y paga más que la probabilidad
+  if (p.sp === 'nba' && !(p.odd && p.prob / 100 * p.odd >= 1.02)) return true;           // paga muy poco: sin valor
   return false;
 }
 function score(p, st) {

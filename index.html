@@ -1830,6 +1830,38 @@ function mkGoalsEst(row,label){
   for(let i=0;i<50;i++){ const mid = (lo+hi)/2; if(poissonOverHalf(L0, mid) < ref.mk) lo = mid; else hi = mid; }
   const q = poissonOverHalf(parseFloat(m[2]), (lo+hi)/2); return (m[1]==='Más' ? q : 1-q)*100;
 }
+// v64 · NBA: la línea de la casa es el mejor centro (prueba con 1.237 partidos 2025-26 y 2026-27: el total real cae en promedio en la línea,
+// desvío 18.4; margen 14.1; puntos por equipo 11.6; 1.ª mitad = 50.3% del total, desvío 12.0). Nuestro modelo de promedios no le gana.
+const NBA_SD = {tot:18.4, mar:14.1, team:11.6, h1:12.0}, NBA_H1 = 0.5027;
+function normInv(p){ let lo = -8, hi = 8; for(let i=0;i<60;i++){ const m = (lo+hi)/2; if(normCdf(m) < p) lo = m; else hi = m; } return (lo+hi)/2; }
+function nbaMk(row){
+  if(!row || !row.mk) return null; let T = null, M = null;
+  const o = row.mk.find(z=>/^Más de [\d.]+ puntos$/.test(z.label) && z.mk>0 && z.mk<1);
+  if(o){ const L = parseFloat(o.label.replace(/[^\d.]/g,'')); T = L + NBA_SD.tot*normInv(o.mk); }
+  const s = row.mk.find(z=>z.label.startsWith(row.h+' ') && /[+-]?\d+(\.\d+)?$/.test(z.label) && z.mk>0 && z.mk<1 && !/^Gana /.test(z.label));
+  if(s){ const k = parseFloat(s.label.slice(row.h.length+1)); if(!isNaN(k)) M = NBA_SD.mar*normInv(s.mk) - k; }
+  return T==null && M==null ? null : {T, M};
+}
+function mkPtsEst(row,label){
+  const X = nbaMk(row); if(!X) return null;
+  let m = /^(Más|Menos) de ([\d.]+) puntos$/.exec(label);
+  if(m && X.T!=null){ const p = 1-normCdf((parseFloat(m[2])-X.T)/NBA_SD.tot); return (m[1]==='Más'?p:1-p)*100; }
+  m = /^(.+) ([+-]?\d+(?:\.\d+)?)$/.exec(label);
+  if(m && X.M!=null && (m[1]===row.h || m[1]===row.a)){ const k = parseFloat(m[2]), mu = m[1]===row.h ? X.M : -X.M; return normCdf((mu+k)/NBA_SD.mar)*100; }
+  if(X.M!=null && label==='Gana '+row.h) return normCdf(X.M/NBA_SD.mar)*100;
+  if(X.M!=null && label==='Gana '+row.a) return (1-normCdf(X.M/NBA_SD.mar))*100;
+  return null;
+}
+function nbaFairHTML(row){
+  const X = nbaMk(row); if(!X || X.T==null) return '';
+  const r5 = x => Math.round(x*2)/2 + (Math.round(x*2)%2===0 ? 0.5 : 0), fo = p => p>0.02 ? (1/p).toFixed(2) : '–';
+  const block = (t, mu, sd, step) => { const c = r5(mu); return `<div class="lv-h" style="margin-top:10px">${t} · esperado ${mu.toFixed(1)}</div>` + [-2,-1,0,1,2].map(i=>{ const L = c + i*step, po = 1-normCdf((L-mu)/sd);
+    return `<div class="va-r"><div class="va-n">${L.toFixed(1)}</div><div class="va-c"><b>${Math.round(po*100)}%</b><small>Más · justa ${fo(po)}</small></div><div class="va-c"><b>${Math.round((1-po)*100)}%</b><small>Menos · justa ${fo(1-po)}</small></div></div>`; }).join(''); };
+  let b = '<h3 style="margin-top:14px"><span class="dot"></span>Cuota justa por línea</h3>' + block('Total del partido', X.T, NBA_SD.tot, 4);
+  if(X.M!=null){ b += block('Puntos de '+escA(row.h), (X.T+X.M)/2, NBA_SD.team, 3) + block('Puntos de '+escA(row.a), (X.T-X.M)/2, NBA_SD.team, 3); }
+  b += block('1.ª mitad (total)', X.T*NBA_H1, NBA_SD.h1, 3);
+  return b + '<div class="al-st">Sale de la línea de la casa (en 1.237 partidos fue el mejor centro). Si tu casa paga <b>más</b> que la cuota justa, ahí hay valor; si paga menos, no conviene aunque el % sea alto.</div>';
+}
 const VAL_MIN = 1.30; // v63: por debajo de esta cuota la jugada no vale la pena aunque se acierte (ej. "Más de 1.5 goles" a 1.13)
 function mkOdd(row,label,h,a){
   if(!row) return null; let x = row.mk.find(m=>m.label===label);
@@ -1859,7 +1891,7 @@ function oddBoxHTML(sp,h,a,mf,loading){
   const od = L.some(m=>m.dec);
   return head + L.map(m=>{ const mp = mf(m.label,row), ed = mp!=null ? (mp-m.mk)*100 : null;
     return `<div class="va-r"><div class="va-n">${escA(m.label)}<small>${od&&m.book?escA(m.book):'ESPN'}${ed!=null&&ed>=6?' · posible valor':''}</small></div><div class="va-c"><b>${mp!=null?Math.round(mp*100)+'%':'-'}</b><small>modelo</small></div><div class="va-c"><b>${Math.round(m.mk*100)}%</b><small>mercado</small></div><div class="va-c"><b>${d(m).toFixed(2)}</b><small>cuota</small></div></div>`; }).join('') +
-    `<div class="al-st">${od?'Mejor cuota entre varias casas (incluye Pinnacle para el % del mercado).':'Cuotas de ESPN.'} La casa que uses puede pagar distinto: compara antes de jugar.</div>`;
+    (sp==='nba' ? nbaFairHTML(row) : '') + `<div class="al-st">${od?'Mejor cuota entre varias casas (incluye Pinnacle para el % del mercado).':'Cuotas de ESPN.'} La casa que uses puede pagar distinto: compara antes de jugar.</div>`;
 }
 function oddBoxInit(sp,lid,h,a,mf){
   const box = ()=>document.getElementById('oddBox'); if(!box()) return;
@@ -1892,14 +1924,15 @@ function calAll(c, sp, h, a, est){
   const row = mkRow(sp,h,a), had = !!((VA.t && VA.sp===sp) || odRows().length);
   c.forEach(x=>{ x.raw = x.prob; let q = calP(x.cat, x.prob, est(x), sp); let mp = mkProb(row,x.label,h,a), mpe = false;
     if(mp==null && sp==='futbol'){ mp = mkGoalsEst(row,x.label); mpe = mp!=null; }
+    if(mp==null && sp==='nba'){ mp = mkPtsEst(row,x.label); mpe = mp!=null; }
     x.dc = / o empate$|^Empate o /.test(x.label); x.edge = null;
-    if(mp!=null){ x.drop = q-mp>=12 || q-mp<-3; x.edge = q-mp; x.mk = Math.round(mp); q = Math.round(.4*q+.6*mp); x.why += ' · las casas le dan '+x.mk+'%'; }
+    if(mp!=null){ const nba = sp==='nba'; x.drop = nba ? false : (q-mp>=12 || q-mp<-3); x.edge = q-mp; x.mk = Math.round(mp); q = Math.round(nba ? .15*q+.85*mp : .4*q+.6*mp); x.why += ' · las casas le dan '+x.mk+'%'; } // v64: en NBA manda la línea de la casa
     // v51: sin cuota de las casas no se agrega nada (antes decía "sin cuota del mercado")
     x.prob = Math.min(85,q); const od = mkOdd(row,x.label,h,a); x.odd = od?od.d:null;
     // v63: cuota que paga la casa (la real, o estimada con el % del mercado y su margen de ~5%); sin valor si no llega a VAL_MIN
     x.oe = od ? od.d : (mp!=null ? Math.round(95/mp*100)/100 : null); x.oeEst = !od && mp!=null;
     if((x.oe && x.oe<VAL_MIN) || (mp!=null && mp>=80) || (mp==null && x.prob>=81)) x.drop = true; // cuota demasiado baja: sin valor
-    x.why += (!od && mp!=null ? ' · cuota de las casas ≈ '+x.oe.toFixed(2)+(mpe?' (estimada con su línea de goles)':'') : '') + (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · cuota mínima '+(100/x.prob).toFixed(2); });
+    x.why += (!od && mp!=null ? ' · cuota de las casas ≈ '+x.oe.toFixed(2)+(mpe?(sp==='nba'?' (estimada con la línea de la casa)':' (estimada con su línea de goles)'):'') : '') + (od ? ' · Mejor cuota '+od.d.toFixed(2)+' ('+od.book+')'+(od.d*x.prob/100>=1.02?' · con valor':'') : '') + ' · cuota mínima '+(100/x.prob).toFixed(2); });
   return c.filter(x=>!x.drop);
 }
 function vaPrime(){
@@ -2124,7 +2157,7 @@ function nbaPlHTML(pls){
   const tab = T.find(t=>t[0]===OPN), L = inG.filter(tab[2]);
   const chips = `<div class="tn-chips nb-g">${[['all','Todos',pls]].concat(games.map(g=>[String(g.gid), nbaNick(g.h)+'-'+nbaNick(g.a), pls.filter(o=>String(o.gid)===String(g.gid))])).map(([k,t,a])=>`<button type="button" class="${OPG===k?'on':''}" onclick="OPG='${k}';renderMatches()">${escA(t)} · ${a.length}</button>`).join('')}</div>`;
   const seg = `<div class="nb-tabs">${T.map(([k,t,f])=>`<button type="button" class="${OPN===k?'on':''}" onclick="OPN='${k}';renderMatches()">${t}<small>${cnt(f)}</small></button>`).join('')}</div>`;
-  const note = `<div class="al-st" style="margin:0 2px 8px">${{bk:'Líneas reales de DraftKings con su cuota. "Valor": el modelo da 10 puntos o más de lo que paga la cuota.', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
+  const note = `<div class="al-st" style="margin:0 2px 8px">${{bk:'Líneas reales de DraftKings con su cuota. El % mezcla el historial del jugador con lo que dice la casa (en NBA la casa acierta más que el historial).', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
   const P = {}; L.forEach(o=>{ const k = o.gid+'|'+o.pid; (P[k] = P[k] || []).push(o); });
   const sc = a => Math.max(...a.map(o=>(o.vl?100:0)+o.p));
   const cards = Object.values(P).sort((a,b)=>sc(b)-sc(a)).slice(0,40).map(a=>nbaCard(a.sort((x,y)=>(y.bk?1:0)-(x.bk?1:0) || (y.vl?1:0)-(x.vl?1:0) || y.p-x.p))).join('');
@@ -2140,7 +2173,7 @@ function nbaCard(a){
     <div class="op-hd"><span class="op-ph"><span class="pj-ava">${u?`<img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(o.pname))}</i></span><span class="op-mini">${crestHTML(o.team, null, 18)}</span></span>
       <div class="op-tt"><b>${escA(o.pname)}</b><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>${o.role==='top'?'Titular':'Suplente'} · ${escA(nbaNick(o.team))} · vs ${escA(nbaNick(rival))} · ${when}</small></div>
       <span class="nb-n">${a.length} ${a.length>1?'mercados':'mercado'}</span></div>
-    <div class="nb-t"><div class="nb-r nb-hd"><span>Mercado</span><span>Cuota</span><span>Modelo</span><span>L10</span><span></span></div>${rows}</div>
+    <div class="nb-t"><div class="nb-r nb-hd"><span>Mercado</span><span>Cuota</span><span>Prob.</span><span>L10</span><span></span></div>${rows}</div>
   </div>`;
 }
 function opFoot(pl){ return `<div class="foot-note">Datos reales de ESPN${pl?' · promedio del jugador en sus últimos 10':' · lo que hace cada equipo y lo que concede el rival (últimos 10)'}. No garantiza el resultado.</div>`; }

@@ -119,10 +119,14 @@ const ROOT = __dirname, FILE = path.join(ROOT, 'oportunidades.json');
           if (L && L[0] != null) { // línea real de la casa: el lado que el modelo y lo que pasó apoyan
             const po = pAt(lam, sd, L[0]), ho = v10.filter(v => v > L[0]).length, hu = v10.filter(v => v < L[0]).length;
             let added = 0;
-            [[po, ho, L[1], 0], [100 - po, hu, L[2], 1]].forEach(([p, hit, o, u]) => {
-              if (p < 58 || p > 82 || hit < 6) return; added++;
-              const c = {ln: L[0], p, hit, n: v10.length, avg: +lam.toFixed(2), mk, vals: bars, bk: 1};
-              if (u) c.u = 1; if (o > 1) { c.o = o; if (p / 100 >= 1 / o + 0.10) c.vl = 1; } // valor: el modelo da 10 puntos o más que lo que paga la cuota
+            // v64 · la prueba con 1.090 líneas reales (17–23 nov) mostró que la casa acierta más que el modelo de los últimos 10:
+            // el % que se muestra mezcla 40% modelo + 60% lo que dice la cuota (sin su margen). Ya no se marca "valor": no se sostuvo.
+            const ip = (o1, o2) => o1 > 1 && o2 > 1 ? (1 / o1) / (1 / o1 + 1 / o2) * 100 : o1 > 1 ? 95.5 / o1 : null;
+            [[po, ho, L[1], 0, ip(L[1], L[2])], [100 - po, hu, L[2], 1, ip(L[2], L[1])]].forEach(([p0, hit, o, u, m]) => {
+              const p = m != null ? Math.round(0.4 * p0 + 0.6 * m) : p0;
+              if (p0 < 58 || p0 > 82 || hit < 6) return; added++;
+              const c = {ln: L[0], p, p0, hit, n: v10.length, avg: +lam.toFixed(2), mk, vals: bars, bk: 1};
+              if (u) c.u = 1; if (o > 1) c.o = o; if (m != null) c.mp = Math.round(m);
               C.push(c);
             });
             if (added) return;
