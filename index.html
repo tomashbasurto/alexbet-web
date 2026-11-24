@@ -2121,9 +2121,15 @@ function opxHTML(sp, localTeams){
   // v49.4 · el servidor calcula hoy y mañana: se muestran las del día elegido arriba
   const L = J && (J.day===day || (J.items||[]).some(x=>x.day===sel)) ? (J.items||[]).filter(x=>(x.day||J.day)===sel && x.sp===sp && x.ts>now - 5*60e3 && (sp!=='futbol' || lgIn({id:x.lid}))) : null; // v39.5: solo la liga o país elegido
   if(!L && !localTeams) return OPX.busy || !J ? null : '';
-  const teams = L ? L.filter(x=>x.kind==='team') : [], pls = L ? L.filter(x=>x.kind==='player') : [];
-  const cnt = {team: teams.length || (localTeams ? (localTeams.match(/class="op-c2"/g)||[]).length : 0), player: pls.length};
-  const bar = `<div class="pb-seg op-kind" style="grid-template-columns:1fr 1fr">${[['team','Equipos'],['player','Jugadores']].map(([k,t])=>`<button type="button" class="${OPK===k?'on':''}" onclick="opKind('${k}')">${t}<span class="op-n">${cnt[k]}</span></button>`).join('')}</div>
+  // v65 · filtro por partido (arriba de Equipos/Jugadores) para no ver todas las oportunidades juntas
+  const opMk = o => o.h+'|'+o.a, MS = L ? [...new Map(L.map(o=>[opMk(o), o])).values()].sort((a,b)=>a.ts-b.ts) : [];
+  if(OPM!=='all' && !MS.some(o=>opMk(o)===OPM)) OPM = 'all';
+  const LF = L ? L.filter(o=>OPM==='all' || opMk(o)===OPM) : null;
+  const nk = n => sp==='futbol' ? String(n||'') : nbaNick(n);
+  const mChips = MS.length>1 ? `<div class="tn-chips nb-g" style="margin:0 0 8px">${[['all','Todos los partidos',L.length]].concat(MS.map(o=>[opMk(o), nk(o.h)+' vs '+nk(o.a), L.filter(x=>opMk(x)===opMk(o)).length])).map(([k,t,n])=>`<button type="button" class="${OPM===k?'on':''}" onclick="opMatch(this.dataset.k)" data-k="${escA(k)}">${escA(t)} · ${n}</button>`).join('')}</div>` : '';
+  const teams = LF ? LF.filter(x=>x.kind==='team') : [], pls = LF ? LF.filter(x=>x.kind==='player') : [];
+  const cnt = {team: teams.length || (localTeams && OPM==='all' ? (localTeams.match(/class="op-c2"/g)||[]).length : 0), player: pls.length};
+  const bar = mChips + `<div class="pb-seg op-kind" style="grid-template-columns:1fr 1fr">${[['team','Equipos'],['player','Jugadores']].map(([k,t])=>`<button type="button" class="${OPK===k?'on':''}" onclick="opKind('${k}')">${t}<span class="op-n">${cnt[k]}</span></button>`).join('')}</div>
     <div class="op-info"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Modelo entre 58% y 78% y se cumplió al menos 6 de 10</div>`;
   if(OPK==='player'){
     if(!pls.length) return bar + `<div class="empty-state" style="padding:18px">${L ? (sel===day ? 'Hoy' : 'Ese día')+' no hay jugadores donde el modelo y lo que pasó coincidan.' : 'Las oportunidades de jugadores se calculan en el servidor cada 3 horas. Vuelve en un rato.'}</div>`;
@@ -2141,9 +2147,10 @@ function opxHTML(sp, localTeams){
       + (oth.length ? `<div class="lv-h">Otros jugadores</div>` + srt(oth).slice(0,30).map(o=>opCard(o)).join('') : '') + opFoot(true);
   }
   if(teams.length) return bar + teams.sort((a,b)=>b.p-a.p || b.hit-a.hit).slice(0,20).map(o=>opCard(o)).join('') + opFoot(false);
-  return bar + (localTeams || `<div class="empty-state" style="padding:18px">Hoy no hay oportunidades de equipos donde el modelo y lo que pasó coincidan.</div>`);
+  return bar + ((OPM==='all' && localTeams) || `<div class="empty-state" style="padding:18px">Hoy no hay oportunidades de equipos donde el modelo y lo que pasó coincidan.</div>`);
 }
-let OPR = 'top';
+let OPR = 'top', OPM = 'all';
+function opMatch(k){ OPM = k || 'all'; renderMatches(); }
 // v49.3 · NBA: tarjeta por jugador con hasta 3 mercados, filtro por partido y pestañas Con cuota / Titulares / Suplentes / Menos de
 let OPG = 'all', OPN = 'bk';
 const nbaNick = n => String(n||'').split(' ').pop();
@@ -2161,7 +2168,7 @@ function nbaPlHTML(pls){
   const P = {}; L.forEach(o=>{ const k = o.gid+'|'+o.pid; (P[k] = P[k] || []).push(o); });
   const sc = a => Math.max(...a.map(o=>(o.vl?100:0)+o.p));
   const cards = Object.values(P).sort((a,b)=>sc(b)-sc(a)).slice(0,40).map(a=>nbaCard(a.sort((x,y)=>(y.bk?1:0)-(x.bk?1:0) || (y.vl?1:0)-(x.vl?1:0) || y.p-x.p))).join('');
-  return chips + seg + note + (cards || `<div class="empty-state" style="padding:18px">Nada en esta pestaña para este partido.</div>`);
+  return seg + note + (cards || `<div class="empty-state" style="padding:18px">Nada en esta pestaña para este partido.</div>`);
 }
 function nbaCard(a){
   const o = a[0], f = fmtParts(o.when, 0), today = isoDateOnlyEcuador(o.when, 0)===ymd(todayDate), when = (today ? 'hoy ' : f.date+' ')+f.time;
