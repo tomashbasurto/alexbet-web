@@ -180,7 +180,7 @@ async function cargar(){
   try{
     const [h, e, o, st, dt, rus, rtn] = await Promise.all([getJ('historial.json'), getJ('escudos/escudos.json').catch(()=>({})), getJ('oportunidades.json').catch(()=>({items:[]})), getJ('stats-futbol.json').catch(()=>({ev:{}})), getJ('datos.json').catch(()=>({fx:{}})), getJ('recientes-us.json').catch(()=>({})), getJ('recientes-tenis.json').catch(()=>({j:{}}))]);
     PICKS = (h.picks || []).slice(); ESC = e || {};
-    OPS = (o.items || []).map((x, i) => {
+    OPS = (o.items || []).filter(x => !x.lad).map((x, i) => {
       const who = x.kind==='player' ? x.pname : (x.who==='Partido' ? '' : x.who);
       const label = `${who ? who + ' · ' : ''}${x.u ? 'Menos' : 'Más'} de ${x.ln} ${x.mk.toLowerCase()}${x.kind!=='player' && x.who==='Partido' ? ' en el partido' : ''}`;
       return {id:'op'+i, ok:opKey(x), sp:x.sp, lid:x.lid, kind:x.kind, mk:x.mk, pname:x.pname, team:x.team, pid:x.pid, who:x.who, avg:x.avg, role:x.role, h:x.h, a:x.a, ts: x.when ? Date.parse(String(x.when).slice(0,16)+':00Z') : x.ts, where:x.lname, color:x.color, label, prob:x.p, hit:x.hit, n:x.n, vals:x.vals, ln:x.ln, under:!!x.u, odd:x.o || null, bk:!!x.bk, vl:!!x.vl, gid:x.gid, _r:x};

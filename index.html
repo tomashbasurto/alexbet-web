@@ -758,6 +758,7 @@ main{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
 .op-bars2 u{ position:absolute; left:0; right:0; border-top:1.5px dashed rgba(238,244,242,.6); text-decoration:none; z-index:2; }
 .op-btns{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .nb-g{ overflow-x:auto; scrollbar-width:none; } .nb-g button{ flex:none; }
+.nb-r.nb-l{ display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr; gap:6px; align-items:center; } .nb-lc{ background:var(--card2,rgba(255,255,255,.04)); border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; padding:6px 4px; color:inherit; text-align:center; font:inherit; cursor:pointer; } .nb-r .nb-lc b{ display:block; font-size:14px; text-align:center; } .nb-lc small{ display:block; font-size:10px; opacity:.7; white-space:nowrap; }
 .nb-tabs{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:0 0 8px; }
 .nb-tabs button{ min-height:40px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12px var(--font-body); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2; }
 .nb-tabs button small{ font-size:10.5px; opacity:.8; } .nb-tabs button.on{ border-color:var(--accent); color:var(--accent); }
@@ -2122,11 +2123,11 @@ function opxHTML(sp, localTeams){
   const L = J && (J.day===day || (J.items||[]).some(x=>x.day===sel)) ? (J.items||[]).filter(x=>(x.day||J.day)===sel && x.sp===sp && x.ts>now - 5*60e3 && (sp!=='futbol' || lgIn({id:x.lid}))) : null; // v39.5: solo la liga o país elegido
   if(!L && !localTeams) return OPX.busy || !J ? null : '';
   // v65 · filtro por partido (arriba de Equipos/Jugadores) para no ver todas las oportunidades juntas
-  const opMk = o => o.h+'|'+o.a, MS = L ? [...new Map(L.map(o=>[opMk(o), o])).values()].sort((a,b)=>a.ts-b.ts) : [];
-  if(OPM!=='all' && !MS.some(o=>opMk(o)===OPM)) OPM = 'all';
-  const LF = L ? L.filter(o=>OPM==='all' || opMk(o)===OPM) : null;
+  const opK = o => o.h+'|'+o.a, MS = L ? [...new Map(L.map(o=>[opK(o), o])).values()].sort((a,b)=>a.ts-b.ts) : [];
+  if(OPM!=='all' && !MS.some(o=>opK(o)===OPM)) OPM = 'all';
+  const LF = L ? L.filter(o=>OPM==='all' || opK(o)===OPM) : null;
   const nk = n => sp==='futbol' ? String(n||'') : nbaNick(n);
-  const mChips = MS.length>1 ? `<div class="tn-chips nb-g" style="margin:0 0 8px">${[['all','Todos los partidos',L.length]].concat(MS.map(o=>[opMk(o), nk(o.h)+' vs '+nk(o.a), L.filter(x=>opMk(x)===opMk(o)).length])).map(([k,t,n])=>`<button type="button" class="${OPM===k?'on':''}" onclick="opMatch(this.dataset.k)" data-k="${escA(k)}">${escA(t)} · ${n}</button>`).join('')}</div>` : '';
+  const mChips = MS.length>1 ? `<div class="tn-chips nb-g" style="margin:0 0 8px">${[['all','Todos los partidos',L.length]].concat(MS.map(o=>[opK(o), nk(o.h)+' vs '+nk(o.a), L.filter(x=>opK(x)===opK(o)).length])).map(([k,t,n])=>`<button type="button" class="${OPM===k?'on':''}" onclick="opMatch(this.dataset.k)" data-k="${escA(k)}">${escA(t)} · ${n}</button>`).join('')}</div>` : '';
   const teams = LF ? LF.filter(x=>x.kind==='team') : [], pls = LF ? LF.filter(x=>x.kind==='player') : [];
   const cnt = {team: teams.length || (localTeams && OPM==='all' ? (localTeams.match(/class="op-c2"/g)||[]).length : 0), player: pls.length};
   const bar = mChips + `<div class="pb-seg op-kind" style="grid-template-columns:1fr 1fr">${[['team','Equipos'],['player','Jugadores']].map(([k,t])=>`<button type="button" class="${OPK===k?'on':''}" onclick="opKind('${k}')">${t}<span class="op-n">${cnt[k]}</span></button>`).join('')}</div>
@@ -2152,23 +2153,42 @@ function opxHTML(sp, localTeams){
 let OPR = 'top', OPM = 'all';
 function opMatch(k){ OPM = k || 'all'; renderMatches(); }
 // v49.3 · NBA: tarjeta por jugador con hasta 3 mercados, filtro por partido y pestañas Con cuota / Titulares / Suplentes / Menos de
-let OPG = 'all', OPN = 'bk';
+let OPG = 'all', OPN = 'pra';
 const nbaNick = n => String(n||'').split(' ').pop();
 function nbaPlHTML(pls){
   const games = [...new Map(pls.map(o=>[String(o.gid), o])).values()].sort((a,b)=>a.ts-b.ts);
   if(OPG!=='all' && !games.some(g=>String(g.gid)===OPG)) OPG = 'all';
   const inG = pls.filter(o=>OPG==='all' || String(o.gid)===OPG);
-  const T = [['bk','Con cuota',o=>o.bk],['top','Titulares',o=>o.role==='top'],['alt','Suplentes',o=>o.role==='alt'],['u','Menos de',o=>o.u]];
+  const T = [['pra','P+R+A titulares',o=>o.lad],['bk','Con cuota',o=>o.bk],['top','Titulares',o=>o.role==='top' && !o.lad],['alt','Suplentes',o=>o.role==='alt'],['u','Menos de',o=>o.u]];
   const cnt = f => new Set(inG.filter(f).map(o=>o.gid+'|'+o.pid)).size;
   if(!T.some(t=>t[0]===OPN) || !cnt(T.find(t=>t[0]===OPN)[2])) OPN = (T.find(t=>cnt(t[2])) || T[1])[0];
   const tab = T.find(t=>t[0]===OPN), L = inG.filter(tab[2]);
   const chips = `<div class="tn-chips nb-g">${[['all','Todos',pls]].concat(games.map(g=>[String(g.gid), nbaNick(g.h)+'-'+nbaNick(g.a), pls.filter(o=>String(o.gid)===String(g.gid))])).map(([k,t,a])=>`<button type="button" class="${OPG===k?'on':''}" onclick="OPG='${k}';renderMatches()">${escA(t)} · ${a.length}</button>`).join('')}</div>`;
   const seg = `<div class="nb-tabs">${T.map(([k,t,f])=>`<button type="button" class="${OPN===k?'on':''}" onclick="OPN='${k}';renderMatches()">${t}<small>${cnt(f)}</small></button>`).join('')}</div>`;
-  const note = `<div class="al-st" style="margin:0 2px 8px">${{bk:'Líneas reales de DraftKings con su cuota. El % mezcla el historial del jugador con lo que dice la casa (en NBA la casa acierta más que el historial).', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
+  const note = `<div class="al-st" style="margin:0 2px 8px">${{pra:'Titulares: la línea que superó 10, 9 y 8 de sus últimos 10. Probado con 9.100 partidos de titulares: <b>10/10 acierta 92%, 9/10 83%, 8/10 74%</b>. Si tu casa paga <b>más</b> que la cuota mínima, esa línea tiene valor (ej. 8/10 a 1.40 sí; 10/10 a 1.05 no).', bk:'Líneas reales de DraftKings con su cuota. El % mezcla el historial del jugador con lo que dice la casa (en NBA la casa acierta más que el historial).', top:'Los titulares: puntos, rebotes, asistencias, triples y combinados.', alt:'Los que salen del banco y juegan 12 minutos o más.', u:'Jugadores que suelen quedar por debajo de la línea.'}[OPN]}</div>`;
   const P = {}; L.forEach(o=>{ const k = o.gid+'|'+o.pid; (P[k] = P[k] || []).push(o); });
   const sc = a => Math.max(...a.map(o=>(o.vl?100:0)+o.p));
+  if(OPN==='pra') return seg + note + (L.slice().sort((a,b)=>b.avg-a.avg).slice(0,40).map(nbaLadCard).join('') || `<div class="empty-state" style="padding:18px">Nada en esta pestaña para este partido.</div>`);
   const cards = Object.values(P).sort((a,b)=>sc(b)-sc(a)).slice(0,40).map(a=>nbaCard(a.sort((x,y)=>(y.bk?1:0)-(x.bk?1:0) || (y.vl?1:0)-(x.vl?1:0) || y.p-x.p))).join('');
   return seg + note + (cards || `<div class="empty-state" style="padding:18px">Nada en esta pestaña para este partido.</div>`);
+}
+// v66 · tasas reales de acierto (titulares, 2025-26 y 2026-27) de la línea superada 10, 9 y 8 veces de 10
+const LAD_RATE = {'Pts+Reb+Ast':[91.6,83.2,74.0], 'Reb+Ast':[92.4,85.0,76.9], 'Pts+Reb':[91.7,83.3,74.3], 'Pts+Ast':[91.4,83.3,74.3]};
+const LAD_NM = {'Pts+Reb+Ast':'Pts+Reb+Ast', 'Reb+Ast':'Reb+Ast', 'Pts+Reb':'Pts+Reb', 'Pts+Ast':'Pts+Ast'};
+function nbaLadCard(o){
+  const f = fmtParts(o.when, 0), today = isoDateOnlyEcuador(o.when, 0)===ymd(todayDate), when = (today ? 'hoy ' : f.date+' ')+f.time;
+  const rival = o.t ? o.h : o.a, u = pjHead(o.sp, o.pid), K = ['10/10','9/10','8/10'];
+  const rows = Object.keys(LAD_RATE).filter(mk=>o.lad[mk]).map(mk=>`<div class="nb-r nb-l"><span class="nb-m">${LAD_NM[mk]}</span>${o.lad[mk].map((ln,j)=>{
+      const r = LAD_RATE[mk][j], x = Object.assign({}, o, {mk, ln, p: Math.round(r), hit: 10-j, lad: null}), i = OP_LIST.push(x)-1;
+      const ri = pkReg(o.sp, o.sp, o.h, o.a, o.when, o.ts, o.gid || null, {label:`${plShort(o.pname)}: más de ${(+ln).toFixed(1)} ${mk.toLowerCase()}`, cat:'tot', prob:Math.round(r), conf: r>=85 ? 'alta' : r>=75 ? 'media' : 'baja'});
+      return `<button type="button" class="nb-lc" onclick="pkSheet(${ri})"><b>${(+ln).toFixed(1)}+</b><small>${K[j]} · mín ${(100/r).toFixed(2)}</small></button>`; }).join('')}</div>`).join('');
+  return `<div class="op-c2 nb-c">
+    <div class="op-hd"><span class="op-ph"><span class="pj-ava">${u?`<img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(o.pname))}</i></span><span class="op-mini">${crestHTML(o.team, null, 18)}</span></span>
+      <div class="op-tt"><b>${escA(o.pname)}</b><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>Titular · ${escA(nbaNick(o.team))} · vs ${escA(nbaNick(rival))} · ${when}</small></div>
+      <span class="nb-n">P+R+A ${o.avg}</span></div>
+    <div class="nb-t"><div class="nb-r nb-l nb-hd"><span>Mercado</span><span>10 de 10</span><span>9 de 10</span><span>8 de 10</span></div>${rows}</div>
+    <div class="al-st" style="margin:6px 2px 0">Últimos 10 (P+R+A): ${(o.vals||[]).join(' · ')}</div>
+  </div>`;
 }
 function nbaCard(a){
   const o = a[0], f = fmtParts(o.when, 0), today = isoDateOnlyEcuador(o.when, 0)===ymd(todayDate), when = (today ? 'hoy ' : f.date+' ')+f.time;
