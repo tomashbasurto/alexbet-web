@@ -758,7 +758,7 @@ main{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
 .op-bars2 u{ position:absolute; left:0; right:0; border-top:1.5px dashed rgba(238,244,242,.6); text-decoration:none; z-index:2; }
 .op-btns{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .nb-g{ overflow-x:auto; scrollbar-width:none; } .nb-g button{ flex:none; }
-.nb-r.nb-l{ display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr; gap:6px; align-items:center; } .nb-lc{ background:var(--card2,rgba(255,255,255,.04)); border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; padding:6px 4px; color:inherit; text-align:center; font:inherit; cursor:pointer; } .nb-r .nb-lc b{ display:block; font-size:14px; text-align:center; } .nb-lc small{ display:block; font-size:10px; opacity:.7; white-space:nowrap; }
+.nb-r.nb-l{ display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr; gap:6px; align-items:center; } .nb-lc{ background:var(--card2,rgba(255,255,255,.04)); border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; padding:6px 4px; color:inherit; text-align:center; font:inherit; cursor:pointer; } .nb-lx{ opacity:.45; cursor:default; } .nb-l.nb-hd span{ text-align:center; } .nb-l.nb-hd span:first-child{ text-align:left; } .nb-r .nb-lc b{ display:block; font-size:14px; text-align:center; } .nb-lc small{ display:block; font-size:10px; opacity:.7; white-space:nowrap; }
 .nb-tabs{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:0 0 8px; }
 .nb-tabs button{ min-height:40px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12px var(--font-body); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2; }
 .nb-tabs button small{ font-size:10.5px; opacity:.8; } .nb-tabs button.on{ border-color:var(--accent); color:var(--accent); }
@@ -2159,7 +2159,7 @@ function nbaPlHTML(pls){
   const games = [...new Map(pls.map(o=>[String(o.gid), o])).values()].sort((a,b)=>a.ts-b.ts);
   if(OPG!=='all' && !games.some(g=>String(g.gid)===OPG)) OPG = 'all';
   const inG = pls.filter(o=>OPG==='all' || String(o.gid)===OPG);
-  const T = [['pra','P+R+A titulares',o=>o.lad],['bk','Con cuota',o=>o.bk],['top','Titulares',o=>o.role==='top' && !o.lad],['alt','Suplentes',o=>o.role==='alt'],['u','Menos de',o=>o.u]];
+  const T = [['pra','P+R+A',o=>o.lad],['bk','Con cuota',o=>o.bk],['top','Titulares',o=>o.role==='top' && !o.lad],['alt','Suplentes',o=>o.role==='alt'],['u','Menos de',o=>o.u]];
   const cnt = f => new Set(inG.filter(f).map(o=>o.gid+'|'+o.pid)).size;
   if(!T.some(t=>t[0]===OPN) || !cnt(T.find(t=>t[0]===OPN)[2])) OPN = (T.find(t=>cnt(t[2])) || T[1])[0];
   const tab = T.find(t=>t[0]===OPN), L = inG.filter(tab[2]);
@@ -2179,9 +2179,10 @@ function nbaLadCard(o){
   const f = fmtParts(o.when, 0), today = isoDateOnlyEcuador(o.when, 0)===ymd(todayDate), when = (today ? 'hoy ' : f.date+' ')+f.time;
   const rival = o.t ? o.h : o.a, u = pjHead(o.sp, o.pid), K = ['10/10','9/10','8/10'];
   const rows = Object.keys(LAD_RATE).filter(mk=>o.lad[mk]).map(mk=>`<div class="nb-r nb-l"><span class="nb-m">${LAD_NM[mk]}</span>${o.lad[mk].map((ln,j)=>{
+      if(ln < 0.6*o.lad[mk][2] || ln < 2.5) return `<span class="nb-lc nb-lx">–<small>muy baja</small></span>`;
       const r = LAD_RATE[mk][j], x = Object.assign({}, o, {mk, ln, p: Math.round(r), hit: 10-j, lad: null}), i = OP_LIST.push(x)-1;
       const ri = pkReg(o.sp, o.sp, o.h, o.a, o.when, o.ts, o.gid || null, {label:`${plShort(o.pname)}: más de ${(+ln).toFixed(1)} ${mk.toLowerCase()}`, cat:'tot', prob:Math.round(r), conf: r>=85 ? 'alta' : r>=75 ? 'media' : 'baja'});
-      return `<button type="button" class="nb-lc" onclick="pkSheet(${ri})"><b>${(+ln).toFixed(1)}+</b><small>${K[j]} · mín ${(100/r).toFixed(2)}</small></button>`; }).join('')}</div>`).join('');
+      return `<button type="button" class="nb-lc" onclick="pkSheet(${ri})"><b>${(+ln).toFixed(1)}+</b><small>mín ${(100/r).toFixed(2)}</small></button>`; }).join('')}</div>`).join('');
   return `<div class="op-c2 nb-c">
     <div class="op-hd"><span class="op-ph"><span class="pj-ava">${u?`<img src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<i>${escA(initials(o.pname))}</i></span><span class="op-mini">${crestHTML(o.team, null, 18)}</span></span>
       <div class="op-tt"><b>${escA(o.pname)}</b><small><i class="lg-dot" style="background:${o.color||'var(--accent)'}"></i>Titular · ${escA(nbaNick(o.team))} · vs ${escA(nbaNick(rival))} · ${when}</small></div>
