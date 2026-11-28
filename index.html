@@ -758,6 +758,13 @@ main{ padding-bottom:calc(96px + env(safe-area-inset-bottom,0px)); }
 .op-bars2 u{ position:absolute; left:0; right:0; border-top:1.5px dashed rgba(238,244,242,.6); text-decoration:none; z-index:2; }
 .op-btns{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .nb-g{ overflow-x:auto; scrollbar-width:none; } .nb-g button{ flex:none; }
+.crn-lg{ display:grid; grid-template-columns:26px 1fr auto; grid-template-rows:auto auto; gap:2px 10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.06); align-items:center; } .crn-lg:last-child{ border-bottom:0; }
+.crn-rk{ grid-row:1/3; font-weight:800; font-size:16px; text-align:center; opacity:.7; } .crn-lg.top .crn-rk{ color:var(--accent); opacity:1; }
+.crn-nm b{ display:block; font-size:14px; } .crn-nm small, .crn-av small{ display:block; font-size:11px; opacity:.65; } .crn-av{ text-align:right; } .crn-av b{ font-size:20px; } .crn-lg.top .crn-av b{ color:var(--accent); }
+.crn-pc{ grid-column:2/4; display:flex; gap:6px; flex-wrap:wrap; } .crn-pc i{ font-style:normal; font-size:11.5px; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,.05); } .crn-pc b{ font-weight:700; }
+.crn-c{ padding:12px; } .crn-hd{ display:flex; justify-content:space-between; font-size:12px; opacity:.75; margin-bottom:6px; } .crn-tm{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:14.5px; } .crn-tm span{ opacity:.6; font-size:12px; }
+.crn-ex{ margin:8px 0; font-size:13px; } .crn-ex b{ font-size:22px; color:var(--accent); margin-right:4px; } .crn-ex small{ opacity:.6; }
+.nb-r.nb-l.crn-ln{ grid-template-columns:repeat(4,1fr); gap:5px; } .crn-ln .nb-lc b{ font-size:13px; } .crn-ln .nb-lc small{ font-size:9.5px; } .crn-hi{ border-color:rgba(198,255,0,.45)!important; } .crn-st{ display:flex; flex-direction:column; gap:2px; font-size:11.5px; opacity:.7; margin-top:8px; }
 .nb-r.nb-l{ display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr; gap:6px; align-items:center; } .nb-lc{ background:var(--card2,rgba(255,255,255,.04)); border:1px solid var(--line,rgba(255,255,255,.08)); border-radius:10px; padding:6px 4px; color:inherit; text-align:center; font:inherit; cursor:pointer; } .nb-lx{ opacity:.45; cursor:default; } .nb-l.nb-hd span{ text-align:center; } .nb-l.nb-hd span:first-child{ text-align:left; } .nb-r .nb-lc b{ display:block; font-size:14px; text-align:center; } .nb-lc small{ display:block; font-size:10px; opacity:.7; white-space:nowrap; }
 .nb-tabs{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:0 0 8px; }
 .nb-tabs button{ min-height:40px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-dim); font:600 12px var(--font-body); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2; }
@@ -2023,6 +2030,40 @@ function confBadge(x){
 }
 // v37 · Sugerencias por secciones (para no tener todo hacia abajo)
 let PKSEC = null;
+// v68 · Córners: ranking de ligas y partidos en las ligas donde más córners hay (corners.json, se actualiza 2 veces al día)
+const CRN = {j:null, t:0, busy:false}; let CRV = null;
+function crnLoad(){ if(CRN.busy || (CRN.j && Date.now()-CRN.t < 30*60e3)) return; CRN.busy = true;
+  mirrorGet('corners.json').then(j=>{ CRN.j = j; CRN.t = Date.now(); }).catch(()=>{}).finally(()=>{ CRN.busy = false; if(viewMode==='picks') renderMatches(); }); }
+function crnView(v){ CRV = v; LS.set('ab_crv', v); renderMatches(); }
+function crnHTML(){
+  crnLoad(); if(CRV==null) CRV = LS.get('ab_crv','partidos');
+  const J = CRN.j; if(!J) return `<div class="empty-state" style="padding:18px">Cargando córners…</div>`;
+  const R = {}; (J.ligas||[]).forEach(l=>R[l.lid] = l);
+  const seg = `<div class="pb-seg op-kind" style="margin:0 0 10px;display:grid;grid-template-columns:1fr 1fr">${[['partidos','Partidos'],['ligas','Ligas con más córners']].map(([k,t])=>`<button type="button" class="${CRV===k?'on':''}" onclick="crnView('${k}')">${t}</button>`).join('')}</div>`;
+  const note = t => `<div class="al-st" style="margin:0 2px 10px">${t}</div>`;
+  if(CRV==='ligas'){
+    const rows = (J.ligas||[]).map(l=>`<div class="crn-lg${l.rank<=5?' top':''}"><span class="crn-rk">${l.rank}</span><span class="crn-nm"><b>${l.flag} ${escA(l.nombre)}</b><small>${escA(l.pais)} · ${l.n} partidos</small></span><span class="crn-av"><b>${l.avg.toFixed(1)}</b><small>por partido</small></span><span class="crn-pc"><i>+8.5 <b>${l.o85}%</b></i><i>+9.5 <b>${l.o95}%</b></i><i>+10.5 <b>${l.o105}%</b></i></span></div>`).join('');
+    return seg + note('Temporada actual, con datos de ESPN. En estas ligas se pasan más los córners: ahí conviene buscar el "Más de".') + `<div class="prob-card">${rows}</div>`;
+  }
+  const day = ymd(todayDate), sel = activeDate && activeDate!=='all' ? activeDate : day;
+  const P = (J.partidos||[]).filter(p=>isoDateOnlyEcuador(new Date(p.ts).toISOString(), 0)===sel && p.ts > Date.now()-2*3600e3);
+  const fo = p => (100/p).toFixed(2);
+  const cards = P.slice(0,40).map(p=>{
+    const L = R[p.lid] || {}, when = new Date(p.ts).toISOString(), f = fmtParts(when, 0);
+    const lines = p.lines.filter(([ln])=>ln>=8.5 && ln<=11.5).map(([ln,pr])=>{
+      const ri = pkReg('futbol', p.lid, p.h, p.a, when, p.ts, p.gid, {label:`Más de ${ln} córners`, cat:'corn', prob:pr, conf: pr>=70?'alta':pr>=60?'media':'baja'});
+      return `<button type="button" class="nb-lc${pr>=70?' crn-hi':''}" onclick="pkSheet(${ri})"><b>+${ln}</b><small>${pr}%</small><small>mín ${fo(pr)}</small></button>`; }).join('');
+    const logo = (u,n) => u ? `<img src="${escA(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:22px;height:22px;object-fit:contain" onerror="this.remove()">` : '';
+    return `<div class="op-c2 crn-c">
+      <div class="crn-hd"><span class="crn-lgn">${L.flag||''} ${escA(L.nombre||p.lid)}${L.rank?` · #${L.rank} en córners`:''}</span><span>${f.time}</span></div>
+      <div class="crn-tm">${logo(p.hl)}<b>${escA(p.h)}</b><span>vs</span><b>${escA(p.a)}</b>${logo(p.al)}</div>
+      <div class="crn-ex"><b>${p.lam.toFixed(1)}</b> córners esperados <small>(liga ${p.lgm.toFixed(1)})</small></div>
+      <div class="nb-r nb-l crn-ln">${lines}</div>
+      <div class="crn-st"><span>${escA(p.h)} en casa: saca ${p.hf} · le sacan ${p.hc}</span><span>${escA(p.a)} de visita: saca ${p.af} · le sacan ${p.ac}</span></div>
+    </div>`; }).join('');
+  return seg + note('Probado con 12.700 partidos: lo que más pesa es la <b>liga</b>, por eso arriba salen los partidos de las ligas con más córners. El % es real (dice 70% → salió 70%). Juega solo si tu casa paga <b>más</b> que la cuota mínima.') +
+    (cards || `<div class="empty-state" style="padding:18px">No hay partidos de esas ligas para este día.</div>`);
+}
 function pkSecSet(k){ PKSEC = k; LS.set('ab_pksec', k); renderMatches(); }
 // v38.8 · Señales de córners y tarjetas: doble/triple confirmación (ataque de un equipo + defensa floja del rival + lo que pasó)
 // Usa los últimos 10 partidos reales de cada equipo (stats-futbol.json). Son señales para mirar, no consejos de apuesta.
@@ -2237,12 +2278,13 @@ function opGo(i){
   else usOpen(o.sp, o.gid);
 }
 function pkSecHTML(P){
-  const T = [['mejores','Mejores'],['oport','Oportunidades'],['senales','Señales'],['combinadas','Combinadas'],['partidos','Partidos'],['resultados','Resultados'],['todo','Todo']].filter(t=>(t[0]!=='senales' || P.sig!=null) && (t[0]!=='oport' || P.op!=null));
+  const T = [['mejores','Mejores'],['oport','Oportunidades'],['senales','Señales'],['corners','Córners'],['combinadas','Combinadas'],['partidos','Partidos'],['resultados','Resultados'],['todo','Todo']].filter(t=>(t[0]!=='senales' || P.sig!=null) && (t[0]!=='oport' || P.op!=null) && (t[0]!=='corners' || P.crn));
   if(PKSEC==null) PKSEC = LS.get('ab_pksec','mejores'); const cur = T.some(t=>t[0]===PKSEC) ? PKSEC : 'mejores';
   const bar = `<div class="tn-chips pk-sec sec-bar">${T.map(([k,t])=>`<button type="button" class="${cur===k?'on':''}" onclick="pkSecSet('${k}')">${t}</button>`).join('')}</div>`;
   const none = t => `<div class="empty-state" style="padding:18px">${t}</div>`;
   if(cur==='todo') return bar + P.of + P.cb + P.day + P.top + (P.sig||'') + P.items + P.done;
   if(cur==='oport') return bar + (P.op || none(PB.S ? 'Hoy no hay oportunidades donde el modelo y lo que pasó coincidan.' : 'Cargando estadísticas…'));
+  if(cur==='corners') return bar + crnHTML();
   if(cur==='senales') return bar + (P.sig || none(PB.S ? 'Hoy ningún partido tiene doble confirmación en córners o tarjetas.' : 'Cargando estadísticas…'));
   if(cur==='mejores') return bar + (P.top || none('Hoy ningún mercado pasa el filtro de confianza. Mira la sección Partidos para ver el análisis de cada uno.'));
   if(cur==='combinadas') return bar + (P.cb || none('Todavía no hay combinadas para esta fecha.'));
@@ -2316,7 +2358,7 @@ function renderPicks(){
       ${x.pk.notes&&x.pk.notes.length?`<div class="lv-stats" style="color:#f5b942;margin:-2px 0 6px">⚠ ${escA(x.pk.notes.join(' · '))} (ya incluido)</div>`:''}${mkSummary('futbol',hn,an)}${body}
     </div>`;
   }).join('');
-  P.items = html; html = pkSecHTML(P);
+  P.items = html; P.crn = true; html = pkSecHTML(P);
   if(wide) html = `<div style="margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(198,255,0,.3);background:rgba(198,255,0,.06);font-size:13px;line-height:1.4;color:var(--ink-dim)">ℹ️ ${escA(lgLabel())} no tiene partidos ese día: te mostramos las sugerencias de <b style="color:var(--ink)">todas las ligas</b>.</div>` + html;
   html += `<div class="foot-note">Las sugerencias son los mercados con mayor probabilidad según el modelo estadístico de la app, ya recortados por sobreconfianza y contrastados con la cuota del mercado cuando ESPN la publica (se descartan los que el mercado contradice). Ninguna probabilidad garantiza el resultado.${odNote()} "Dato estimado" = faltan datos reales de ese equipo. Juega con responsabilidad.</div>`;
   list.innerHTML = html;

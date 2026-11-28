@@ -4,12 +4,12 @@
 const fs = require('fs');
 const B = 'https://site.api.espn.com/apis/site/v2/sports/soccer/';
 const LIGAS = {
-  'sco.1': ['Premiership', 'Escocia', '🏴'], 'sco.2': ['Championship', 'Escocia', '🏴'],
+  'sco.1': ['Premiership', 'Escocia', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'], 'sco.2': ['Championship', 'Escocia', '🏴󠁧󠁢󠁳󠁣󠁴󠁿'],
   'ger.2': ['2. Bundesliga', 'Alemania', '🇩🇪'], 'ger.1': ['Bundesliga', 'Alemania', '🇩🇪'],
   'ned.2': ['Eerste Divisie', 'Países Bajos', '🇳🇱'], 'ned.1': ['Eredivisie', 'Países Bajos', '🇳🇱'],
   'nor.1': ['Eliteserien', 'Noruega', '🇳🇴'], 'swe.1': ['Allsvenskan', 'Suecia', '🇸🇪'], 'den.1': ['Superliga', 'Dinamarca', '🇩🇰'],
   'sui.1': ['Super League', 'Suiza', '🇨🇭'], 'aut.1': ['Bundesliga', 'Austria', '🇦🇹'], 'bel.1': ['Pro League', 'Bélgica', '🇧🇪'],
-  'eng.1': ['Premier League', 'Inglaterra', '🏴'], 'eng.2': ['Championship', 'Inglaterra', '🏴'], 'eng.3': ['League One', 'Inglaterra', '🏴'], 'eng.4': ['League Two', 'Inglaterra', '🏴'],
+  'eng.1': ['Premier League', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'], 'eng.2': ['Championship', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'], 'eng.3': ['League One', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'], 'eng.4': ['League Two', 'Inglaterra', '🏴󠁧󠁢󠁥󠁮󠁧󠁿'],
   'esp.1': ['LaLiga', 'España', '🇪🇸'], 'esp.2': ['LaLiga 2', 'España', '🇪🇸'], 'ita.1': ['Serie A', 'Italia', '🇮🇹'], 'ita.2': ['Serie B', 'Italia', '🇮🇹'],
   'fra.1': ['Ligue 1', 'Francia', '🇫🇷'], 'fra.2': ['Ligue 2', 'Francia', '🇫🇷'], 'por.1': ['Liga Portugal', 'Portugal', '🇵🇹'],
   'tur.1': ['Süper Lig', 'Turquía', '🇹🇷'], 'gre.1': ['Super League', 'Grecia', '🇬🇷'],
