@@ -10,5 +10,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 20}
       - run: |
-          cd sonda && mkdir -p out && node probe.js
-          cd .. && git config user.name bot && git config user.email bot@x && true
+          cd sonda && mkdir -p out && node corners.js
+          cd .. && git config user.name bot && git config user.email bot@x && git add sonda/out/corners.json && git commit -qm "córners" && git push -q
