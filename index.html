@@ -2034,6 +2034,15 @@ let PKSEC = null;
 const CRN = {j:null, t:0, busy:false}; let CRV = null;
 function crnLoad(){ if(CRN.busy || (CRN.j && Date.now()-CRN.t < 30*60e3)) return; CRN.busy = true;
   mirrorGet('corners.json').then(j=>{ CRN.j = j; CRN.t = Date.now(); }).catch(()=>{}).finally(()=>{ CRN.busy = false; if(viewMode==='picks') renderMatches(); }); }
+// v70 · respeta el filtro de liga/país de arriba (ESPN → id de la app; ligas que la app no tiene, por país: ned.2 entra en Holanda)
+let CRN_E2A = null;
+function crnIn(lid){
+  if(activeLeague==='all') return true;
+  if(!CRN_E2A){ CRN_E2A = {}; Object.entries(SRC).forEach(([id,s])=>{ if(s && s.espn) CRN_E2A[s.espn] = id; }); }
+  const id = CRN_E2A[lid];
+  if(id) return lgIn({id});
+  return String(activeLeague).startsWith('c:') && lid.split('.')[0]===activeLeague.slice(2);
+}
 function crnView(v){ CRV = v; LS.set('ab_crv', v); renderMatches(); }
 function crnHTML(){
   crnLoad(); if(CRV==null) CRV = LS.get('ab_crv','partidos');
@@ -2046,7 +2055,7 @@ function crnHTML(){
     return seg + note('Temporada actual, con datos de ESPN. En estas ligas se pasan más los córners: ahí conviene buscar el "Más de".') + `<div class="prob-card">${rows}</div>`;
   }
   const day = ymd(todayDate), sel = activeDate && activeDate!=='all' ? activeDate : day;
-  const P = (J.partidos||[]).filter(p=>isoDateOnlyEcuador(new Date(p.ts).toISOString(), 0)===sel && p.ts > Date.now()-2*3600e3).sort((a,b)=>a.ts-b.ts || b.lam-a.lam); // v69: por hora
+  const P = (J.partidos||[]).filter(p=>isoDateOnlyEcuador(new Date(p.ts).toISOString(), 0)===sel && p.ts > Date.now()-2*3600e3 && crnIn(p.lid)).sort((a,b)=>a.ts-b.ts || b.lam-a.lam); // v69: por hora
   const fo = p => (100/p).toFixed(2);
   const cards = P.slice(0,80).map(p=>{
     const L = R[p.lid] || {}, when = new Date(p.ts).toISOString(), f = fmtParts(when, 0);
@@ -2062,7 +2071,7 @@ function crnHTML(){
       <div class="crn-st"><span>${escA(p.h)} en casa: saca ${p.hf} · le sacan ${p.hc}</span><span>${escA(p.a)} de visita: saca ${p.af} · le sacan ${p.ac}</span></div>
     </div>`; }).join('');
   return seg + note('Probado con 12.700 partidos: lo que más pesa es la <b>liga</b>, por eso cada partido dice el puesto de su liga en córners. Ordenados por hora. El % es real (dice 70% → salió 70%). Juega solo si tu casa paga <b>más</b> que la cuota mínima.') +
-    (cards || `<div class="empty-state" style="padding:18px">No hay partidos de esas ligas para este día.</div>`);
+    (cards || `<div class="empty-state" style="padding:18px">${activeLeague==='all' ? 'No hay partidos de esas ligas para este día.' : 'No hay partidos con córners para '+escA(lgLabel())+' este día. Elige «Todas las ligas» arriba para ver los demás.'}</div>`);
 }
 function pkSecSet(k){ PKSEC = k; LS.set('ab_pksec', k); renderMatches(); }
 // v38.8 · Señales de córners y tarjetas: doble/triple confirmación (ataque de un equipo + defensa floja del rival + lo que pasó)
