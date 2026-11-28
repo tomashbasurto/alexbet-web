@@ -2046,9 +2046,9 @@ function crnHTML(){
     return seg + note('Temporada actual, con datos de ESPN. En estas ligas se pasan más los córners: ahí conviene buscar el "Más de".') + `<div class="prob-card">${rows}</div>`;
   }
   const day = ymd(todayDate), sel = activeDate && activeDate!=='all' ? activeDate : day;
-  const P = (J.partidos||[]).filter(p=>isoDateOnlyEcuador(new Date(p.ts).toISOString(), 0)===sel && p.ts > Date.now()-2*3600e3);
+  const P = (J.partidos||[]).filter(p=>isoDateOnlyEcuador(new Date(p.ts).toISOString(), 0)===sel && p.ts > Date.now()-2*3600e3).sort((a,b)=>a.ts-b.ts || b.lam-a.lam); // v69: por hora
   const fo = p => (100/p).toFixed(2);
-  const cards = P.slice(0,40).map(p=>{
+  const cards = P.slice(0,80).map(p=>{
     const L = R[p.lid] || {}, when = new Date(p.ts).toISOString(), f = fmtParts(when, 0);
     const lines = p.lines.filter(([ln])=>ln>=8.5 && ln<=11.5).map(([ln,pr])=>{
       const ri = pkReg('futbol', p.lid, p.h, p.a, when, p.ts, p.gid, {label:`Más de ${ln} córners`, cat:'corn', prob:pr, conf: pr>=70?'alta':pr>=60?'media':'baja'});
@@ -2061,7 +2061,7 @@ function crnHTML(){
       <div class="nb-r nb-l crn-ln">${lines}</div>
       <div class="crn-st"><span>${escA(p.h)} en casa: saca ${p.hf} · le sacan ${p.hc}</span><span>${escA(p.a)} de visita: saca ${p.af} · le sacan ${p.ac}</span></div>
     </div>`; }).join('');
-  return seg + note('Probado con 12.700 partidos: lo que más pesa es la <b>liga</b>, por eso arriba salen los partidos de las ligas con más córners. El % es real (dice 70% → salió 70%). Juega solo si tu casa paga <b>más</b> que la cuota mínima.') +
+  return seg + note('Probado con 12.700 partidos: lo que más pesa es la <b>liga</b>, por eso cada partido dice el puesto de su liga en córners. Ordenados por hora. El % es real (dice 70% → salió 70%). Juega solo si tu casa paga <b>más</b> que la cuota mínima.') +
     (cards || `<div class="empty-state" style="padding:18px">No hay partidos de esas ligas para este día.</div>`);
 }
 function pkSecSet(k){ PKSEC = k; LS.set('ab_pksec', k); renderMatches(); }
