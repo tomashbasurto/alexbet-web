@@ -1374,6 +1374,30 @@ const STATIC_LEAGUES = [
     id:'greece', name:'Super League (Grecia)', color:'#38bdf8', utcOffset:2, teams:{}, fixtures:[],
   },
   {
+    id:'norway', name:'Eliteserien (Noruega)', color:'#ef4444', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'sweden', name:'Allsvenskan (Suecia)', color:'#facc15', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'denmark', name:'Superliga (Dinamarca)', color:'#f87171', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'austria', name:'Bundesliga (Austria)', color:'#fb923c', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'switzerland', name:'Super League (Suiza)', color:'#dc2626', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'eerste', name:'Eerste Divisie (Holanda 2)', color:'#fdba74', utcOffset:1, teams:{}, fixtures:[],
+  },
+  {
+    id:'chile', name:'Primera División (Chile)', color:'#60a5fa', utcOffset:-3, teams:{}, fixtures:[],
+  },
+  {
+    id:'peru', name:'Liga 1 (Perú)', color:'#f43f5e', utcOffset:-5, teams:{}, fixtures:[],
+  },
+  {
     id:'ucl', name:'Champions League', color:'#4da3ff', utcOffset:2, teams:{}, fixtures:[],
   },
   {
@@ -4934,13 +4958,20 @@ const LG_GROUPS = [
   ['🇩🇪 Alemania', ['bundes','bundes2','pokal','supger'], 'ger'],
   ['🇫🇷 Francia', ['ligue1','ligue2','cdf','tdc'], 'fra'],
   ['🏴 Escocia', ['scotprem','scotchamp','scocup','scolc','scochal'], 'sco'],
-  ['🇳🇱 Holanda', ['netherlands','knvb','jcs'], 'ned'],
+  ['🇳🇱 Holanda', ['netherlands','eerste','knvb','jcs'], 'ned'],
   ['🇵🇹 Portugal', ['portugal','taca'], 'por'],
   ['🇧🇪 Bélgica', ['belgium'], 'bel'],
   ['🇹🇷 Turquía', ['turkey'], 'tur'],
   ['🇬🇷 Grecia', ['greece'], 'gre'],
+  ['🇳🇴 Noruega', ['norway'], 'nor'],
+  ['🇸🇪 Suecia', ['sweden'], 'swe'],
+  ['🇩🇰 Dinamarca', ['denmark'], 'den'],
+  ['🇦🇹 Austria', ['austria'], 'aut'],
+  ['🇨🇭 Suiza', ['switzerland'], 'sui'],
+  ['🇨🇱 Chile', ['chile'], 'chi'],
+  ['🇵🇪 Perú', ['peru'], 'per'],
 ];
-const LG_DIV = {bra2:2, champ:2, laliga2:2, serieb:2, bundes2:2, ligue2:2, scotchamp:2, league1:3, league2:4, natleague:5};
+const LG_DIV = {eerste:2, bra2:2, champ:2, laliga2:2, serieb:2, bundes2:2, ligue2:2, scotchamp:2, league1:3, league2:4, natleague:5};
 const LG_NOTE = {greece:'en la prueba, la casa le sacó más ventaja al modelo aquí'};
 const LG_COUNTRY = {}; LG_GROUPS.forEach(([t, ids, c])=>ids.forEach(id=>{ LG_COUNTRY[id] = c; }));
 function lgIn(l){ return activeLeague==='all' || l.id===activeLeague || (String(activeLeague).startsWith('c:') && LG_COUNTRY[l.id]===activeLeague.slice(2)); }
@@ -5946,6 +5977,14 @@ const SRC = {
   scotchamp:  {             espn:'sco.2', csv:'SC1', primary:'espn'},
   belgium:    {             espn:'bel.1', csv:'B1', primary:'espn'},
   greece:     {             espn:'gre.1', csv:'G1', primary:'espn'},
+  norway:     {             espn:'nor.1', primary:'espn'},
+  sweden:     {             espn:'swe.1', primary:'espn'},
+  denmark:    {             espn:'den.1', primary:'espn'},
+  austria:    {             espn:'aut.1', primary:'espn'},
+  switzerland: {             espn:'sui.1', primary:'espn'},
+  eerste:     {             espn:'ned.2', primary:'espn'},
+  chile:      {             espn:'chi.1', primary:'espn'},
+  peru:       {             espn:'per.1', primary:'espn'},
   copaecu:    {             primary:'manual'},
   supecu:     {             primary:'manual'},
   selamist:   {             espn:'fifa.friendly', primary:'espn', nat:1},
