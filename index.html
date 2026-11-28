@@ -2056,10 +2056,19 @@ const CRN = {j:null, t:0, busy:false}; let CRV = null;
 function crnLoad(){ if(CRN.busy || (CRN.j && Date.now()-CRN.t < 30*60e3)) return; CRN.busy = true;
   mirrorGet('corners.json').then(j=>{ CRN.j = j; CRN.t = Date.now(); }).catch(()=>{}).finally(()=>{ CRN.busy = false; if(viewMode==='picks') renderMatches(); }); }
 // v70 · respeta el filtro de liga/país de arriba (ESPN → id de la app; ligas que la app no tiene, por país: ned.2 entra en Holanda)
-let CRN_E2A = null;
+let CRN_E2A = null; const CRN_LIST = [];
+// v73 · tocar un partido abre su análisis directo en las estadísticas de córners (suma de ambos, línea 9.5)
+function crnGo(i){
+  const p = CRN_LIST[i]; if(!p) return; crnIn('x');
+  const id = CRN_E2A[p.lid], L = id && LEAGUES.find(l=>l.id===id);
+  const idx = L ? L.fixtures.findIndex(f=>sameTeam(f[0],p.h) && sameTeam(f[1],p.a)) : -1;
+  if(idx<0){ alToast({title:'Córners', body:'Este partido todavía no está cargado en la app.'}); return; }
+  const ln = (p.lines.find(([l,pr])=>pr<70) || [9.5])[0];
+  OP_WANT = {h:L.fixtures[idx][0], m:0, t:2, ln}; LS.set('ab_dtsec','e'); openMatch(id, idx);
+}
 function crnIn(lid){
-  if(activeLeague==='all') return true;
   if(!CRN_E2A){ CRN_E2A = {}; Object.entries(SRC).forEach(([id,s])=>{ if(s && s.espn) CRN_E2A[s.espn] = id; }); }
+  if(activeLeague==='all') return true;
   const id = CRN_E2A[lid];
   if(id) return lgIn({id});
   return String(activeLeague).startsWith('c:') && lid.split('.')[0]===activeLeague.slice(2);
@@ -2082,9 +2091,10 @@ function crnHTML(){
     const L = R[p.lid] || {}, when = new Date(p.ts).toISOString(), f = fmtParts(when, 0);
     const lines = p.lines.filter(([ln])=>ln>=8.5 && ln<=11.5).map(([ln,pr])=>{
       const ri = pkReg('futbol', p.lid, p.h, p.a, when, p.ts, p.gid, {label:`Más de ${ln} córners`, cat:'corn', prob:pr, conf: pr>=70?'alta':pr>=60?'media':'baja'});
-      return `<button type="button" class="nb-lc${pr>=70?' crn-hi':''}" onclick="pkSheet(${ri})"><b>+${ln}</b><small>${pr}%</small><small>mín ${fo(pr)}</small></button>`; }).join('');
+      return `<button type="button" class="nb-lc${pr>=70?' crn-hi':''}" onclick="event.stopPropagation();pkSheet(${ri})"><b>+${ln}</b><small>${pr}%</small><small>mín ${fo(pr)}</small></button>`; }).join('');
     const logo = (u,n) => u ? `<img src="${escA(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:22px;height:22px;object-fit:contain" onerror="this.remove()">` : '';
-    return `<div class="op-c2 crn-c">
+    const ci = CRN_LIST.push(p)-1;
+    return `<div class="op-c2 crn-c" onclick="crnGo(${ci})" style="cursor:pointer">
       <div class="crn-hd"><span class="crn-lgn">${L.flag||''} ${escA(L.nombre||p.lid)}${L.rank?` · #${L.rank} en córners`:''}</span><span>${f.time}</span></div>
       <div class="crn-tm">${logo(p.hl)}<b>${escA(p.h)}</b><span>vs</span><b>${escA(p.a)}</b>${logo(p.al)}</div>
       <div class="crn-ex"><b>${p.lam.toFixed(1)}</b> córners esperados <small>(liga ${p.lgm.toFixed(1)})</small></div>
