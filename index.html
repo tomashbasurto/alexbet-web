@@ -1386,9 +1386,6 @@ const STATIC_LEAGUES = [
     id:'austria', name:'Bundesliga (Austria)', color:'#fb923c', utcOffset:1, teams:{}, fixtures:[],
   },
   {
-    id:'switzerland', name:'Super League (Suiza)', color:'#dc2626', utcOffset:1, teams:{}, fixtures:[],
-  },
-  {
     id:'eerste', name:'Eerste Divisie (Holanda 2)', color:'#fdba74', utcOffset:1, teams:{}, fixtures:[],
   },
   {
@@ -4967,7 +4964,6 @@ const LG_GROUPS = [
   ['🇸🇪 Suecia', ['sweden'], 'swe'],
   ['🇩🇰 Dinamarca', ['denmark'], 'den'],
   ['🇦🇹 Austria', ['austria'], 'aut'],
-  ['🇨🇭 Suiza', ['switzerland'], 'sui'],
   ['🇨🇱 Chile', ['chile'], 'chi'],
   ['🇵🇪 Perú', ['peru'], 'per'],
 ];
@@ -5981,7 +5977,6 @@ const SRC = {
   sweden:     {             espn:'swe.1', primary:'espn'},
   denmark:    {             espn:'den.1', primary:'espn'},
   austria:    {             espn:'aut.1', primary:'espn'},
-  switzerland: {             espn:'sui.1', primary:'espn'},
   eerste:     {             espn:'ned.2', primary:'espn'},
   chile:      {             espn:'chi.1', primary:'espn'},
   peru:       {             espn:'per.1', primary:'espn'},
@@ -6051,7 +6046,7 @@ function seasonYear(id){
   const o = parseInt(LS.get('ab_season',''),10);
   if(o) return o;
   const now = new Date(), y = now.getFullYear();
-  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','supecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
+  return ['norway','sweden','chile','peru','bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','supecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getMonth()>=6 ? y : y-1);
 }
 function friendlyErr(e){
   const m = String(e && e.message || e);

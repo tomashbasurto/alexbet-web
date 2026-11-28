@@ -47,7 +47,6 @@ const LEAGUES = [
   {id:'sweden', name:'Allsvenskan (Suecia)', espn:'swe.1', primary:'espn'},
   {id:'denmark', name:'Superliga (Dinamarca)', espn:'den.1', primary:'espn'},
   {id:'austria', name:'Bundesliga (Austria)', espn:'aut.1', primary:'espn'},
-  {id:'switzerland', name:'Super League (Suiza)', espn:'sui.1', primary:'espn'},
   {id:'eerste', name:'Eerste Divisie (Holanda 2)', espn:'ned.2', primary:'espn'},
   {id:'chile', name:'Primera División (Chile)', espn:'chi.1', primary:'espn'},
   {id:'peru', name:'Liga 1 (Perú)', espn:'per.1', primary:'espn'},
@@ -113,7 +112,7 @@ let lastFd = 0, fdDead = !FD_KEY;
 
 function seasonYear(id){
   const now = new Date(), y = now.getUTCFullYear();
-  return ['bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','supecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
+  return ['norway','sweden','chile','peru','bra','bra2','ecuador','lib','sud','arg','col','mex','mls','copaecu','supecu','cdb','supbra','paulista','carioca','mineiro','gaucho','copaarg','suparg','tdcarg','copacol','supcol','ccmx','usopen','leaguescup','concachamp','recopa'].includes(id) ? y : (now.getUTCMonth()>=6 ? y : y-1);
 }
 async function getJson(url, headers){
   const r = await fetch(url, {headers: headers || {}});
